@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/6828f954-1b4f-4f7d-a388-92cbb616dd6a" alt="DIY Sim Racing FFB Banner" width="100%">
+  <img src="docs/media/banner_variant_C.png" alt="DIY Sim Racing FFB Belt Tensioner Banner" width="100%">
 </p>
 
 # DIY Sim Racing Active FFB Belt Tensioner
@@ -18,11 +18,7 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 
 ## 🎬 Demonstration in Action
 
-<p align="center">
-  <video src="docs/media/ExampleDiyFfbBeltTensioner.mp4" controls="controls" width="100%">
-    <a href="docs/media/ExampleDiyFfbBeltTensioner.mp4">▶️ Watch Demonstration Video (MP4)</a>
-  </video>
-</p>
+https://github.com/user-attachments/assets/4027d6b4-1a5e-4edc-9e6e-c9eee0924ece
 
 ---
 
