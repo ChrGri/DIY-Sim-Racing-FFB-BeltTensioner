@@ -1,0 +1,58 @@
+{
+  "Geometry": {
+    "Axis": [
+      {
+        "ReviewManager": {
+          "AvailableReviewKeys": "",
+          "BypassReviewKeys": []
+        },
+        "Settings": {
+          "KeepParkedWhenGameNotConnected": true,
+          "IsCalibrated": true,
+          "UseCorrectionCurve": false,
+          "SplineFilter": {
+            "ControlPoints": [
+              "0;0",
+              "50;50",
+              "100;100"
+            ],
+            "CurveFitting": 0,
+            "TypeName": "StartEndLockedSplineFilter"
+          },
+          "KeepParked": false,
+          "PullLimit": {
+            "Enabled": false,
+            "Limit": 100.0
+          },
+          "CenterOffset": 0.0,
+          "KeepParkedPosition": 50.0,
+          "OffsetRange": 10.0,
+          "ReleaseLimit": {
+            "Enabled": false,
+            "Limit": 3.0
+          },
+          "CenterPosition": 6.0,
+          "ActuatorsSpikeFilterPercentPerSecond": 500.0,
+          "BoundsEasing": false,
+          "ResetOffsetAtStartup": false,
+          "PresetSource": null,
+          "Version": 0
+        },
+        "TypeName": "BeltSingleAxis"
+      }
+    ],
+    "TypeName": "GenericGeometryNull",
+    "BaseGeometry": {
+      "ReviewManager": {
+        "AvailableReviewKeys": "",
+        "BypassReviewKeys": []
+      },
+      "Settings": {
+        "PresetSource": null,
+        "Version": 0
+      },
+      "TypeName": "NullGeometry"
+    }
+  },
+  "SecondaryGeometry": null
+}

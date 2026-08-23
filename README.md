@@ -114,12 +114,15 @@ All user-configurable parameters can be adjusted in [src/Config.h](src/Config.h)
 
 ## 🎮 SimHub Configuration
 
-1. In **SimHub**, navigate to **Settings** $\rightarrow$ **Plugins** and enable the **Belt Tensioner** plugin.
-2. In the **Belt Tensioner** tab:
-   * Select your ESP32 COM port (e.g. `COM12`).
-   * Baud rate: **`250000`**.
-   * Sliders: Set maximum speed and acceleration to your desired intensity.
-3. Click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and instantly respond to in-game telemetry!
+A detailed visual setup guide with screenshots and pre-configured import profiles is available in the documentation:
+
+👉 **[SimHub Motion Plugin Setup Guide (Step-by-Step)](docs/SimHub_Motion_Setup.md)**
+
+### Quick Setup Overview:
+1. In **SimHub**, navigate to **Motion** $\rightarrow$ **Platform Config.**
+2. Either **Import** the pre-configured preset from [`docs/motionPluginSetup/AllPlatformSettings.shmotionoutput`](docs/motionPluginSetup/AllPlatformSettings.shmotionoutput) or add a new **SimHub DIY Belt Tensioner** controller.
+3. Set your ESP32 serial port (`250000` baud), set speed & acceleration sliders to maximum (`36000` / `100000`), and disable *Rotary lever compensation*.
+4. Click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and instantly respond to in-game telemetry!
 
 ---
 
