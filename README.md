@@ -16,6 +16,16 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 
 ---
 
+## 🎬 Demonstration in Action
+
+<p align="center">
+  <video src="docs/media/ExampleDiyFfbBeltTensioner.mp4" controls="controls" width="100%">
+    <a href="docs/media/ExampleDiyFfbBeltTensioner.mp4">▶️ Watch Demonstration Video (MP4)</a>
+  </video>
+</p>
+
+---
+
 ## 🚀 Key Highlights
 
 * **Reuse Existing DIY FFB Pedal Hardware:** Designed to directly utilize the same **ControlBoard_V6 / V7 (ESP32-S3)** and **Stepperonline iSV57 integrated servo motors** used in the DIY FFB Pedal project.
