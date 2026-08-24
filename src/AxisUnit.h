@@ -59,6 +59,7 @@ public:
     // Step Loss Recovery variables (lockless 32-bit atomic on ESP32-S3)
     volatile int32_t servo_offset_compensation_steps_i32 = 0;
     int32_t servoPosCorrected_i32 = 0;
+    volatile bool servoInitialized = false;
 
     AxisUnit();
 

@@ -84,9 +84,6 @@ void setup() {
     // SimHub BeltTensioner boot greeting
     protocol.sendGreeting(&Serial);
 
-    // Allow servo power rail to ramp up before pulse generation & bus traffic
-    delay(200);
-
     // 3. Initialize FastAccelStepper pulse generator engine
     engine.init();
 
@@ -174,7 +171,9 @@ void loop() {
         }
     }
 
-    // 3. Prevent Task Watchdog (TWDT) reset on Core 1
+    // 3. Prevent Task Watchdog (TWDT) reset on Core 1 & minimize serial latency
     yield();
-    vTaskDelay(pdMS_TO_TICKS(1));
+    if (!Serial.available()) {
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
 }

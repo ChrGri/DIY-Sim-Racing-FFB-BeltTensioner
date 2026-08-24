@@ -40,35 +40,10 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
         digitalWrite(txPin, HIGH);
     }
 
-    // 1. Initialize Modbus communication with iSV57 servo
+    // 1. Initialize Modbus communication structure (asynchronous discovery in Core 0 task)
     isv57.setSerial(serial, slaveId);
     isv57.initialize(ISV57_MODBUS_BAUDRATE, rxPin, txPin);
-
-    // Give servo power supply and internal DSP time to stabilize upon boot (retry up to 2.5s)
-    log(F("Waiting for servo power-up..."));
-    bool servoFound = false;
-    for (uint8_t retry = 0; retry < 25; retry++) {
-        if (isv57.findServosSlaveId()) {
-            servoFound = true;
-            break;
-        }
-        delay(100);
-    }
-
-    if (servoFound) {
-        log("Servo online (Slave ID " + String(isv57.slaveId) + "). Resetting alarms...");
-        isv57.clearServoAlarms();
-        delay(50);
-        isv57.clearServoAlarms(); // Send twice to ensure transient startup faults are wiped
-        delay(50);
-        isv57.setupServoStateReading();
-        isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
-        delay(30);
-        isv57.readServoStates();
-        log(F("Servo telemetry ready."));
-    } else {
-        log(F("WARNING: Servo not responding on Modbus! Check DC power & RS232 connection."));
-    }
+    servoInitialized = false;
 
     state.motorPowered = true;
     state.motorReady = false;
@@ -101,9 +76,24 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
 }
 
 void AxisUnit::pollModbusTelemetry() {
+    // 1. Asynchronously connect to servo in background without blocking SimHub communication
+    if (!servoInitialized) {
+        if (isv57.findServosSlaveId()) {
+            isv57.clearServoAlarms();
+            isv57.setupServoStateReading();
+            isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
+            isv57.readServoStates();
+            if (isv57.dynamicStates.servo_receivedPacketIsValid_b) {
+                servoInitialized = true;
+            }
+        }
+        return;
+    }
+
+    // 2. Cyclic telemetry read
     isv57.readServoStates();
 
-    // If telemetry packet is valid and axis is homed, calculate step loss offset
+    // 3. If telemetry packet is valid and axis is homed, calculate step loss offset
     if (isv57.dynamicStates.servo_receivedPacketIsValid_b && state.homingState == HOMING_DONE) {
         unwrapAndCalculateStepLoss();
     }
@@ -210,12 +200,20 @@ void AxisUnit::updateHoming() {
             break;
 
         case HOMING_WAIT_SERVO:
-            if (millis() - state.homingStateStartTime > 300) {
-                // Step 1: Move backward to find mechanical MIN hard stop
-                stepper->runBackward();
-                state.homingState = HOMING_APPROACH_MIN;
-                state.homingStateStartTime = millis();
-                log(F("Starting calibration"));
+            if (servoInitialized && isv57.dynamicStates.servo_receivedPacketIsValid_b) {
+                if (millis() - state.homingStateStartTime > 300) {
+                    // Step 1: Move backward to find mechanical MIN hard stop
+                    stepper->runBackward();
+                    state.homingState = HOMING_APPROACH_MIN;
+                    state.homingStateStartTime = millis();
+                    log(F("Starting calibration"));
+                }
+            } else if (millis() - state.homingStateStartTime > 15000) {
+                // Timeout after 15s if servo power supply is off
+                log(F("Servo communication timeout. Calibration aborted."));
+                stepper->forceStop();
+                state.homingState = HOMING_FAILED;
+                state.motorReady = true;
             }
             break;
 
