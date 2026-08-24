@@ -44,13 +44,30 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
     isv57.setSerial(serial, slaveId);
     isv57.initialize(ISV57_MODBUS_BAUDRATE, rxPin, txPin);
 
-    // Initial servo discovery, configure telemetry
-    if (isv57.findServosSlaveId()) {
+    // Give servo power supply and internal DSP time to stabilize upon boot (retry up to 2.5s)
+    log(F("Waiting for servo power-up..."));
+    bool servoFound = false;
+    for (uint8_t retry = 0; retry < 25; retry++) {
+        if (isv57.findServosSlaveId()) {
+            servoFound = true;
+            break;
+        }
+        delay(100);
+    }
+
+    if (servoFound) {
+        log("Servo online (Slave ID " + String(isv57.slaveId) + "). Resetting alarms...");
         isv57.clearServoAlarms();
+        delay(50);
+        isv57.clearServoAlarms(); // Send twice to ensure transient startup faults are wiped
+        delay(50);
         isv57.setupServoStateReading();
         isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
         delay(30);
         isv57.readServoStates();
+        log(F("Servo telemetry ready."));
+    } else {
+        log(F("WARNING: Servo not responding on Modbus! Check DC power & RS232 connection."));
     }
 
     state.motorPowered = true;

@@ -41,9 +41,41 @@ void modbusTelemetryTask(void* pvParameters) {
 }
 
 void setup() {
-    // 1. Stabilize RS232 TX pin HIGH immediately on startup
-    pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);
-    digitalWrite(ACTUATOR1_MODBUS_TX_PIN, HIGH);
+    // 1. Immediately clamp all control & communication pins to prevent floating state / glitches
+    if (ACTUATOR1_MODBUS_TX_PIN >= 0) {
+        pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);
+        digitalWrite(ACTUATOR1_MODBUS_TX_PIN, HIGH);
+    }
+    if (ACTUATOR1_STEP_PIN >= 0) {
+        pinMode(ACTUATOR1_STEP_PIN, OUTPUT);
+        digitalWrite(ACTUATOR1_STEP_PIN, LOW);
+    }
+    if (ACTUATOR1_DIR_PIN >= 0) {
+        pinMode(ACTUATOR1_DIR_PIN, OUTPUT);
+        digitalWrite(ACTUATOR1_DIR_PIN, LOW);
+    }
+    if (ACTUATOR1_ENA_PIN >= 0) {
+        pinMode(ACTUATOR1_ENA_PIN, OUTPUT);
+        digitalWrite(ACTUATOR1_ENA_PIN, LOW);
+    }
+#if (NUM_ACTUATORS >= 2)
+    if (ACTUATOR2_MODBUS_TX_PIN >= 0) {
+        pinMode(ACTUATOR2_MODBUS_TX_PIN, OUTPUT);
+        digitalWrite(ACTUATOR2_MODBUS_TX_PIN, HIGH);
+    }
+    if (ACTUATOR2_STEP_PIN >= 0) {
+        pinMode(ACTUATOR2_STEP_PIN, OUTPUT);
+        digitalWrite(ACTUATOR2_STEP_PIN, LOW);
+    }
+    if (ACTUATOR2_DIR_PIN >= 0) {
+        pinMode(ACTUATOR2_DIR_PIN, OUTPUT);
+        digitalWrite(ACTUATOR2_DIR_PIN, LOW);
+    }
+    if (ACTUATOR2_ENA_PIN >= 0) {
+        pinMode(ACTUATOR2_ENA_PIN, OUTPUT);
+        digitalWrite(ACTUATOR2_ENA_PIN, LOW);
+    }
+#endif
 
     // 2. Initialize Host PC Serial for SimHub communication & serial monitor logging
     Serial.begin(SIMHUB_SERIAL_BAUDRATE);
@@ -51,6 +83,9 @@ void setup() {
 
     // SimHub BeltTensioner boot greeting
     protocol.sendGreeting(&Serial);
+
+    // Allow servo power rail to ramp up before pulse generation & bus traffic
+    delay(200);
 
     // 3. Initialize FastAccelStepper pulse generator engine
     engine.init();

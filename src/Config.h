@@ -28,15 +28,14 @@
 #define TOTAL_WORKING_RANGE_STEPS ((int32_t)((TOTAL_WORKING_RANGE_MM / SPINDLE_PITCH_MM) * (float)STEPS_PER_MOTOR_REV))
 
 // High-performance speeds and accelerations for snappy FFB belt tensioning
-#define DEFAULT_MAX_SPEED_HZ      160000U // 160 kHz (~50 rev/s = ~500 mm/s)
-#define DEFAULT_ACCELERATION      600000U // 600k steps/s^2 (snappy, instantaneous torque response)
+#define DEFAULT_MAX_SPEED_HZ      180000U // 180 kHz (~3,375 RPM = ~560 mm/s) - safely below 200kHz limit
+#define DEFAULT_ACCELERATION      1100000U // 1.1M steps/s^2 (~343 rev/s^2) - crisp, full torque delivery
 
 // Multipliers for speed (CMD 2) and acceleration (CMD 3) commands from SimHub
-// SimHub UI limits sliders to 36,000 Hz and 100,000 steps/s^2.
-// These multipliers scale the incoming values up to full servo capability:
-// e.g. Speed: 36,000 * 5.0 = 180,000 Hz | Acceleration: 100,000 * 6.0 = 600,000 steps/s^2
+// SimHub UI limits: 36,000 Hz speed -> 36,000 * 5.0f = 180,000 Hz (180 kHz)
+//                   100,000 accel   -> 100,000 * 11.0f = 1,100,000 steps/s^2
 #define SPEED_MULTIPLIER          5.0f
-#define ACCELERATION_MULTIPLIER   6.0f
+#define ACCELERATION_MULTIPLIER   11.0f
 
 // Soft-start ramp: 0 = Disabled for instant responsiveness
 #define SOFT_START_RAMP_MS        0U
