@@ -17,8 +17,23 @@ void Modbus::setSerial(HardwareSerial* serial) {
     this->serial_pHS = serial;
 }
 
+void Modbus::lock() {
+    if (this->mutex != nullptr) {
+        xSemaphoreTake(this->mutex, portMAX_DELAY);
+    }
+}
+
+void Modbus::unlock() {
+    if (this->mutex != nullptr) {
+        xSemaphoreGive(this->mutex);
+    }
+}
+
 bool Modbus::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enableLogging_b) {
     this->logEnabled_b = enableLogging_b;
+    if (this->mutex == nullptr) {
+        this->mutex = xSemaphoreCreateMutex();
+    }
     if (this->serial_pHS != nullptr) {
         if (rxPin >= 0 && txPin >= 0) {
             this->serial_pHS->begin(baudrate, SERIAL_8N1, rxPin, txPin);
@@ -71,12 +86,10 @@ bool Modbus::writeAndVerifyDeviceParameter(uint16_t slaveId_u16, int16_t paramet
     bool registerWritten_b = false;
     bool registerValueAsTarget_b = false;
 
-    for (uint8_t tryIndex_u8 = 0; tryIndex_u8 < 10; tryIndex_u8++) {
+    for (uint8_t tryIndex_u8 = 0; tryIndex_u8 < 3; tryIndex_u8++) {
         if (registerValueAsTarget_b) {
             break;
         }
-
-        delay(10);
 
         uint8_t rawBuffer_au8[2];
         uint8_t length_u8 = 0;
@@ -90,17 +103,14 @@ bool Modbus::writeAndVerifyDeviceParameter(uint16_t slaveId_u16, int16_t paramet
         int16_t returnValue_i16 = registerArray_ai16[0];
         int32_t targetValue_i32 = value_i32;
 
-        if (returnValue_i16 != targetValue_i32) {
-            delay(20);
-            if (logEnabled_b) {
-                Serial.printf("Parameter addr: 0x%04X, actual: %d, target: %d\n", parameterAddress_i16, returnValue_i16, targetValue_i32);
-            }
-
+        if (returnValue_i16 != targetValue_i32 && returnValue_i16 != -1) {
+            delay(5);
             writeHoldingRegisterToDevice(slaveId_u16, parameterAddress_i16, targetValue_i32);
             registerWritten_b = true;
-        } else {
+        } else if (returnValue_i16 == targetValue_i32) {
             registerValueAsTarget_b = true;
         }
+        delay(2);
     }
 
     return registerWritten_b;
@@ -126,6 +136,8 @@ int32_t Modbus::readHoldingRegisterFromDevice(int32_t slaveId_i32, int32_t regis
 
 int32_t Modbus::sendRequestAndReceiveResponse(int32_t slaveId_i32, int32_t functionCode_i32, int32_t registerAddress_i32, int32_t numberOfRegisters_i32) {
     if (this->serial_pHS == nullptr) return -1;
+
+    lock();
 
     int32_t crc_i32;
     txBuffer_au8[0] = (uint8_t)slaveId_i32;
@@ -185,19 +197,19 @@ int32_t Modbus::sendRequestAndReceiveResponse(int32_t slaveId_i32, int32_t funct
         }
     }
 
+    int32_t result = -1;
     if (rawRxBufferLength_i32 > 2) {
         int32_t receivedCrc_i32 = ((uint16_t)rawRxBuffer_au8[rawRxBufferLength_i32 - 1] << 8) | rawRxBuffer_au8[rawRxBufferLength_i32 - 2];
         int32_t computedCrc_i32 = computeCrc(rawRxBuffer_au8, rawRxBufferLength_i32 - 2);
 
         if (receivedCrc_i32 == computedCrc_i32) {
             dataRxBufferLength_i32 = rawRxBuffer_au8[2];
-            return dataRxBufferLength_i32;
-        } else { 
-            return -1; 
+            result = dataRxBufferLength_i32;
         }
-    } else {
-        return -1;
     }
+
+    unlock();
+    return result;
 }
 
 int16_t Modbus::convertRxBufferToInt16(int32_t index_i32) {
@@ -206,32 +218,28 @@ int16_t Modbus::convertRxBufferToInt16(int32_t index_i32) {
 }
 
 void Modbus::getRawRxBuffer(uint8_t *rawBuffer_pu8, uint8_t &rawBufferLength_u8) {
-    for (int32_t i_i32 = 0; i_i32 < rawRxBufferLength_i32; i_i32++) {
-        rawBuffer_pu8[i_i32] = rawRxBuffer_au8[i_i32];
+    rawBufferLength_u8 = this->rawRxBufferLength_i32;
+    for (int32_t i = 0; i < this->rawRxBufferLength_i32; i++) {
+        rawBuffer_pu8[i] = this->rawRxBuffer_au8[i];
     }
-    rawBufferLength_u8 = (uint8_t)this->rawRxBufferLength_i32;
 }
 
 void Modbus::getRawTxBuffer(uint8_t *rawBuffer_pu8, uint8_t &rawBufferLength_u8) {
-    for (int32_t i_i32 = 0; i_i32 < 8; i_i32++) {
-        rawBuffer_pu8[i_i32] = txBuffer_au8[i_i32];
-    }
     rawBufferLength_u8 = 8;
+    for (int32_t i = 0; i < 8; i++) {
+        rawBuffer_pu8[i] = this->txBuffer_au8[i];
+    }
 }
 
 int32_t Modbus::computeCrc(uint8_t *buffer_pu8, int32_t bufferLength_i32) {
     int32_t crc_i32 = g_crcInitialValue_i32;
-    uint8_t pos_u8, i_u8;
- 
-    for (pos_u8 = 0; pos_u8 < bufferLength_i32; pos_u8++) {
-        crc_i32 ^= (uint32_t)buffer_pu8[pos_u8];
- 
-        for (i_u8 = 8; i_u8 != 0; i_u8--) {
-            if ((crc_i32 & 0x0001) != 0) {
-                crc_i32 >>= 1;
-                crc_i32 ^= g_crcPolynomial_i32;
+    for (int32_t i = 0; i < bufferLength_i32; i++) {
+        crc_i32 ^= (int32_t)buffer_pu8[i];
+        for (int32_t j = 0; j < 8; j++) {
+            if (crc_i32 & 0x0001) {
+                crc_i32 = (crc_i32 >> 1) ^ g_crcPolynomial_i32;
             } else {
-                crc_i32 >>= 1;
+                crc_i32 = crc_i32 >> 1;
             }
         }
     }
@@ -240,6 +248,8 @@ int32_t Modbus::computeCrc(uint8_t *buffer_pu8, int32_t bufferLength_i32) {
 
 int32_t Modbus::writeHoldingRegisterToDevice(int32_t slaveId_i32, int32_t registerAddress_i32, uint16_t value_u16) {
     if (this->serial_pHS == nullptr) return -1;
+
+    lock();
 
     int32_t crc_i32;
     txBuffer_au8[0] = (uint8_t)slaveId_i32;
@@ -283,11 +293,14 @@ int32_t Modbus::writeHoldingRegisterToDevice(int32_t slaveId_i32, int32_t regist
     }
 
     delay(5);
+    unlock();
     return responseReceived_b ? 1 : -1;
 }
 
 int32_t Modbus::writeHoldingRegistersToDevice(int32_t slaveId_i32, int32_t registerAddress_i32, const uint16_t* values_u16, uint8_t count_u8) {
     if (this->serial_pHS == nullptr || count_u8 > 10) return -1;
+
+    lock();
 
     uint8_t localTxBuffer[32];
     localTxBuffer[0] = (uint8_t)slaveId_i32;
@@ -343,5 +356,6 @@ int32_t Modbus::writeHoldingRegistersToDevice(int32_t slaveId_i32, int32_t regis
         delay(1);
     }
     delay(5);
+    unlock();
     return responseReceived_b ? 1 : -1;
 }

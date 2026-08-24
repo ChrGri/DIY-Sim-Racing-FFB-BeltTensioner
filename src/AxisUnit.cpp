@@ -76,12 +76,15 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
 }
 
 void AxisUnit::pollModbusTelemetry() {
+    if (isFlashing) return;
+
     // 1. Asynchronously connect to servo in background without blocking SimHub communication
     if (!servoInitialized) {
         if (isv57.findServosSlaveId()) {
             isv57.clearServoAlarms();
             isv57.setupServoStateReading();
             isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
+            isv57.enableAxis();
             isv57.readServoStates();
             if (isv57.dynamicStates.servo_receivedPacketIsValid_b) {
                 servoInitialized = true;
@@ -102,8 +105,8 @@ void AxisUnit::pollModbusTelemetry() {
 void AxisUnit::unwrapAndCalculateStepLoss() {
     int32_t rawServoPos = (int32_t)isv57.getPosFromMin();
 
-    // Invert reading if motor direction is not inverted
-    if (!settings.invertDir) {
+    // Invert reading if motor direction is inverted
+    if (settings.invertDir) {
         rawServoPos *= -1;
     }
 
@@ -130,16 +133,24 @@ void AxisUnit::unwrapAndCalculateStepLoss() {
 }
 
 void AxisUnit::correctPos() {
-    if (stepper == nullptr || stepper->isRunning()) return;
+    if (stepper == nullptr || !settings.enableStepLossRecov) return;
 
-    if (servo_offset_compensation_steps_i32 != 0) {
-        int32_t stepOffset = (int32_t)constrain(servo_offset_compensation_steps_i32,
-            -(int32_t)MAX_STEPS_TO_RECOVER_PER_CALL,
-            (int32_t)MAX_STEPS_TO_RECOVER_PER_CALL);
+    // Only apply correction when motor is idle/standstill
+    if (stepper->isRunning()) return;
 
-        stepper->setCurrentPosition(stepper->getCurrentPosition() - stepOffset);
-        servo_offset_compensation_steps_i32 = 0; // Prevent overcompensation
+    // Read offset lockless
+    int32_t offset = servo_offset_compensation_steps_i32;
+
+    // If offset exceeds threshold (e.g. 5 steps), smoothly correct ESP position register
+    if (abs(offset) > 5) {
+        int32_t currentPos = stepper->getCurrentPosition();
+        stepper->setCurrentPosition(currentPos - offset);
+        servo_offset_compensation_steps_i32 = 0;
     }
+}
+
+void AxisUnit::printStatus() {
+    // Reserved for diagnostic printing
 }
 
 bool AxisUnit::enableMotor() {
@@ -147,6 +158,7 @@ bool AxisUnit::enableMotor() {
         if (stepper != nullptr) {
             stepper->enableOutputs();
         }
+        isv57.enableAxis();
         state.motorPowered = true;
         state.targetPosition = -1;
         state.lastActivityTime = millis();
@@ -176,6 +188,8 @@ void AxisUnit::disableMotor() {
 
 void AxisUnit::startSensorlessHoming() {
     log(F("Starting stepper calibration"));
+    isv57.enableAxis();
+    state.motorPowered = true;
     state.homingState = HOMING_START;
     state.motorReady = false;
     state.homingStateStartTime = millis();
@@ -191,6 +205,8 @@ void AxisUnit::updateHoming() {
             break;
 
         case HOMING_START:
+            isv57.enableAxis();
+            state.motorPowered = true;
             stepper->enableOutputs();
             stepper->setSpeedInHz(settings.homingSpeed);
             stepper->setAcceleration(settings.homingAccel);
@@ -399,4 +415,18 @@ void AxisUnit::updateIdleWatchdog(unsigned long idleTimeoutMs) {
 
 int32_t AxisUnit::getCurrentPosition() const {
     return (stepper != nullptr) ? stepper->getCurrentPosition() : 0;
+}
+
+bool AxisUnit::flashTunedParameters(Stream* logStream) {
+    isFlashing = true;
+    delay(100); // Give background task time to finish any in-flight Modbus packet
+    log(F("Starting servo EEPROM flash..."));
+    bool ok = isv57.flashTunedParameters(settings.invertDir, STEPS_PER_MOTOR_REV, logStream);
+    if (ok) {
+        log(F("Servo EEPROM flash successful!"));
+    } else {
+        log(F("Servo EEPROM flash failed!"));
+    }
+    isFlashing = false;
+    return ok;
 }

@@ -32,6 +32,10 @@ private:
     uint8_t dataIndex = 0;
     unsigned long lastByteTime = 0;
 
+    char asciiCmdBuffer[32] = {0};
+    uint8_t asciiCmdIndex = 0;
+
     void handleCommand(Stream* stream);
+    void handleAsciiCommand(Stream* stream, const char* cmd);
     void dumpSensor(Stream* stream, uint8_t axis);
 };

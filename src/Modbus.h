@@ -20,10 +20,13 @@ private:
     int32_t dataRxBufferLength_i32 = 0;
     int32_t defaultSlaveId_i32 = 0x3F; // 63
     uint8_t txBuffer_au8[64] = {0};
+    SemaphoreHandle_t mutex = nullptr;
 
     int32_t computeCrc(uint8_t *buffer_pu8, int32_t bufferLength_i32);
 
 public:
+    void lock();
+    void unlock();
     Modbus();
     explicit Modbus(HardwareSerial* serial);
 

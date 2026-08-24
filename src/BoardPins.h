@@ -19,7 +19,7 @@
   #define ACTUATOR1_STEP_PIN            37
   #define ACTUATOR1_DIR_PIN             36
   #define ACTUATOR1_ENA_PIN             -1
-  #define ACTUATOR1_INVERT_DIR          true
+  #define ACTUATOR1_INVERT_DIR          false
   #define ACTUATOR1_MODBUS_RX_PIN       1
   #define ACTUATOR1_MODBUS_TX_PIN       2
   #define ACTUATOR1_MODBUS_SLAVE_ID     63

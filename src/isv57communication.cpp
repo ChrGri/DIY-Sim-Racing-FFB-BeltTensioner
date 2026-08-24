@@ -34,6 +34,79 @@ void Isv57Communication::sendTunedServoParameters(bool commandRotationDirection,
     modbus.writeAndVerifyDeviceParameter(slaveId, pr_1_00 + 37, 1052); // Alarm mask
 }
 
+bool Isv57Communication::flashTunedParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32, Stream* logStream) {
+    if (logStream != nullptr) {
+        logStream->println(F("=================================================="));
+        logStream->print(F("Flashing tuned parameters to servo (Slave ID "));
+        logStream->print(slaveId);
+        logStream->println(F(")..."));
+        logStream->println(F("=================================================="));
+    }
+
+    uint16_t updatedCount = 0;
+    uint16_t matchedCount = 0;
+
+    for (uint16_t regIdx = 0; regIdx < ISV57_TUNED_PARAM_COUNT; regIdx++) {
+        int32_t targetVal = isv57_tuned_parameters[regIdx];
+
+        // Apply motor-specific config overrides
+        if (regIdx == (pr_0_00 + 6)) {
+            targetVal = commandRotationDirection ? 1 : 0;
+        } else if (regIdx == (pr_0_00 + 8)) {
+            targetVal = (int32_t)stepsPerMotorRev_u32;
+        }
+
+        bool wasWritten = modbus.writeAndVerifyDeviceParameter(slaveId, regIdx, targetVal);
+        if (wasWritten) {
+            updatedCount++;
+            if (logStream != nullptr) {
+                logStream->print(F("[Flash] Reg 0x"));
+                if (regIdx < 0x10) logStream->print(F("000"));
+                else if (regIdx < 0x100) logStream->print(F("00"));
+                else if (regIdx < 0x1000) logStream->print(F("0"));
+                logStream->print(regIdx, HEX);
+                logStream->print(F(" -> Updated to "));
+                logStream->println(targetVal);
+            }
+        } else {
+            matchedCount++;
+        }
+
+        // Print progress milestone every 30 registers
+        if ((regIdx + 1) % 30 == 0 || regIdx == (ISV57_TUNED_PARAM_COUNT - 1)) {
+            if (logStream != nullptr) {
+                logStream->print(F("[Flash] Progress: "));
+                logStream->print(regIdx + 1);
+                logStream->print(F("/"));
+                logStream->print(ISV57_TUNED_PARAM_COUNT);
+                logStream->println(F(" registers verified."));
+            }
+        }
+    }
+
+    delay(50);
+    // Command 0x019A = 0x5555 persists all parameters permanently into the iSV57 EEPROM / NVM
+    int32_t nvmRes = modbus.writeHoldingRegisterToDevice(slaveId, 0x019A, 0x5555);
+    delay(500);
+
+    if (logStream != nullptr) {
+        logStream->println(F("--------------------------------------------------"));
+        logStream->print(F("[Flash] Summary: "));
+        logStream->print(updatedCount);
+        logStream->print(F(" registers written/updated, "));
+        logStream->print(matchedCount);
+        logStream->println(F(" already matched."));
+        if (nvmRes > 0) {
+            logStream->println(F("[Flash] Successfully saved parameters to servo EEPROM (0x5555)!"));
+            logStream->println(F("[Flash] Done! Please power cycle the servo to activate all new gains."));
+        } else {
+            logStream->println(F("[Flash] Warning: NVM save command (0x5555) did not receive ACK."));
+        }
+        logStream->println(F("=================================================="));
+    }
+    return (nvmRes > 0);
+}
+
 void Isv57Communication::readServoStates() {
     for (uint8_t i = 0; i < NUMBER_OF_ISV57_REGISTERS_TO_READ_IN_CYCLIC_READ; i++) {
         regArray[i] = -1;
@@ -87,11 +160,21 @@ bool Isv57Communication::clearServoAlarms() {
 }
 
 void Isv57Communication::disableAxis() {
-    // Keep servo in hardware power state
+    modbus.writeHoldingRegisterToDevice(slaveId, 0x0085, 0x0303);
+    modbus.writeHoldingRegisterToDevice(slaveId, 0x0139, 0x0000);
+    delay(30);
+    modbus.readHoldingRegisterFromDevice(slaveId, 0x0085);
+    modbus.readHoldingRegisterFromDevice(slaveId, 0x0139);
+    delay(5);
 }
 
 void Isv57Communication::enableAxis() {
-    // Keep servo in hardware power state
+    modbus.writeHoldingRegisterToDevice(slaveId, 0x0085, 0x0383);
+    modbus.writeHoldingRegisterToDevice(slaveId, 0x0139, 0x0008);
+    delay(30);
+    modbus.readHoldingRegisterFromDevice(slaveId, 0x0085);
+    modbus.readHoldingRegisterFromDevice(slaveId, 0x0139);
+    delay(5);
 }
 
 void Isv57Communication::clearServoUnitPosition() {

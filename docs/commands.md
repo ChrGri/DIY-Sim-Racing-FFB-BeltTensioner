@@ -162,7 +162,34 @@ Wird von SimHub direkt beim Verbindungsaufbau gesendet, um die Kompatibilität z
 
 ---
 
-## 4. Ausgabemeldungen (Controller $\rightarrow$ SimHub / PC)
+### CMD 15 (`0x0F`): Getunte Parameter in Servo-EEPROM flashen (Flash Tuned Parameters)
+Flasht alle **305 getunten Register** aus `isv57_tunedParameters.h` (Pr0.00 bis Pr7.49) in 10er-Bursts bzw. Einzel-Verifizierungen auf den iSV57 Servo und speichert sie dauerhaft im internen NVM/EEPROM (`0x019A = 0x5555`).
+
+* **Paketformat (5 Bytes):**
+  ```text
+  [0xFF] [0xFF] [0x0F] [0x0A] [0x0D]
+  ```
+
+---
+
+## 4. Serielle ASCII-Befehle (Serieller Monitor)
+
+Neben dem binären SimHub-Protokoll können im Seriellen Monitor (PlatformIO / Arduino IDE bei **250.000 Baud**) folgende Textkommandos eingegeben werden:
+
+| ASCII-Kommando | Alias | Funktion / Beschreibung |
+| :--- | :--- | :--- |
+| **`FLASH_SERVO`** | `FLASH`, `FLASH 1`, `FLASH_SERVO 1` | Prüft und flasht alle **305 Parameter** aus `isv57_tunedParameters.h` in den Servo 1 und brennt sie ins interne EEPROM (`0x5555`). |
+| **`FLASH_SERVO 2`** | `FLASH 2` | Flasht alle 305 Parameter auf Servo 2 (bei Dual-Actuator-Setup). |
+| **`ENABLE_SERVO`** | `ENABLE`, `ENABLE 1` | Aktiviert die Servo-Endstufe (`0x0085 = 0x0383` & `0x0139 = 0x0008`) und bestromt den Motor sofort. |
+| **`ENABLE_SERVO 2`** | `ENABLE 2` | Aktiviert Servo 2. |
+| **`DISABLE_SERVO`** | `DISABLE` | Schaltet den Servo softwareseitig komplett stromlos (`0x0085 = 0x0303` & `0x0139 = 0x0000`). Welle ist frei drehbar. |
+| **`HOME`** | `CALIBRATE` | Startet die automatische Homing- & Anschlagskalibrierung (aktiviert den Motor vorher automatisch). |
+| **`STATUS`** | - | Gibt den aktuellen Laststrom (%), Busspannung (V) und Kalibrierstatus im SimHub-Format aus. |
+| **`HELP`** | - | Zeigt eine Übersicht aller verfügbaren seriellen Befehle an. |
+
+---
+
+## 5. Ausgabemeldungen (Controller $\rightarrow$ SimHub / PC)
 
 SimHub filtert alle vom Controller gesendeten Textzeilen nach folgenden Regeln:
 
@@ -191,7 +218,7 @@ Jede Textnachricht, die für das SimHub-Logfenster bestimmt ist, **muss** mit `M
 
 ---
 
-## 5. Spezielle Betriebsmodi
+## 6. Spezielle Betriebsmodi
 
 ### Sensor-Testmodus (`sensorTestMode = true`)
 Wird in der Konfiguration `sensorTestMode = true` gesetzt, schaltet die Firmware in einen kontinuierlichen Diagnosemodus:

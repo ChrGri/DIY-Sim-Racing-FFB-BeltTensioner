@@ -115,9 +115,6 @@ void setup() {
                     ACTUATOR1_MODBUS_SLAVE_ID,
                     CALIBRATE_AT_BOOT);
 
-    // Explicitly enable servo in setup
-    axisUnit1.enableMotor();
-
     // 5. Configure and initialize Actuator 2 (if enabled)
 #if (NUM_ACTUATORS >= 2)
     AxisUnitSettings settings2;

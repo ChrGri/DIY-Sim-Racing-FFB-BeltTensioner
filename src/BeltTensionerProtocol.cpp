@@ -121,17 +121,89 @@ void BeltTensionerProtocol::handleCommand(Stream* stream) {
             break;
         }
 
+        case 15: { // CMD 15: Flash Tuned Parameters to Servo NVM
+            for (uint8_t i = 0; i < numAxes; i++) {
+                if (axisUnits[i] != nullptr) {
+                    axisUnits[i]->flashTunedParameters(stream);
+                }
+            }
+            break;
+        }
+
         default:
             break;
+    }
+}
+
+void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) {
+    if (stream == nullptr || cmd == nullptr) return;
+
+    if (strcasecmp(cmd, "FLASH_SERVO") == 0 || strcasecmp(cmd, "FLASH_SERVO 1") == 0 || strcasecmp(cmd, "FLASH_SERVO ALL") == 0 ||
+        strcasecmp(cmd, "FLASH") == 0 || strcasecmp(cmd, "FLASH 1") == 0 || strcasecmp(cmd, "FLASH ALL") == 0) {
+        stream->println(F(">>> Triggered Servo EEPROM Flash via Serial Command (FLASH_SERVO) <<<"));
+        if (numAxes > 0 && axisUnits[0] != nullptr) {
+            axisUnits[0]->flashTunedParameters(stream);
+        }
+    } else if (strcasecmp(cmd, "FLASH_SERVO 2") == 0 || strcasecmp(cmd, "FLASH 2") == 0) {
+        if (numAxes > 1 && axisUnits[1] != nullptr) {
+            axisUnits[1]->flashTunedParameters(stream);
+        } else {
+            stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        }
+    } else if (strcasecmp(cmd, "ENABLE_SERVO") == 0 || strcasecmp(cmd, "ENABLE") == 0 || strcasecmp(cmd, "ENABLE 1") == 0) {
+        stream->println(F(">>> Enabling Servo <<<"));
+        if (numAxes > 0 && axisUnits[0] != nullptr) {
+            axisUnits[0]->isv57.enableAxis();
+            axisUnits[0]->enableMotor();
+        }
+    } else if (strcasecmp(cmd, "ENABLE_SERVO 2") == 0 || strcasecmp(cmd, "ENABLE 2") == 0) {
+        if (numAxes > 1 && axisUnits[1] != nullptr) {
+            axisUnits[1]->isv57.enableAxis();
+            axisUnits[1]->enableMotor();
+        }
+    } else if (strcasecmp(cmd, "DISABLE_SERVO") == 0 || strcasecmp(cmd, "DISABLE") == 0) {
+        stream->println(F(">>> Disabling Servo <<<"));
+        for (uint8_t i = 0; i < numAxes; i++) {
+            if (axisUnits[i] != nullptr) {
+                axisUnits[i]->disableMotor();
+                axisUnits[i]->isv57.disableAxis();
+            }
+        }
+    } else if (strcasecmp(cmd, "HOME") == 0 || strcasecmp(cmd, "CALIBRATE") == 0) {
+        stream->println(F(">>> Starting Homing Calibration <<<"));
+        for (uint8_t i = 0; i < numAxes; i++) {
+            if (axisUnits[i] != nullptr) {
+                axisUnits[i]->startSensorlessHoming();
+            }
+        }
+    } else if (strcasecmp(cmd, "HELP") == 0) {
+        stream->println(F("Available Serial Commands:"));
+        stream->println(F("  FLASH_SERVO    - Flash all 305 tuned parameters into iSV57 EEPROM/NVM"));
+        stream->println(F("  ENABLE_SERVO   - Enable servo axis"));
+        stream->println(F("  DISABLE_SERVO  - Disable servo axis"));
+        stream->println(F("  HOME           - Re-run sensorless homing calibration"));
+        stream->println(F("  STATUS         - Print live sensor load & voltage"));
+    } else if (strcasecmp(cmd, "STATUS") == 0) {
+        for (uint8_t i = 0; i < numAxes; i++) {
+            dumpSensor(stream, i);
+        }
     }
 }
 
 void BeltTensionerProtocol::processIncomingStream(Stream* stream) {
     if (stream == nullptr) return;
 
-    // Reset parser if packet timed out (incomplete packet)
+    // Reset parser if packet timed out (incomplete binary packet)
     if (parserState != PARSE_IDLE && (millis() - lastByteTime > 150)) {
         parserState = PARSE_IDLE;
+        asciiCmdIndex = 0;
+    }
+
+    // Process ASCII command if idle timeout reached (e.g. Serial monitor set to "No Line Ending")
+    if (parserState == PARSE_IDLE && asciiCmdIndex > 0 && (millis() - lastByteTime > 100)) {
+        asciiCmdBuffer[asciiCmdIndex] = '\0';
+        handleAsciiCommand(stream, asciiCmdBuffer);
+        asciiCmdIndex = 0;
     }
 
     while (stream->available()) {
@@ -142,6 +214,17 @@ void BeltTensionerProtocol::processIncomingStream(Stream* stream) {
             case PARSE_IDLE:
                 if (b == 0xFF) {
                     parserState = PARSE_HEADER_2;
+                    asciiCmdIndex = 0;
+                } else if (b == '\r' || b == '\n') {
+                    if (asciiCmdIndex > 0) {
+                        asciiCmdBuffer[asciiCmdIndex] = '\0';
+                        handleAsciiCommand(stream, asciiCmdBuffer);
+                        asciiCmdIndex = 0;
+                    }
+                } else if (b >= 32 && b <= 126) {
+                    if (asciiCmdIndex < sizeof(asciiCmdBuffer) - 1) {
+                        asciiCmdBuffer[asciiCmdIndex++] = (char)b;
+                    }
                 }
                 break;
 
@@ -166,7 +249,7 @@ void BeltTensionerProtocol::processIncomingStream(Stream* stream) {
                 } else if (currentCmd == 11) {
                     dataExpectedLen = 1; // 1 byte axis index
                     parserState = PARSE_DATA;
-                } else if (currentCmd == 10 || currentCmd == 12 || currentCmd == 13 || currentCmd == 14) {
+                } else if (currentCmd == 10 || currentCmd == 12 || currentCmd == 13 || currentCmd == 14 || currentCmd == 15) {
                     dataExpectedLen = 0;
                     parserState = PARSE_TERM_1;
                 } else {

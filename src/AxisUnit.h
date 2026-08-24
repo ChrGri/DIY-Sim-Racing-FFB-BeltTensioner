@@ -60,6 +60,7 @@ public:
     volatile int32_t servo_offset_compensation_steps_i32 = 0;
     int32_t servoPosCorrected_i32 = 0;
     volatile bool servoInitialized = false;
+    volatile bool isFlashing = false;
 
     AxisUnit();
 
@@ -82,6 +83,7 @@ public:
 
     bool enableMotor();
     void disableMotor();
+    bool flashTunedParameters(Stream* logStream = nullptr);
 
     void pollModbusTelemetry();
     void unwrapAndCalculateStepLoss();
