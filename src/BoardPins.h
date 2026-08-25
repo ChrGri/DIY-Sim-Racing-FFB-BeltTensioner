@@ -37,6 +37,11 @@
   #define ACTUATOR2_ALM_PIN             -1
   #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
 
+  // On-board WS2812 RGB LED (Waveshare ESP32-S3-DevKitC-1 on GPIO 38)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 38
+  #endif
+
 // ------------------------------------------------------------------------------
 // PCB_VERSION == 14: ControlBoard_V7 (ESP32-S3-Zero)
 // ------------------------------------------------------------------------------
@@ -64,6 +69,11 @@
   #define ACTUATOR2_MODBUS_SLAVE_ID     63
   #define ACTUATOR2_ALM_PIN             -1
   #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // On-board WS2812 RGB LED (Waveshare ESP32-S3 Zero)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 21
+  #endif
 
 // ------------------------------------------------------------------------------
 // PCB_VERSION == 3: Classic ESP32 DevKit (V3)
@@ -93,6 +103,10 @@
   #define ACTUATOR2_ALM_PIN             -1
   #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
 
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 -1
+  #endif
+
 // ------------------------------------------------------------------------------
 // Generic / Fallback default pins
 // ------------------------------------------------------------------------------
@@ -118,4 +132,8 @@
   #define ACTUATOR2_MODBUS_SLAVE_ID     63
   #define ACTUATOR2_ALM_PIN             -1
   #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 21
+  #endif
 #endif

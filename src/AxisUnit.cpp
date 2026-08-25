@@ -1,11 +1,12 @@
 #include "AxisUnit.h"
 
 AxisUnit::AxisUnit() {
-    state.motorPowered = true;
+    state.motorPowered = false;
     state.motorReady = false;
     state.targetPosition = -1;
     state.lastActivityTime = 0;
     state.firstActivityTime = 0;
+    state.isParked = false;
     state.finalVelocityApplied = false;
     state.homingState = HOMING_IDLE;
     hardLimitMin = 0;
@@ -45,9 +46,10 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
     isv57.initialize(ISV57_MODBUS_BAUDRATE, rxPin, txPin);
     servoInitialized = false;
 
-    state.motorPowered = true;
+    state.motorPowered = calibrateAtBoot;
     state.motorReady = false;
     state.lastActivityTime = millis();
+    state.isParked = false;
 
     // 2. Initialize FastAccelStepper pulse generator
     if (engine != nullptr && settings.stepPin >= 0) {
@@ -55,7 +57,11 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
         if (stepper) {
             stepper->setDirectionPin(settings.dirPin, settings.invertDir);
             stepper->setAutoEnable(true);
-            stepper->enableOutputs();
+            if (calibrateAtBoot) {
+                stepper->enableOutputs();
+            } else {
+                stepper->disableOutputs();
+            }
             stepper->setSpeedInHz(settings.maxSpeed);
             stepper->setAcceleration(settings.acceleration);
             stepper->applySpeedAcceleration();
@@ -69,7 +75,7 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
         startSensorlessHoming();
     } else {
         state.homingState = HOMING_IDLE;
-        state.motorReady = true;
+        state.motorReady = false;
     }
 
     return true;
@@ -84,7 +90,11 @@ void AxisUnit::pollModbusTelemetry() {
             isv57.clearServoAlarms();
             isv57.setupServoStateReading();
             isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
-            isv57.enableAxis();
+            if (state.motorPowered) {
+                isv57.enableAxis();
+            } else {
+                isv57.disableAxis();
+            }
             isv57.readServoStates();
             if (isv57.dynamicStates.servo_receivedPacketIsValid_b) {
                 servoInitialized = true;
@@ -160,13 +170,26 @@ bool AxisUnit::enableMotor() {
         }
         isv57.enableAxis();
         state.motorPowered = true;
+        state.motorReady = false;
         state.targetPosition = -1;
+        state.finalVelocityApplied = false;
         state.lastActivityTime = millis();
+        state.isParked = false;
+        state.homingState = HOMING_IDLE; // Achse war stromlos -> Homing muss neu ausgeführt werden
         log(F("Enabling motor"));
     }
 
-    if (state.homingState != HOMING_DONE && state.homingState != HOMING_IDLE) {
-        updateHoming();
+    // Lazy Homing: Wenn Achse noch nicht (neu) gehomt wurde -> Homing jetzt starten
+    if (state.homingState == HOMING_IDLE) {
+        startSensorlessHoming();
+        return false;
+    }
+
+    // Während Homing noch läuft -> weiter ausführen und alle Fahrbefehle blockieren
+    if (state.homingState != HOMING_DONE) {
+        if (state.homingState != HOMING_FAILED) {
+            updateHoming();
+        }
         return false;
     }
 
@@ -179,8 +202,13 @@ void AxisUnit::disableMotor() {
         if (stepper != nullptr) {
             stepper->disableOutputs();
         }
+        isv57.disableAxis();
         state.motorPowered = false;
+        state.motorReady = false;
         state.targetPosition = -1;
+        state.finalVelocityApplied = false;
+        state.isParked = false;
+        state.homingState = HOMING_IDLE; // Homing-Status zurücksetzen für nächsten Wake-up
         log(F("Disabling motor"));
     }
     state.firstActivityTime = 0;
@@ -229,7 +257,7 @@ void AxisUnit::updateHoming() {
                 log(F("Servo communication timeout. Calibration aborted."));
                 stepper->forceStop();
                 state.homingState = HOMING_FAILED;
-                state.motorReady = true;
+                state.motorReady = false;
             }
             break;
 
@@ -241,7 +269,7 @@ void AxisUnit::updateHoming() {
             if (millis() - state.homingStateStartTime > 25000) {
                 stepper->forceStop();
                 state.homingState = HOMING_FAILED;
-                state.motorReady = true;
+                state.motorReady = false;
                 break;
             }
 
@@ -342,6 +370,7 @@ void AxisUnit::setPosition16Bits(uint16_t inputPosition) {
 
     if (enableMotor()) {
         state.lastActivityTime = millis();
+        state.isParked = false;
 
         if (!state.finalVelocityApplied) {
             stepper->setSpeedInHz(settings.maxSpeed);
@@ -405,9 +434,13 @@ void AxisUnit::updateIdleWatchdog(unsigned long idleTimeoutMs) {
 
     if (state.motorPowered) {
         if (millis() - state.lastActivityTime > idleTimeoutMs) {
-            if (state.firstActivityTime != 0) {
+            if (!state.isParked) {
                 state.firstActivityTime = 0;
                 moveToIdle(false);
+                state.isParked = true;
+            } else if (stepper == nullptr || !stepper->isRunning()) {
+                // Once motor reached relaxed idle park position and is at standstill, disable servo axis
+                disableMotor();
             }
         }
     }

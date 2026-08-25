@@ -1,25 +1,25 @@
-# DIY Belt Tensioner - SimHub Protokoll- & Befehlsspezifikation
+# DIY Belt Tensioner - SimHub Protocol & Command Specification
 
-Dieses Dokument beschreibt alle Ein- und Ausgaben des seriellen Kommunikationsprotokolls zwischen dem **SimHub DIY Belt Tensioner Plugin** und dem Controller (ESP32 / Arduino), basierend auf der Original-Implementierung in `BeltTensionner.ino` und `AxisDriver.h`.
+This document describes all inputs and outputs of the serial communication protocol between the **SimHub DIY Belt Tensioner Plugin** and the controller (ESP32 / Arduino), based on the protocol specification in `BeltTensionner.ino` and `AxisDriver.h`.
 
 ---
 
-## 1. Serielle Schnittstellenparameter
+## 1. Serial Interface Parameters
 
-| Parameter | Wert |
+| Parameter | Value |
 | :--- | :--- |
-| **Baudrate** | `250000` bps |
-| **Datenbits** | `8` |
-| **Parität** | Keine (`N`) |
-| **Stoppbits** | `1` |
-| **Flusssteuerung** | Keine |
-| **Zeilenendzeichen (ASCII)** | `\r\n` (`0x0D 0x0A` bzw. CR+LF) |
+| **Baud Rate** | `250000` bps |
+| **Data Bits** | `8` |
+| **Parity** | None (`N`) |
+| **Stop Bits** | `1` |
+| **Flow Control** | None |
+| **Line Terminator (ASCII)** | `\r\n` (`0x0D 0x0A` / CR+LF) |
 
 ---
 
-## 2. Paket-Framing (Binäres Protokoll)
+## 2. Packet Framing (Binary Protocol)
 
-Alle Steuerbefehle von SimHub an den Controller verwenden einen festen Rahmen:
+All binary control commands sent from SimHub to the controller use a fixed frame structure:
 
 ```text
 +---------------+---------------+---------------+----------------------+---------------+---------------+
@@ -28,43 +28,43 @@ Alle Steuerbefehle von SimHub an den Controller verwenden einen festen Rahmen:
 +---------------+---------------+---------------+----------------------+---------------+---------------+
 ```
 
-* **Header:** Immer `0xFF 0xFF` (2 Bytes)
-* **Command ID:** `uint8_t` Befehlscode
-* **Payload:** Abhängig vom Befehl (Big-Endian / MSB first)
-* **Terminator:** Immer `0x0A 0x0D` (`\n\r` / 2 Bytes)
+* **Header:** Always `0xFF 0xFF` (2 Bytes)
+* **Command ID:** `uint8_t` command code
+* **Payload:** Command-dependent (Big-Endian / MSB first)
+* **Terminator:** Always `0x0A 0x0D` (`\n\r` / 2 Bytes)
 
 ---
 
-## 3. Eingabebefehle (SimHub $\rightarrow$ Controller)
+## 3. Input Commands (SimHub $\rightarrow$ Controller)
 
-### CMD 1 (`0x01`): Zielposition setzen (Set Target Position)
-Überträgt die 16-Bit-Sollpositionen für bis zu 2 Motoren (Big-Endian).
+### CMD 1 (`0x01`): Set Target Position
+Transmits the 16-bit target positions for up to 2 motors (Big-Endian).
 
-* **Paketformat (7 Bytes):**
+* **Packet Format (7 Bytes):**
   ```text
   [0xFF] [0xFF] [0x01] [M1_High] [M1_Low] [M2_High] [M2_Low] [0x0A] [0x0D]
   ```
-* **Wertebereich:** `0` bis `65535` (Mittelstellung = ca. 32767).
-* **Umrechnung im Controller:**
+* **Value Range:** `0` to `65535` (Center / 50% tension = approx. `32767`).
+* **Conversion in Controller:**
   $$\text{TargetStep} = \text{constrain}\left(\frac{\text{InputValue} \times \text{TotalWorkingRange}}{65535}, 0, \text{TotalWorkingRange}\right)$$
-* **Verhalten:**
-  - Weckt den Motor bei Inaktivität auf (`EnableMotor`).
-  - Fährt die berechnete Step-Position über `FastAccelStepper::moveTo()` an.
-  - Setzt den Inaktivitäts-Timer zurück.
-* **Antwort:** Keine direkte Datenantwort.
+* **Behavior:**
+  - Wakes up the motor from standby (`enableMotor`).
+  - Drives to the calculated step position via `FastAccelStepper::moveTo()`.
+  - Resets the inactivity watchdog timer.
+* **Response:** None (fire-and-forget streaming).
 
 ---
 
-### CMD 2 (`0x02`): Maximalgeschwindigkeit setzen (Set Max Speed)
-Konfiguriert die maximale Schrittfrequenz in Hz (Steps pro Sekunde) für beide Achsen.
+### CMD 2 (`0x02`): Set Max Speed
+Configures the maximum step frequency in Hz (steps per second) for both axes.
 
-* **Paketformat (7 Bytes):**
+* **Packet Format (7 Bytes):**
   ```text
   [0xFF] [0xFF] [0x02] [M1_High] [M1_Low] [M2_High] [M2_Low] [0x0A] [0x0D]
   ```
-* **Wertebereich:** `uint16_t` (`1` bis `65535` Steps/s).
-* **Verhalten:** Setzt `stepper->setSpeedInHz()` und wendet `applySpeedAcceleration()` an.
-* **Antwort / Log:**
+* **Value Range:** `uint16_t` (`1` to `65535` steps/s).
+* **Behavior:** Applies hardware speed scaling via `SPEED_MULTIPLIER` and updates `stepper->setSpeedInHz()`.
+* **Response / Log:**
   ```text
   M1 Speed set to <speed>
   M2 Speed set to <speed>
@@ -72,16 +72,16 @@ Konfiguriert die maximale Schrittfrequenz in Hz (Steps pro Sekunde) für beide A
 
 ---
 
-### CMD 3 (`0x03`): Maximalbeschleunigung setzen (Set Max Acceleration)
-Konfiguriert die maximale Beschleunigung in Steps/$s^2$ für beide Achsen (als 32-Bit Unsigned Integer).
+### CMD 3 (`0x03`): Set Max Acceleration
+Configures the maximum acceleration in steps/$s^2$ for both axes (as a 32-bit unsigned integer).
 
-* **Paketformat (11 Bytes):**
+* **Packet Format (11 Bytes):**
   ```text
   [0xFF] [0xFF] [0x03] [M1_B3] [M1_B2] [M1_B1] [M1_B0] [M2_B3] [M2_B2] [M2_B1] [M2_B0] [0x0A] [0x0D]
   ```
-* **Wertebereich:** `uint32_t` (`1` bis `4294967295` Steps/$s^2$).
-* **Verhalten:** Setzt `stepper->setAcceleration()` und wendet `applySpeedAcceleration()` an.
-* **Antwort / Log:**
+* **Value Range:** `uint32_t` (`1` to `4294967295` steps/$s^2$).
+* **Behavior:** Applies hardware acceleration scaling via `ACCELERATION_MULTIPLIER` and updates `stepper->setAcceleration()`.
+* **Response / Log:**
   ```text
   M1 Acceleration set to <accel>
   M2 Acceleration set to <accel>
@@ -89,143 +89,145 @@ Konfiguriert die maximale Beschleunigung in Steps/$s^2$ für beide Achsen (als 3
 
 ---
 
-### CMD 10 (`0x0A`): Anzahl aktiver Motoren abfragen (Query Enabled Motors)
-Handshake-Befehl von SimHub zur Ermittlung der konfigurierten Achsenanzahl.
+### CMD 10 (`0x0A`): Query Enabled Motors
+Handshake command sent by SimHub during connection setup to determine the number of configured axes.
 
-* **Paketformat (5 Bytes):**
+* **Packet Format (5 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0A] [0x0A] [0x0D]
   ```
-* **Antwort vom Controller (ASCII-String mit CR+LF):**
+* **Response from Controller (ASCII string with CR+LF):**
   ```text
   Enabled motors:<N>
   ```
-  *(Beispiel: `Enabled motors:1`)*
+  *(Example: `Enabled motors:1`)*
 
 ---
 
-### CMD 11 (`0x0B`): Sensor-Diagnosedaten abfragen (Dump Sensor Diagnostic)
-Liest den Live-Messwert des Endschalters / Sensors der angegebenen Achse aus.
+### CMD 11 (`0x0B`): Dump Sensor Diagnostic
+Reads the live sensor/load feedback value of the specified axis.
 
-* **Paketformat (6 Bytes):**
+* **Packet Format (6 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0B] [Axis_ID] [0x0A] [0x0D]
   ```
-  *(wobei `Axis_ID` 0-basiert ist: `0` für Motor 1, `1` für Motor 2)*
-* **Antwort vom Controller (ASCII-String mit CR+LF):**
+  *(where `Axis_ID` is 0-indexed: `0` for Motor 1, `1` for Motor 2)*
+* **Response from Controller (ASCII string with CR+LF):**
   ```text
   Sensor #<Axis>:<Value>:Trigger level:<Level>:Triggered:<0|1>
   ```
-  *(Beispiel: `Sensor #0:45:Trigger level:100:Triggered:0`)*
+  *(Example: `Sensor #0:45:Trigger level:100:Triggered:0`)*
 
 ---
 
-### CMD 12 (`0x0C`): Parkposition / Gurt entspannen (Park Now)
-Triggert das sofortige Entspannen des Gurts und Fahren in die Park-/Leerlaufposition (10% bzw. ZeroOffset).
+### CMD 12 (`0x0C`): Park Now (Slack Release)
+Triggers immediate relaxation of the racing harness and moves the carriage to the idle/park position (10% stroke).
 
-* **Paketformat (5 Bytes):**
+* **Packet Format (5 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0C] [0x0A] [0x0D]
   ```
-* **Verhalten:** Setzt den Aktivitätszeitstempel auf `0`, wodurch die Motoren sofort in die Idle-Position fahren und nach Stillstand stromsparend deaktiviert werden.
-* **Antwort:** Keine.
+* **Behavior:** Eases motors to the idle position and shuts down power stages after standstill.
+* **Response:** None.
 
 ---
 
-### CMD 13 (`0x0D`): Rekalibrierung anfordern (Discard Calibration)
-Verwirft die aktuelle Nullpunkt-Kalibrierung und erzwingt eine erneute Homing-Fahrt.
+### CMD 13 (`0x0D`): Recalibrate / Discard Calibration
+Discards the current zero-point calibration and enforces a fresh sensorless homing routine.
 
-* **Paketformat (5 Bytes):**
+* **Packet Format (5 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0D] [0x0A] [0x0D]
   ```
-* **Verhalten:** Setzt `motorReady = false`, startet die Homing-Routine (MIN/MAX-Suche) und kalibriert den Nullpunkt neu.
-* **Antwort / Log:**
+* **Behavior:** Sets `motorReady = false`, launches the sensorless homing routine, and re-zeros the coordinate frame.
+* **Response / Log:**
   ```text
   M1 Starting stepper calibration
   ```
 
 ---
 
-### CMD 14 (`0x0E`): Firmware-Version abfragen (Query Firmware Version)
-Wird von SimHub direkt beim Verbindungsaufbau gesendet, um die Kompatibilität zu prüfen.
+### CMD 14 (`0x0E`): Query Firmware Version
+Sent by SimHub immediately upon connection to verify protocol compatibility.
 
-* **Paketformat (5 Bytes):**
+* **Packet Format (5 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0E] [0x0A] [0x0D]
   ```
-* **Antwort vom Controller (ASCII-String mit CR+LF):**
+* **Response from Controller (ASCII string with CR+LF):**
   ```text
   2.0
   ```
-  *(Wichtig: SimHub führt ein `new Version(response)` aus. Es dürfen vor oder hinter `"2.0"` keine anderen Zeichen oder Logzeilen stehen!)*
+  *(Important: SimHub executes `new Version(response)`. No leading or trailing log lines may surround `"2.0"`!)*
 
 ---
 
-### CMD 15 (`0x0F`): Getunte Parameter in Servo-EEPROM flashen (Flash Tuned Parameters)
-Flasht alle **305 getunten Register** aus `isv57_tunedParameters.h` (Pr0.00 bis Pr7.49) in 10er-Bursts bzw. Einzel-Verifizierungen auf den iSV57 Servo und speichert sie dauerhaft im internen NVM/EEPROM (`0x019A = 0x5555`).
+### CMD 15 (`0x0F`): Flash Tuned Parameters to Servo EEPROM
+Flashes all **305 tuned registers** from `isv57_tunedParameters.h` (Pr0.00 to Pr7.49) to the iSV57 servo and burns them permanently into the servo's internal NVM/EEPROM (`0x019A = 0x5555`).
 
-* **Paketformat (5 Bytes):**
+* **Packet Format (5 Bytes):**
   ```text
   [0xFF] [0xFF] [0x0F] [0x0A] [0x0D]
   ```
 
 ---
 
-## 4. Serielle ASCII-Befehle (Serieller Monitor)
+## 4. Serial ASCII Commands (Serial Monitor)
 
-Neben dem binären SimHub-Protokoll können im Seriellen Monitor (PlatformIO / Arduino IDE bei **250.000 Baud**) folgende Textkommandos eingegeben werden:
+In addition to SimHub binary framing, the serial interface supports human-readable ASCII commands in any terminal at **250,000 Baud**:
 
-| ASCII-Kommando | Alias | Funktion / Beschreibung |
+| ASCII Command | Aliases | Description |
 | :--- | :--- | :--- |
-| **`FLASH_SERVO`** | `FLASH`, `FLASH 1`, `FLASH_SERVO 1` | Prüft und flasht alle **305 Parameter** aus `isv57_tunedParameters.h` in den Servo 1 und brennt sie ins interne EEPROM (`0x5555`). |
-| **`FLASH_SERVO 2`** | `FLASH 2` | Flasht alle 305 Parameter auf Servo 2 (bei Dual-Actuator-Setup). |
-| **`ENABLE_SERVO`** | `ENABLE`, `ENABLE 1` | Aktiviert die Servo-Endstufe (`0x0085 = 0x0383` & `0x0139 = 0x0008`) und bestromt den Motor sofort. |
-| **`ENABLE_SERVO 2`** | `ENABLE 2` | Aktiviert Servo 2. |
-| **`DISABLE_SERVO`** | `DISABLE` | Schaltet den Servo softwareseitig komplett stromlos (`0x0085 = 0x0303` & `0x0139 = 0x0000`). Welle ist frei drehbar. |
-| **`HOME`** | `CALIBRATE` | Startet die automatische Homing- & Anschlagskalibrierung (aktiviert den Motor vorher automatisch). |
-| **`STATUS`** | - | Gibt den aktuellen Laststrom (%), Busspannung (V) und Kalibrierstatus im SimHub-Format aus. |
-| **`HELP`** | - | Zeigt eine Übersicht aller verfügbaren seriellen Befehle an. |
+| **`FLASH_SERVO`** | `FLASH`, `FLASH 1`, `FLASH_SERVO 1` | Verifies and flashes all **305 parameters** from `isv57_tunedParameters.h` into Servo 1 and permanently saves them to EEPROM (`0x5555`). |
+| **`FLASH_SERVO 2`** | `FLASH 2` | Flashes all 305 parameters to Servo 2 (dual-actuator setup). |
+| **`ENABLE_SERVO`** | `ENABLE`, `ENABLE 1` | Enables the servo power stage (`0x0085 = 0x0383` & `0x0139 = 0x0008`) and energizes the motor immediately. |
+| **`ENABLE_SERVO 2`** | `ENABLE 2` | Enables Servo 2. |
+| **`DISABLE_SERVO`** | `DISABLE` | Disables the servo power stage (`0x0085 = 0x0303` & `0x0139 = 0x0000`). The motor shaft is free to rotate. |
+| **`HOME`** | `CALIBRATE` | Starts automatic sensorless homing and endstop calibration. |
+| **`STATUS`** | - | Prints live load current (%), bus voltage (V), and calibration status in SimHub diagnostic format. |
+| **`HELP`** | - | Prints an overview of all available serial commands. |
 
 ---
 
-## 5. Ausgabemeldungen (Controller $\rightarrow$ SimHub / PC)
+## 5. Output Messages (Controller $\rightarrow$ SimHub / PC)
 
-SimHub filtert alle vom Controller gesendeten Textzeilen nach folgenden Regeln:
+SimHub filters all text lines sent from the controller based on specific conventions:
 
-### 1. Boot-Greeting (beim Start des Controllers)
-Wird einmalig in `setup()` ausgegeben:
+### 1. Boot Greeting (on startup)
+Printed once in `setup()`:
 ```text
 <N> steppers enabled
 ```
-*(z. B. `1 steppers enabled`)*
+*(e.g. `1 steppers enabled`)*
 
-### 2. Status- & Diagnosemeldungen (SimHub Log-Format)
-Jede Textnachricht, die für das SimHub-Logfenster bestimmt ist, **muss** mit `M1 ` oder `M2 ` (Präfix + Leerzeichen) beginnen:
+### 2. Status & Diagnostic Messages (SimHub Log Format)
+Every log message intended for the SimHub motion log window **must** begin with `M1 ` or `M2 ` (prefix + space):
 
-| Log-Ausgabe | Bedeutung |
+| Log Message | Description |
 | :--- | :--- |
-| `M1 Enabling motor` | Motor wird bestromt und aktiviert |
-| `M1 Disabling motor` | Motor wird nach Inaktivität deaktiviert |
-| `M1 Starting stepper calibration` | Kalibrierungs- / Homingroutine gestartet |
-| `M1 Initial move finished` | Erste Freifahrt abgeschlossen |
-| `M1 Starting calibration` | Suchfahrt Richtung Endanschlag / Sensor |
-| `M1 Sensor triggered` | Endanschlag / Sensor-Trigger erkannt |
-| `M1 Calibration successful.` | Homing erfolgreich abgeschlossen, Nullpunkt gesetzt |
-| `M1 Speed set to <speed>` | Neue Geschwindigkeit übernommen |
-| `M1 Acceleration set to <accel>` | Neue Beschleunigung übernommen |
-| `M1 Sensor calibration completed` | Achse betriebsbereit |
+| `M1 Enabling motor` | Motor coils energized and axis enabled |
+| `M1 Disabling motor` | Motor powered down after inactivity timeout |
+| `M1 Starting stepper calibration` | Homing / calibration routine initiated |
+| `M1 Initial move finished` | Initial clearance move completed |
+| `M1 Starting calibration` | Seeking mechanical endstop / sensor |
+| `M1 Sensor triggered` | Endstop contact / stall detected |
+| `M1 Calibration successful.` | Homing complete, zero point registered |
+| `M1 Speed set to <speed>` | New speed parameter applied |
+| `M1 Acceleration set to <accel>` | New acceleration parameter applied |
+| `M1 Sensor calibration completed` | Axis ready for operation |
 
 ---
 
-## 6. Spezielle Betriebsmodi
+## 6. Special Operational Modes & Watchdogs
 
-### Sensor-Testmodus (`sensorTestMode = true`)
-Wird in der Konfiguration `sensorTestMode = true` gesetzt, schaltet die Firmware in einen kontinuierlichen Diagnosemodus:
-- Motoren bleiben permanent stromlos / deaktiviert.
-- Der Controller gibt alle 500 ms fortlaufend Zeilen im Format `Sensor #<axis>:<value>:Trigger level:<level>:Triggered:<0|1>` aus.
-- Nützlich zum Einmessen von Hall-Sensoren oder Dehnungsmessstreifen im Seriellen Monitor.
+### Inactivity Watchdog (`IDLE_DELAY_MS = 60000 ms`)
+- If no motion commands are received for longer than `IDLE_DELAY_MS` (default 60 seconds):
+  1. The carriage smoothly travels to the relaxed 10% park position (`moveToIdle`).
+  2. Once standstill is reached, motor coils and the iSV57 power stage are completely de-energized (`Disabling motor`).
+  3. The RGB Status LED turns **Solid Red**.
+- When SimHub sends the next motion command, the axis wakes up, automatically re-homes to guarantee positional accuracy, and resumes live driving.
 
-### Inaktivitäts-Watchdog (`idleDelay = 5000 ms`)
-- Werden für mehr als `5000 ms` keine Bewegungsbefehle empfangen, fährt der Schlitten automatisch auf die 10%-Parkposition.
-- Nach Stillstand werden die Spulen bestromungslos bzw. in den Haltemodus geschaltet (`Disabling motor`).
+### Sensor Test Mode (`sensorTestMode = true`)
+When enabled in configuration, the controller enters a continuous diagnostic stream:
+- Motors remain disabled.
+- Streams live telemetry every 500 ms in the format `Sensor #<axis>:<value>:Trigger level:<level>:Triggered:<0|1>`.

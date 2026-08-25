@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "AxisUnit.h"
 #include "BeltTensionerProtocol.h"
+#include "StatusLed.h"
 
 // Stepper engine instance (hardware RMT / MCPWM pulse generator)
 FastAccelStepperEngine engine = FastAccelStepperEngine();
@@ -24,6 +25,9 @@ const uint8_t axisCount = sizeof(axisUnits) / sizeof(AxisUnit*);
 
 // SimHub protocol handler
 BeltTensionerProtocol protocol;
+
+// Status RGB LED (Waveshare ESP32-S3 WS2812)
+StatusLed statusLed;
 
 // FreeRTOS Task handle for background Modbus telemetry polling
 TaskHandle_t taskModbusTelemetryHandle = nullptr;
@@ -155,6 +159,9 @@ void setup() {
         &taskModbusTelemetryHandle,
         TASK_CORE_MODBUS_TELEMETRY
     );
+
+    // 7. Initialize on-board RGB Status LED (WS2812)
+    statusLed.begin(RGB_LED_GPIO, RGB_LED_BRIGHTNESS);
 }
 
 void loop() {
@@ -168,7 +175,10 @@ void loop() {
         }
     }
 
-    // 3. Prevent Task Watchdog (TWDT) reset on Core 1 & minimize serial latency
+    // 3. Update status RGB LED color based on system state
+    statusLed.update(axisUnits, axisCount);
+
+    // 4. Prevent Task Watchdog (TWDT) reset on Core 1 & minimize serial latency
     yield();
     if (!Serial.available()) {
         vTaskDelay(pdMS_TO_TICKS(1));

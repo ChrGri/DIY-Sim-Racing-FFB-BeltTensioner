@@ -1,128 +1,134 @@
-# DIY Belt Tensioner - Ablauf- & Architektur-Referenz (Original-Code)
+# DIY Belt Tensioner - Architecture & Execution Reference
 
-Diese Referenz beschreibt die genaue Funktionsweise und den Ablauf des Original-Projekts `BeltTensionner` (`BeltTensionner.ino` und `AxisDriver.h`).
+This reference describes the architecture, internal state machines, and operational lifecycle of the DIY Belt Tensioner firmware (`src/` and legacy `BeltTensionner.ino` / `AxisDriver.h`).
 
 ---
 
-## 1. Systemübersicht & Lebenszyklus
+## 1. System Overview & Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> BOOT_SETUP: Einschalten / Reset
-    BOOT_SETUP --> MOTOR_DISABLED: calibrateAtBoot == false (Standard)
-    BOOT_SETUP --> CALIBRATION_START: calibrateAtBoot == true
+    [*] --> BOOT_SETUP: Power On / Hardware Reset
+    BOOT_SETUP --> MOTOR_DISABLED: CALIBRATE_AT_BOOT == false (Default)
+    BOOT_SETUP --> CALIBRATION_START: CALIBRATE_AT_BOOT == true
 
-    MOTOR_DISABLED --> CALIBRATION_START: Erster CMD 1 (Set Position)
+    MOTOR_DISABLED --> CALIBRATION_START: First CMD 1 (Set Position)
     
-    state "Homing / Kalibrierung" as Homing_Group {
-        CALIBRATION_START --> PHASE_0_INIT_MOVE: Spulen bestromen
-        PHASE_0_INIT_MOVE --> PHASE_1_WAIT_MOVE: Vorfahrt (2000 Steps)
-        PHASE_1_WAIT_MOVE --> PHASE_2_SEARCH_SENSOR: Suchfahrt rückwärts
-        PHASE_2_SEARCH_SENSOR --> PHASE_4_POLL_SENSOR: Sensorüberwachung
-        PHASE_4_POLL_SENSOR --> CALIBRATION_SUCCESS: Sensor ausgelöst
-        PHASE_4_POLL_SENSOR --> CALIBRATION_ERROR: Anschlag verfehlt
+    state "Sensorless Homing / Calibration" as Homing_Group {
+        CALIBRATION_START --> PHASE_WAIT_SERVO: Energize Servo & Setup Speed
+        PHASE_WAIT_SERVO --> PHASE_APPROACH_MIN: Approach MIN Hard Stop
+        PHASE_APPROACH_MIN --> PHASE_BACKOFF_MIN: Stall Detected & Backoff 1000 Steps
+        PHASE_BACKOFF_MIN --> PHASE_RETURN_HOME: Zero Coordinate Frame & Travel to Idle
+        PHASE_BACKOFF_MIN --> PHASE_APPROACH_MAX: measureMaxTravel == true
+        PHASE_APPROACH_MAX --> PHASE_RETURN_HOME: Max Limit Registered
     }
 
-    CALIBRATION_SUCCESS --> ACTIVE_RUNNING: Parken & motorReady = true
-    ACTIVE_RUNNING --> ACTIVE_RUNNING: Laufende Positionsbefehle (CMD 1)
-    ACTIVE_RUNNING --> IDLE_PARKING: Keine Befehle für > 5000 ms (idleDelay)
-    IDLE_PARKING --> MOTOR_DISABLED: Spulen stromlos nach Stillstand
+    PHASE_RETURN_HOME --> ACTIVE_RUNNING: At Idle Position & motorReady = true
+    ACTIVE_RUNNING --> ACTIVE_RUNNING: Live Motion Commands (CMD 1)
+    ACTIVE_RUNNING --> IDLE_PARKING: No Commands for > IDLE_DELAY_MS
+    IDLE_PARKING --> MOTOR_DISABLED: Complete Standstill -> Unpower Coils
 ```
 
 ---
 
-## 2. Detaillierte Phasen & Abläufe
+## 2. Initialization & Boot Lifecycle (`setup()`)
 
-### Phase 1: Initialisierung beim Start (`setup()`)
-1. **Serielle Schnittstelle:** Öffnet `Serial` mit `250000` Baud.
-2. **Greeting:** Sendet einmalig die Anzahl aktiver Stepper:
+1. **Serial Interface:** Initializes `Serial` at `250000` Baud.
+2. **Greeting:** Broadcasts the number of active actuators:
    ```text
    1 steppers enabled\r\n
    ```
-3. **Schrittmotor-Engine:** Initialisiert `FastAccelStepperEngine`.
-4. **Pin-Konfiguration (`AxisDriver::begin()`):**
-   - `enablePin` und `directionPin` als `OUTPUT`.
-   - `hallSensorPin` als `INPUT` (Analog).
-   - Motor wird **stromlos** gestartet (`enablePin = HIGH`).
-   - Standardparameter: Speed `25000 Hz`, Accel `15000 Steps/s²`.
+3. **Pulse Generator Engine:** Initializes `FastAccelStepperEngine` hardware timers (ESP32 RMT/MCPWM).
+4. **Actuator Pin Configuration (`AxisUnit::begin()`):**
+   - Configures Step, Direction, and Modbus UART pins.
+   - Initial state: Motor **unpowered** (`motorPowered = false`, `motorReady = false`).
+   - Default high-performance motion parameters: Speed up to `180000 Hz`, Acceleration up to `1100000 steps/s²`.
 
 ---
 
-## 3. Wann und wie wird gehomt / kalibriert?
+## 3. When and How is Homing / Calibration Triggered?
 
-Das Verhalten hängt von der Konfiguration und den eintreffenden Befehlen ab:
+The homing behavior depends on configuration settings and incoming serial commands:
 
-### A. Boot-Homing (`calibrateAtBoot = false` vs `true`)
-* **Standard (`calibrateAtBoot = false`):**
-  - Beim Booten findet **keine** Bewegung statt.
-  - Der Motor bleibt stromlos und unkalibriert (`motorPowered = false`, `motorReady = false`).
-* **Optional (`calibrateAtBoot = true`):**
-  - Die Firmware startet sofort bei `setup()` die Homing-Sequenz.
+### A. Boot Homing (`CALIBRATE_AT_BOOT = true`)
+* The firmware immediately begins the sensorless homing routine upon `setup()`.
 
-### B. Lazy Homing (Kalibrierung beim ersten Fahrbefehl)
-Wenn `calibrateAtBoot == false` eingestellt ist:
-1. SimHub sendet den ersten Positionsbefehl **CMD 1**.
-2. `setPosition16Bits()` ruft intern `EnableMotor()` auf.
-3. `EnableMotor()` erkennt, dass der Motor noch nicht bestromt ist:
-   - Schaltet `enablePin` auf `LOW` (Spulen aktiv).
-   - Gibt `M1 Enabling motor` aus.
-   - Setzt `calibrationPhase = 0` und `motorReady = false`.
-4. Die Homing-Sequenz startet automatisch. Eingehende Fahrbefehle werden während der Kalibrierung gepuffert bzw. zurückgestellt, bis `motorReady == true` ist.
+### B. Lazy Homing (`CALIBRATE_AT_BOOT = false`) — Recommended
+* **At Startup:** The motor remains unpowered and unhomed (`motorPowered = false`, `motorReady = false`). The RGB LED displays **Solid Red**.
+* **On First Motion Command:**
+  1. SimHub sends the first position packet (`CMD 1`).
+  2. `setPosition16Bits()` calls `enableMotor()`.
+  3. `enableMotor()` detects `state.homingState == HOMING_IDLE`:
+     - Energizes the motor coils and enables the servo via Modbus (`isv57.enableAxis()`).
+     - Launches `startSensorlessHoming()`.
+     - Returns `false` to block incoming motion commands.
+  4. While homing is running, incoming game commands are safely dropped until calibration successfully finishes (`HOMING_DONE`).
+  5. The RGB LED turns **Solid Green** and live tracking begins.
 
-### C. Manuelle Rekalibrierung (CMD 13 / Discard Calibration)
-* Empfängt der Controller **CMD 13** (`0xFF 0xFF 0x0D 0x0A 0x0D`):
-  - Setzt `calibrationPhase = 0` und `motorReady = false`.
-  - Beim nächsten Zyklus wird die Homing-Routine erneut von Phase 0 bis 4 durchlaufen.
+### C. Re-Homing After Inactivity Standby
+* When the tensioner enters standby after inactivity, motor coils are shut down to prevent heat and power draw.
+* Because the shaft has no holding torque while powered off, the firmware resets `homingState = HOMING_IDLE`.
+* Upon the next SimHub packet, the tensioner automatically re-homes before applying tension, guaranteeing 100% position accuracy.
+
+### D. Manual Recalibration (`CMD 13` / `HOME`)
+* Receiving **CMD 13** or the serial text command **`HOME`** immediately resets calibration and starts the sensorless homing routine.
 
 ---
 
-## 4. Die 5 Kalibrierungsphasen (`Calibrate()`)
+## 4. The Sensorless Homing State Machine (`updateHoming()`)
 
-| Phase | Interne Bezeichnung | Ablauf & Aktionen | Log-Ausgabe |
+| State | Phase Name | Execution & Actions | Log Output |
 | :--- | :--- | :--- | :--- |
-| **0** | **Start & Freifahrt** | • Setzt Homing-Speed auf `5000 Hz`, Accel auf `20000`.<br>• Setzt Position temporär auf `0`.<br>• Fährt `+2000 Steps` vorwärts (weg vom Sensor). | `M1 Starting stepper calibration` |
-| **1** | **Warten auf Freifahrt** | • Wartet, bis die +2000 Steps Vorfahrt abgeschlossen ist (`!stepper->isRunning()`). | `M1 Initial move finished` |
-| **2** | **Suchfahrt rückwärts** | • Startet Suchfahrt rückwärts: `stepper->moveTo(-totalWorkingRange * 3)`.<br>• Liest Sensor einmalig zur Rauschunterdrückung. | `M1 Starting calibration` |
-| **3** | **Plausibilitätsprüfung** | • Prüft, ob der Sensor bereits ausgelöst ist.<br>• Wenn JA: Fataler Fehlerabbruch (`calibrationErrorDeath`). | *(Fehlertext bei Hardwaredefekt)* |
-| **4** | **Trigger-Erkennung** | • Liest zyklisch den Hall-Sensor (`ReadHallSensor()`).<br>• **Sensor löst aus (`val > 100`):**<br>&nbsp;&nbsp;1. `stepper->forceStopAndNewPosition(ZeroOffset)` (ZeroOffset = 1500).<br>&nbsp;&nbsp;2. Fährt auf Leerlaufposition (`MoveToIdle(false)`).<br>&nbsp;&nbsp;3. Beendet Kalibrierung (`calibrationPhase = -1`, `motorReady = true`).<br>• **Motor stoppt ohne Trigger:** Fataler Fehlerabbruch. | `M1 Sensor triggered`<br>`M1 Calibration successful.` |
+| **`HOMING_START`** | **Start & Config** | • Configures homing speed (`5000 Hz`) and acceleration (`25000 steps/s²`).<br>• Enables servo and pulse generator outputs. | `M1 Starting stepper calibration` |
+| **`HOMING_WAIT_SERVO`** | **Servo Comms Sync** | • Waits for valid Modbus telemetry packet from iSV57.<br>• 15-second failsafe timeout if servo power is disconnected. | `M1 Starting calibration` |
+| **`HOMING_APPROACH_MIN`** | **MIN Endstop Search** | • Drives carriage backward toward the mechanical stop.<br>• Monitors current load percentage via Modbus register `0x0081`.<br>• Stall detected when current load $\ge$ `HOMING_CURRENT_THRESHOLD_PCT` (15%). | - |
+| **`HOMING_BACKOFF_MIN`** | **MIN Zero & Backoff** | • Stops motor instantly (`forceStop()`).<br>• Backs off by `HOMING_BACKOFF_STEPS` (1000 steps) to clear binding.<br>• Sets hardware step coordinate to `0` and zeroes iSV57 optical encoder (`isv57.setZeroPos()`). | `M1 Sensor triggered` |
+| **`HOMING_MEASURE_MAX_APPROACH`** | **Stroke Measurement (Optional)** | • *(Only if `MEASURE_MAX_TRAVEL_SENSORLESS = true`)* Drives forward to detect the MAX stop and measure total usable stroke length. | - |
+| **`HOMING_RETURN_HOME`** | **Travel to Idle Position** | • Drives to relaxed 10% park position.<br>• Restores high-performance driving speed (`180 kHz`) and acceleration (`1.1M steps/s²`).<br>• Sets `homingState = HOMING_DONE` and `motorReady = true`. | `M1 Calibration successful.` |
 
 ---
 
-## 5. Regelungs- & Fahrbetrieb (`setPosition16Bits()`)
+## 5. Active Control & Driving Mode (`setPosition16Bits()`)
 
-Sobald `motorReady == true` ist, verarbeitet der Controller Fahrbefehle:
+Once `motorReady == true`, the controller processes live position frames:
 
-1. **Positions-Mapping:**
-   $$\text{StepPosition} = \text{constrain}\left(\frac{\text{InputValue} \times \text{totalWorkingRange}}{65535}, 0, \text{totalWorkingRange}\right) + \text{ZeroOffset}$$
-   *(wobei `ZeroOffset = 1500` als Sicherheitsabstand zum Sensor dient)*
+1. **Position Mapping:**
+   $$\text{StepPosition} = \text{constrain}\left(\frac{\text{InputValue} \times \text{totalWorkingRange}}{65535}, 0, \text{totalWorkingRange}\right)$$
 
-2. **6-Sekunden Soft-Start-Rampe:**
-   - Nach jedem Aufwecken aus dem Ruhezustand (`firstActivity == 0`) startet ein 6000 ms Timer.
-   - Geschwindigkeit und Beschleunigung werden über die ersten 6 Sekunden linear von 0% auf 100% hochgerampt:
-     $$\text{Faktor} = \text{constrain}\left(\frac{\text{Zeit} - \text{firstActivity}}{6000}, 0.0, 1.0\right)$$
-   - Verhindert ruckartiges Anreißen beim Einstieg ins Spiel.
+2. **Tension Direction Inversion:**
+   - **`INVERT_TENSION_DIRECTION = false`:** 0% input (idle) is at MIN stop, 100% input (braking) pulls toward MAX stop.
+   - **`INVERT_TENSION_DIRECTION = true`:** 0% input (idle) is at MAX stop, 100% input (braking) pulls toward MIN stop.
+
+3. **Software Safety Margins:**
+   Software limits prevent carriage travel outside safe mechanical boundaries (5% to 95% of total travel).
+
+4. **Continuous Step Loss Recovery:**
+   While at standstill between movements, the controller continuously cross-checks the ESP32 pulse step counter against the iSV57 internal high-resolution optical encoder and applies zero-drift corrections.
 
 ---
 
-## 6. Inaktivitäts-Watchdog & Parken (`update()`)
+## 6. Inactivity Watchdog & Standby (`updateIdleWatchdog()`)
 
-Wird in der Hauptschleife `loop()` zyklisch aufgerufen:
+Executed cyclically in `loop()`:
 
-1. **Inaktivitätsprüfung:**
-   - Wenn seit dem letzten empfangenen Befehl mehr als `idleDelay = 5000 ms` vergangen sind:
-2. **Parkfahrt (`MoveToIdle`):**
-   - Schaltet auf gedrosselte Park-Geschwindigkeit (`4000 Hz`, Accel `2000`).
-   - Fährt auf `ZeroOffset` (oder 50%-Zentralstellung, falls `centerAfterCalibration == true`).
-3. **Abschaltung:**
-   - Sobald der Schlitten stillsteht (`!stepper->isRunning()`):
-   - Ruft `DisableMotor()` auf $\rightarrow$ Spulen werden stromlos (`enablePin = HIGH`).
+1. **Inactivity Detection:**
+   - Evaluates elapsed time since the last valid motion command (`millis() - lastActivityTime > IDLE_DELAY_MS`).
+2. **Park Sequence (`moveToIdle`):**
+   - Eases the carriage to the relaxed 10% park position using controlled homing speed.
+3. **Power-Down (`disableMotor`):**
+   - Once standstill is confirmed (`!stepper->isRunning()`):
+   - Deactivates pulse outputs (`stepper->disableOutputs()`).
+   - De-energizes the servo power stage over Modbus (`isv57.disableAxis()`).
+   - Sets `state.motorPowered = false` and resets `state.homingState = HOMING_IDLE`.
    - Log: `M1 Disabling motor`.
+   - RGB LED turns **Solid Red**.
 
 ---
 
-## 7. Fehlerbehandlung (`calibrationErrorDeath`)
+## 7. Fault & Error Handling (`HOMING_FAILED`)
 
-Tritt während der Kalibrierung ein mechanischer oder sensorischer Fehler auf:
-- Der Motor wird sofort stromlos geschaltet (`DisableMotor()`).
-- Es wird eine Fehlermeldung ausgegeben (z. B. `M1 Calibration ERROR, lever not found...`).
-- Das System geht in eine Endlosschleife und blockiert weitere Fahrten, bis das Gerät neu gestartet wird.
+If a communication timeout or mechanical obstruction occurs:
+- The motor is immediately halted (`forceStop()`).
+- The servo stage is safely disabled.
+- `state.motorReady` remains `false` to block uncalibrated full-speed movements.
+- The RGB Status LED flashes **Fast Red** to alert the user.

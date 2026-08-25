@@ -45,6 +45,7 @@ struct AxisUnitState {
     int32_t targetPosition = -1;
     unsigned long lastActivityTime = 0;
     unsigned long firstActivityTime = 0;
+    bool isParked = false;
     bool finalVelocityApplied = false;
     HomingState homingState = HOMING_IDLE;
     uint32_t homingStateStartTime = 0;

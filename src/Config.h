@@ -40,8 +40,8 @@
 // Soft-start ramp: 0 = Disabled for instant responsiveness
 #define SOFT_START_RAMP_MS        0U
 
-// Inactivity delay before moving to idle/parked position
-#define IDLE_DELAY_MS             5000U
+// Inactivity delay before moving to idle/parked position and disabling servo axis (10 seconds)
+#define IDLE_DELAY_MS             10000U
 
 // ==============================================================================
 // 3. TENSION DIRECTION & SAFETY BOUNDARIES
@@ -63,7 +63,7 @@
 #define CENTER_AFTER_CALIBRATION  false
 
 // Perform sensorless homing automatically at ESP32 boot
-#define CALIBRATE_AT_BOOT         true
+#define CALIBRATE_AT_BOOT         false
 
 // ==============================================================================
 // 4. STEP LOSS RECOVERY (via iSV57 Physical Optical Encoder Telemetry)
@@ -99,3 +99,11 @@
 #define TASK_CORE_MODBUS_TELEMETRY    0    // Core 0 handles cyclic Modbus telemetry & stall monitoring
 #define TASK_CORE_MAIN_LOOP           1    // Core 1 handles SimHub packet processing & motion dispatch
 #define MODBUS_POLL_INTERVAL_MS       10   // Polling cycle time for iSV57 servo state registers
+
+// ==============================================================================
+// 7. STATUS RGB LED (Waveshare ESP32-S3 On-Board WS2812 RGB LED)
+// ==============================================================================
+#define ENABLE_RGB_STATUS_LED         true
+#define RGB_LED_GPIO                  RGB_LED_PIN // Defaults to GPIO 21 on Waveshare ESP32-S3
+#define RGB_LED_BRIGHTNESS            40          // Brightness: 1 to 255 (40 is comfortable & glare-free)
+
