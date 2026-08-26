@@ -29,6 +29,7 @@ https://github.com/user-attachments/assets/4027d6b4-1a5e-4edc-9e6e-c9eee0924ece
 * **Sensorless Homing via Modbus Telemetry:** Automatic, physical zero-point calibration using real-time Modbus current feedback from the iSV57 servo without needing fragile external microswitches or optical sensors.
 * **Dynamic Speed & Acceleration Scaling:** Built-in hardware multipliers scale SimHub's UI slider limits (36,000 Hz / 100,000 steps/s²) to the full servo potential (**180,000 Hz** pulse frequency and **600,000 steps/s²** acceleration) for instantaneous, snappy braking belt pull.
 * **Inactivity Watchdog & Auto-Park:** Automatically eases the harness to a relaxed park position and unpowers the coils after 5 seconds of inactivity.
+* **Visual RGB Status Feedback:** Real-time system feedback via the on-board WS2812 RGB LED (Standby, Homing, Active Driving, Idle Parking, and Error states). See [RGB Status LED Guide](docs/LED.md).
 * **Dual-Core FreeRTOS Architecture:**
   * **Core 0:** Cyclic Modbus RS485/RS232 telemetry, voltage monitoring, and continuous stall detection.
   * **Core 1:** SimHub binary serial stream decoding and hardware pulse generation using `FastAccelStepper`.
@@ -129,6 +130,18 @@ A detailed visual setup guide with screenshots and pre-configured import profile
 2. Either **Import** the pre-configured preset from [`docs/motionPluginSetup/AllPlatformSettings.shmotionoutput`](docs/motionPluginSetup/AllPlatformSettings.shmotionoutput) or add a new **SimHub DIY Belt Tensioner** controller.
 3. Set your ESP32 serial port (`250000` baud), set speed & acceleration sliders to maximum (`36000` / `100000`), and disable *Rotary lever compensation*.
 4. Click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and instantly respond to in-game telemetry!
+
+---
+
+## 📚 Documentation & Technical References
+
+| Document | Topic & Content |
+| :--- | :--- |
+| 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
+| ⚡ **[Protocol & Command Specification](docs/commands.md)** | Complete specification of binary SimHub packets (`CMD 1`–`15`), serial ASCII commands (`FLASH_SERVO`, `HOME`, `STATUS`), and diagnostic responses. |
+| 🏗️ **[Architecture & Execution Reference](docs/reference.md)** | Firmware state machine, sensorless homing workflow, dual-core task design, and step-loss encoder recovery. |
+| 💡 **[RGB Status LED Guide](docs/LED.md)** | On-board WS2812 RGB LED color states (Standby, Homing, Active Driving, Parking, Error), pinouts, and brightness tuning. |
+| ⚙️ **[Configuration Reference](src/Config.h)** | Mechanical dimensions, lead screw pitch, speed/accel scaling, safety limits, and inactivity timeouts. |
 
 ---
 
