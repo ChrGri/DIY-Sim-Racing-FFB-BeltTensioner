@@ -102,16 +102,22 @@ All user-configurable parameters can be adjusted in [src/Config.h](src/Config.h)
 
 ## 💻 Flashing the Firmware
 
-### Using PlatformIO (VS Code)
+### Option A: Using SimHub FFB Pedal Dashboard (Recommended)
+You can flash pre-compiled binaries directly within SimHub without setting up a development environment:
+
+👉 **[Firmware Flashing Guide (Step-by-Step with Screenshots)](docs/Firmware_Flashing.md)**
+
+### Option B: Compiling from Source using PlatformIO (VS Code)
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/ChrGri/DiyFfbBeltTensioner.git
+   git clone https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner.git
    ```
 2. Open the cloned folder in **VS Code** with the **PlatformIO IDE** extension installed.
 3. Select your target environment:
    * `ControlBoard_V6` for ESP32-S3 DevKit
    * `ControlBoard_V7` for ESP32-S3-Zero
+   * `esp32_devkit` for ESP32 DevKit v1
 4. Connect the board via USB and click **Upload** (or run):
    ```powershell
    pio run -e ControlBoard_V6 -t upload
@@ -137,6 +143,7 @@ A detailed visual setup guide with screenshots and pre-configured import profile
 
 | Document | Topic & Content |
 | :--- | :--- |
+| 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
 | ⚡ **[Protocol & Command Specification](docs/commands.md)** | Complete specification of binary SimHub packets (`CMD 1`–`15`), serial ASCII commands (`FLASH_SERVO`, `HOME`, `STATUS`), and diagnostic responses. |
 | 🏗️ **[Architecture & Execution Reference](docs/reference.md)** | Firmware state machine, sensorless homing workflow, dual-core task design, and step-loss encoder recovery. |
