@@ -65,28 +65,27 @@ jobs:
           mkdir -p artifacts
           ENV_DIR=".pio/build/${{ matrix.environment }}"
 
-          # Copy standalone binaries with environment name prefix
-          if [ -f "$ENV_DIR/firmware.bin" ]; then
-            cp "$ENV_DIR/firmware.bin" "artifacts/firmware_${{ matrix.environment }}.bin"
-          fi
-          if [ -f "$ENV_DIR/firmware.factory.bin" ]; then
-            cp "$ENV_DIR/firmware.factory.bin" "artifacts/firmware_factory_${{ matrix.environment }}.bin"
+          # Locate boot_app0.bin from PlatformIO packages
+          BOOT_APP0=$(find ~/.platformio/packages -name "boot_app0.bin" 2>/dev/null | head -n 1)
+          if [ -n "$BOOT_APP0" ] && [ -f "$BOOT_APP0" ]; then
+            cp "$BOOT_APP0" "$ENV_DIR/boot_app0.bin"
           fi
 
-          # Package all relevant bin files into a zip archive
+          # Package all bin files into a zip archive
           cd "$ENV_DIR"
           zip -j "$GITHUB_WORKSPACE/artifacts/DIY-Sim-Racing-FFB-BeltTensioner_${{ matrix.environment }}.zip" \
             firmware.bin \
             firmware.factory.bin \
             bootloader.bin \
-            partitions.bin 2>/dev/null || true
+            partitions.bin \
+            boot_app0.bin 2>/dev/null || true
           cd "$GITHUB_WORKSPACE"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.environment }}
-          path: artifacts/*
+          path: artifacts/*.zip
           if-no-files-found: error
 
   release:
@@ -135,6 +134,6 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
-          files: release-assets/*
+          files: release-assets/*.zip
           generate_release_notes: true
           make_latest: true
