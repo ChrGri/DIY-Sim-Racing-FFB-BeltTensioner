@@ -38,13 +38,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Cache PlatformIO Core & Packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.platformio
+            ~/.cache/pip
             .pio
           key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('**/platformio*.ini') }}
           restore-keys: |
