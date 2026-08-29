@@ -35,24 +35,21 @@
              (float)STEPS_PER_MOTOR_REV))
 
 // High-performance speeds and accelerations for snappy FFB belt tensioning
-#define DEFAULT_MAX_SPEED_HZ                                                   \
-  190000U // 245 kHz (~4,593 RPM = ~765 mm/s) - maximum high-speed pulse rate
-#define DEFAULT_ACCELERATION                                                   \
-  6000000U // 6.0M steps/s^2 (~1,875 rev/s^2) - crisp, instantaneous torque
-           // delivery
+// Note: FastAccelStepper operates stably up to ~200 kHz on ESP32. 190 kHz provides peak performance without queue throttling.
+#define DEFAULT_MAX_SPEED_HZ      190000U // 190 kHz (~3,562 RPM = ~593 mm/s) - maximum reliable high-speed pulse rate
+#define DEFAULT_ACCELERATION      6000000U // 6.0M steps/s^2 (~1,875 rev/s^2) - crisp, instantaneous torque delivery (reaches 190 kHz in ~31 ms)
 
 // Multipliers for speed (CMD 2) and acceleration (CMD 3) commands from SimHub
-// SimHub UI limits: 36,000 Hz speed -> 36,000 * 6.80556f = 245,000 Hz (245 kHz)
+// SimHub UI limits: 36,000 Hz speed -> 36,000 * 5.27778f = 190,000 Hz (190 kHz)
 //                   100,000 accel   -> 100,000 * 60.0f    = 6,000,000 steps/s^2
-#define SPEED_MULTIPLIER ((float)DEFAULT_MAX_SPEED_HZ / (float)36000.0f)
-#define ACCELERATION_MULTIPLIER 60.0f
+#define SPEED_MULTIPLIER          ((float)DEFAULT_MAX_SPEED_HZ / 36000.0f)
+#define ACCELERATION_MULTIPLIER   60.0f
 
 // Soft-start ramp: 0 = Disabled for instant responsiveness
-#define SOFT_START_RAMP_MS 0U
+#define SOFT_START_RAMP_MS        0U
 
-// Inactivity delay before moving to idle/parked position and disabling servo
-// axis (10 seconds)
-#define IDLE_DELAY_MS 10000U
+// Inactivity delay before moving to idle/parked position and disabling servo axis (10 seconds)
+#define IDLE_DELAY_MS             10000U
 
 // ==============================================================================
 // 3. TENSION DIRECTION & SAFETY BOUNDARIES

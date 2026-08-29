@@ -41,8 +41,8 @@ All user-configurable mechanical, motion scaling, and safety parameters can be c
 #define TOTAL_WORKING_RANGE_MM        50.0f   // Usable stroke distance on rail (e.g. 50mm)
 
 // Dynamic Multipliers for SimHub UI Sliders
-#define SPEED_MULTIPLIER              (245000.0f / 36000.0f) // Scales 36k Hz -> 245k Hz
-#define ACCELERATION_MULTIPLIER       11.0f                  // Scales 100k -> 1.1M steps/s^2
+#define SPEED_MULTIPLIER              ((float)DEFAULT_MAX_SPEED_HZ / 36000.0f) // Scales 36k Hz -> 190k Hz (< 200 kHz FastAccelStepper limit)
+#define ACCELERATION_MULTIPLIER       60.0f                                    // Scales 100k -> 6.0M steps/s^2
 
 // Tension Direction (false = 0% loose / 100% pull tight on braking)
 #define INVERT_TENSION_DIRECTION      false
