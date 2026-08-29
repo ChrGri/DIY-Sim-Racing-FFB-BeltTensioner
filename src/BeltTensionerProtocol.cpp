@@ -21,6 +21,16 @@ void BeltTensionerProtocol::sendGreeting(Stream* stream) {
     stream->println(F(" steppers enabled"));
 }
 
+void BeltTensionerProtocol::flushStream(Stream* stream) {
+    if (stream == nullptr) return;
+    while (stream->available()) {
+        stream->read();
+    }
+    parserState = PARSE_IDLE;
+    asciiCmdIndex = 0;
+    dataIndex = 0;
+}
+
 void BeltTensionerProtocol::dumpSensor(Stream* stream, uint8_t axis) {
     if (stream == nullptr || axis >= numAxes || axisUnits == nullptr) return;
 

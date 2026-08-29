@@ -50,92 +50,17 @@ If you have already built or gathered parts for the [DIY Sim Racing FFB Pedal](h
 
 ---
 
-## 🔌 Hardware Setup & Pinout
+## ⚡ Quick Setup Guide
 
-### ControlBoard_V6 (ESP32-S3 DevKit)
+Getting your active FFB Belt Tensioner up and running takes just two steps:
 
-| Function | ESP32-S3 Pin | Note |
-| :--- | :--- | :--- |
-| **Actuator 1 STEP (PUL+)** | `GPIO 37` | Hardware pulse output |
-| **Actuator 1 DIR (DIR+)** | `GPIO 36` | Direction signal (`INVERT_DIR = true`) |
-| **Actuator 1 Modbus RX** | `GPIO 1` | RS232 Receive from iSV57 |
-| **Actuator 1 Modbus TX** | `GPIO 2` | RS232 Transmit to iSV57 |
-| **Actuator 1 Alarm (ALM)** | `GPIO 11` | Servo fault detection |
-| **Actuator 1 Brake Resistor** | `GPIO 35` | Optional brake chopper control |
-| **USB Serial** | `CP2102 UART0` | SimHub connection (`250000` baud) |
-
-### ControlBoard_V7 (ESP32-S3-Zero)
-
-| Function | ESP32-S3 Pin | Note |
-| :--- | :--- | :--- |
-| **Actuator 1 STEP (PUL+)** | `GPIO 4` | Hardware pulse output |
-| **Actuator 1 DIR (DIR+)** | `GPIO 5` | Direction signal |
-| **Actuator 1 Modbus RX** | `GPIO 3` | RS232 Receive |
-| **Actuator 1 Modbus TX** | `GPIO 2` | RS232 Transmit |
-
----
-
-## ⚙️ Configuration (`src/Config.h`)
-
-All user-configurable parameters can be adjusted in [src/Config.h](src/Config.h):
-
-```c
-// Stroke length and motor mechanics
-#define NUM_ACTUATORS                 1       // 1 = Mono tensioner, 2 = Dual (Left + Right)
-#define STEPS_PER_MOTOR_REV           3200U   // iSV57 microsteps per revolution
-#define SPINDLE_PITCH_MM              10.0f   // Lead screw pitch (mm per rev)
-#define TOTAL_WORKING_RANGE_MM        50.0f   // Usable stroke distance on rail (e.g. 50mm)
-
-// Dynamic Multipliers for SimHub UI Sliders
-#define SPEED_MULTIPLIER              5.0f    // Scales 36k Hz -> 180k Hz
-#define ACCELERATION_MULTIPLIER       6.0f    // Scales 100k -> 600k steps/s^2
-
-// Tension Direction (false = 0% loose / 100% pull tight on braking)
-#define INVERT_TENSION_DIRECTION      false
-
-// Sensorless Homing (false = single-endstop homing, true = dual-endstop stroke measurement)
-#define MEASURE_MAX_TRAVEL_SENSORLESS false
-#define HOMING_CURRENT_THRESHOLD_PCT  15      // Servo current % threshold for endstop contact
-```
-
----
-
-## 💻 Flashing the Firmware
-
-### Option A: Using SimHub FFB Pedal Dashboard (Recommended)
-You can flash pre-compiled binaries directly within SimHub without setting up a development environment:
-
+### 1️⃣ Flash the Firmware
+Download the latest pre-compiled release for your board and flash it directly within SimHub using the FFB Pedal Dashboard plugin:
 👉 **[Firmware Flashing Guide (Step-by-Step with Screenshots)](docs/Firmware_Flashing.md)**
 
-### Option B: Compiling from Source using PlatformIO (VS Code)
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner.git
-   ```
-2. Open the cloned folder in **VS Code** with the **PlatformIO IDE** extension installed.
-3. Select your target environment:
-   * `ControlBoard_V6` for ESP32-S3 DevKit
-   * `ControlBoard_V7` for ESP32-S3-Zero
-   * `esp32_devkit` for ESP32 DevKit v1
-4. Connect the board via USB and click **Upload** (or run):
-   ```powershell
-   pio run -e ControlBoard_V6 -t upload
-   ```
-
----
-
-## 🎮 SimHub Configuration
-
-A detailed visual setup guide with screenshots and pre-configured import profiles is available in the documentation:
-
-👉 **[SimHub Motion Plugin Setup Guide (Step-by-Step)](docs/SimHub_Motion_Setup.md)**
-
-### Quick Setup Overview:
-1. In **SimHub**, navigate to **Motion** $\rightarrow$ **Platform Config.**
-2. Either **Import** the pre-configured preset from [`docs/motionPluginSetup/AllPlatformSettings.shmotionoutput`](docs/motionPluginSetup/AllPlatformSettings.shmotionoutput) or add a new **SimHub DIY Belt Tensioner** controller.
-3. Set your ESP32 serial port (`250000` baud), set speed & acceleration sliders to maximum (`36000` / `100000`), and disable *Rotary lever compensation*.
-4. Click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and instantly respond to in-game telemetry!
+### 2️⃣ Configure the SimHub Motion Plugin
+Import the pre-configured preset or configure the controller in SimHub Motion:
+👉 **[SimHub Motion Plugin Setup Guide](docs/SimHub_Motion_Setup.md)**
 
 ---
 
@@ -145,10 +70,10 @@ A detailed visual setup guide with screenshots and pre-configured import profile
 | :--- | :--- |
 | 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
+| 🛠️ **[Developer & Hardware Guide](docs/Developer_Guide.md)** | Hardware pinouts, board wiring, `src/Config.h` parameters, and compiling from source with PlatformIO. |
 | ⚡ **[Protocol & Command Specification](docs/commands.md)** | Complete specification of binary SimHub packets (`CMD 1`–`15`), serial ASCII commands (`FLASH_SERVO`, `HOME`, `STATUS`), and diagnostic responses. |
 | 🏗️ **[Architecture & Execution Reference](docs/reference.md)** | Firmware state machine, sensorless homing workflow, dual-core task design, and step-loss encoder recovery. |
 | 💡 **[RGB Status LED Guide](docs/LED.md)** | On-board WS2812 RGB LED color states (Standby, Homing, Active Driving, Parking, Error), pinouts, and brightness tuning. |
-| ⚙️ **[Configuration Reference](src/Config.h)** | Mechanical dimensions, lead screw pitch, speed/accel scaling, safety limits, and inactivity timeouts. |
 
 ---
 

@@ -360,6 +360,11 @@ void AxisUnit::updateHoming() {
                 state.homingState = HOMING_DONE;
                 state.motorReady = true;
                 log(F("Calibration successful."));
+
+                // Flush any stale telemetry packets accumulated during the homing sequence
+                while (Serial.available()) {
+                    Serial.read();
+                }
             }
             break;
     }
@@ -394,7 +399,6 @@ void AxisUnit::setMaxSpeed16Bits(uint16_t speed) {
             stepper->applySpeedAcceleration();
         }
         state.finalVelocityApplied = false;
-        log("Speed set to " + String(settings.maxSpeed));
     }
 }
 
@@ -406,7 +410,6 @@ void AxisUnit::setMaxAcceleration32Bits(uint32_t accel) {
             stepper->applySpeedAcceleration();
         }
         state.finalVelocityApplied = false;
-        log("Acceleration set to " + String(settings.acceleration));
     }
 }
 

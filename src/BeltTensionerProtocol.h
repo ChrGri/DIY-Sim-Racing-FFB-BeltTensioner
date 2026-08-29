@@ -20,6 +20,7 @@ public:
     void begin(AxisUnit** axes, uint8_t axisCount);
     void processIncomingStream(Stream* stream);
     void sendGreeting(Stream* stream);
+    void flushStream(Stream* stream);
 
 private:
     AxisUnit** axisUnits = nullptr;

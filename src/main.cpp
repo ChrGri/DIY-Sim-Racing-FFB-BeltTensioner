@@ -82,6 +82,7 @@ void setup() {
 #endif
 
     // 2. Initialize Host PC Serial for SimHub communication & serial monitor logging
+    Serial.setRxBufferSize(128);
     Serial.begin(SIMHUB_SERIAL_BAUDRATE);
     protocol.begin(axisUnits, axisCount);
 
@@ -178,9 +179,6 @@ void loop() {
     // 3. Update status RGB LED color based on system state
     statusLed.update(axisUnits, axisCount);
 
-    // 4. Prevent Task Watchdog (TWDT) reset on Core 1 & minimize serial latency
+    // 4. Yield CPU to prevent Task Watchdog (TWDT) reset on Core 1
     yield();
-    if (!Serial.available()) {
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
 }

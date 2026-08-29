@@ -38,10 +38,25 @@ Extract the downloaded `.zip` file into a local folder on your computer.
 
 ---
 
-### Step 4: Select COM Port
+### Step 4: Verify COM Port Settings & Select Port
+
 1. Connect your controller board to your PC via USB.
-2. In the **USB Firmware Flasher** window, select your controller's **COM Port** from the dropdown menu (e.g. `COM12`).
-3. If your port does not appear, click **Refresh**.
+2. Open **Windows Device Manager** (*Geräte-Manager*):
+   * Expand **Ports (COM & LPT)** (*Anschlüsse (COM & LPT)*).
+   * Right-click your ESP32 COM port (e.g. `COM12` / `CH343` / `CP210x`) and click **Properties** (*Eigenschaften*).
+   * Switch to the **Port Settings** (*Anschlusseinstellungen*) tab and click **Advanced...** (*Erweitert...*).
+   * Verify that your advanced port settings match the configuration shown below:
+     * **Use FIFO buffers:** Enabled / Checked
+     * **Receive Buffer:** High (14)
+     * **Transmit Buffer:** High (16)
+     * Additional flags (RTS/DTR set states, ModemHandshake, etc.): Disabled / Unchecked
+
+<p align="center">
+  <img src="media/com_port_advanced_settings.png" alt="Device Manager Advanced COM Port Settings" width="70%">
+</p>
+
+3. In the SimHub **USB Firmware Flasher** window, select your controller's **COM Port** from the dropdown menu (e.g. `COM12`).
+4. If your port does not appear, click **Refresh**.
 
 <p align="center">
   <img src="media/flash_step3_com_port.png" alt="Select COM Port" width="70%">

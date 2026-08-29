@@ -21,6 +21,7 @@ private:
     uint8_t brightness;
     uint32_t lastBlinkTime = 0;
     bool blinkState = false;
+    LedColorState currentColor = LED_OFF;
 
     void writeRgb(uint8_t r, uint8_t g, uint8_t b) {
         if (ledPin < 0) return;
@@ -36,7 +37,7 @@ private:
     }
 
 public:
-    StatusLed() : ledPin(RGB_LED_GPIO), brightness(RGB_LED_BRIGHTNESS) {}
+    StatusLed() : ledPin(RGB_LED_GPIO), brightness(RGB_LED_BRIGHTNESS), currentColor(LED_OFF) {}
 
     void begin(int8_t pin = RGB_LED_GPIO, uint8_t bright = RGB_LED_BRIGHTNESS) {
         ledPin = pin;
@@ -53,6 +54,8 @@ public:
     }
 
     void setColor(LedColorState color) {
+        if (currentColor == color) return;
+        currentColor = color;
         switch (color) {
             case LED_OFF:     writeRgb(0, 0, 0); break;
             case LED_RED:     writeRgb(255, 0, 0); break;
