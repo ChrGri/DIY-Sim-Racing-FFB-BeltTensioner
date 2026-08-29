@@ -76,9 +76,9 @@ Click on **Settings >** next to the **SimHub DIY Belt Tensioner** controller to 
    * Map channel `#1` to **Single belt tensioner : Center belt** (Direction: **Normal direction**).
 3. **Hardware settings:**
    * **Maximum steppers pulse frequency:** Set to **`36000`** (Maximum slider value).
-     > *Note:* The firmware automatically applies a `5.0x` scaling factor to reach the full servo capability of **180,000 Hz** (~56 rev/s).
+     > *Note:* The firmware automatically applies a `6.8x` scaling factor to reach the maximum pulse capability of **245,000 Hz** (~76.5 rev/s = ~765 mm/s).
    * **Maximum steppers acceleration:** Set to **`100000`** (Maximum slider value).
-     > *Note:* The firmware automatically applies a `6.0x` scaling factor to reach **600,000 steps/s²** for instantaneous torque.
+     > *Note:* The firmware automatically applies a `11.0x` scaling factor to reach **1,100,000 steps/s²** for instantaneous torque.
    * **Enable Rotary lever compensation:** **OFF / Disabled** (Ensure this is turned off, as our design uses a direct linear rail / spindle mechanism).
 
 <p align="center">

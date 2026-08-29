@@ -119,5 +119,4 @@ private:
     int32_t hardLimitMax = TOTAL_WORKING_RANGE_STEPS;
 
     void log(const String& msg);
-    void setSpeedLive(uint32_t speed);
 };

@@ -50,9 +50,7 @@ bool Isv57Communication::flashTunedParameters(bool commandRotationDirection, uin
         int32_t targetVal = isv57_tuned_parameters[regIdx];
 
         // Apply motor-specific config overrides
-        if (regIdx == (pr_0_00 + 6)) {
-            targetVal = commandRotationDirection ? 1 : 0;
-        } else if (regIdx == (pr_0_00 + 8)) {
+        if (regIdx == (pr_0_00 + 8)) {
             targetVal = (int32_t)stepsPerMotorRev_u32;
         }
 

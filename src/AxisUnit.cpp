@@ -54,20 +54,22 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
     // 2. Initialize FastAccelStepper pulse generator
     if (engine != nullptr && settings.stepPin >= 0) {
         stepper = engine->stepperConnectToPin(settings.stepPin);
-        if (stepper) {
-            stepper->setDirectionPin(settings.dirPin, settings.invertDir);
-            stepper->setAutoEnable(true);
-            if (calibrateAtBoot) {
-                stepper->enableOutputs();
-            } else {
-                stepper->disableOutputs();
+        if (stepper != nullptr) {
+            if (settings.dirPin >= 0) {
+                stepper->setDirectionPin(settings.dirPin, settings.invertDir);
+            }
+            if (settings.enaPin >= 0) {
+                stepper->setEnablePin(settings.enaPin, true);
+                if (calibrateAtBoot) {
+                    stepper->enableOutputs();
+                } else {
+                    stepper->disableOutputs();
+                }
             }
             stepper->setSpeedInHz(settings.maxSpeed);
             stepper->setAcceleration(settings.acceleration);
             stepper->applySpeedAcceleration();
             stepper->setCurrentPosition(0);
-        } else {
-            return false;
         }
     }
 
@@ -78,7 +80,7 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
         state.motorReady = false;
     }
 
-    return true;
+    return (stepper != nullptr);
 }
 
 void AxisUnit::pollModbusTelemetry() {
@@ -89,7 +91,6 @@ void AxisUnit::pollModbusTelemetry() {
         if (isv57.findServosSlaveId()) {
             isv57.clearServoAlarms();
             isv57.setupServoStateReading();
-            isv57.sendTunedServoParameters(settings.invertDir, STEPS_PER_MOTOR_REV);
             if (state.motorPowered) {
                 isv57.enableAxis();
             } else {
@@ -175,7 +176,7 @@ bool AxisUnit::enableMotor() {
         state.finalVelocityApplied = false;
         state.lastActivityTime = millis();
         state.isParked = false;
-        state.homingState = HOMING_IDLE; // Achse war stromlos -> Homing muss neu ausgeführt werden
+        state.homingState = HOMING_IDLE; // Achse war stromlos -> Homing neu ausführen
         log(F("Enabling motor"));
     }
 
@@ -200,6 +201,7 @@ bool AxisUnit::enableMotor() {
 void AxisUnit::disableMotor() {
     if (state.motorPowered) {
         if (stepper != nullptr) {
+            stepper->forceStop();
             stepper->disableOutputs();
         }
         isv57.disableAxis();
@@ -217,6 +219,9 @@ void AxisUnit::disableMotor() {
 void AxisUnit::startSensorlessHoming() {
     log(F("Starting stepper calibration"));
     isv57.enableAxis();
+    if (stepper != nullptr) {
+        stepper->enableOutputs();
+    }
     state.motorPowered = true;
     state.homingState = HOMING_START;
     state.motorReady = false;
@@ -234,8 +239,8 @@ void AxisUnit::updateHoming() {
 
         case HOMING_START:
             isv57.enableAxis();
-            state.motorPowered = true;
             stepper->enableOutputs();
+            state.motorPowered = true;
             stepper->setSpeedInHz(settings.homingSpeed);
             stepper->setAcceleration(settings.homingAccel);
             stepper->applySpeedAcceleration();
@@ -247,6 +252,9 @@ void AxisUnit::updateHoming() {
             if (servoInitialized && isv57.dynamicStates.servo_receivedPacketIsValid_b) {
                 if (millis() - state.homingStateStartTime > 300) {
                     // Step 1: Move backward to find mechanical MIN hard stop
+                    stepper->setSpeedInHz(settings.homingSpeed);
+                    stepper->setAcceleration(settings.homingAccel);
+                    stepper->applySpeedAcceleration();
                     stepper->runBackward();
                     state.homingState = HOMING_APPROACH_MIN;
                     state.homingStateStartTime = millis();
@@ -274,8 +282,7 @@ void AxisUnit::updateHoming() {
             }
 
             if (stallDetected) {
-                stepper->forceStop();
-                stepper->setCurrentPosition(-settings.homingBackoffSteps);
+                stepper->forceStopAndNewPosition(-settings.homingBackoffSteps);
                 stepper->moveTo(0);
                 state.homingState = HOMING_BACKOFF_MIN;
             }
@@ -291,6 +298,9 @@ void AxisUnit::updateHoming() {
 
                 if (settings.measureMaxTravel) {
                     // Step 2: Move forward to find mechanical MAX hard stop
+                    stepper->setSpeedInHz(settings.homingSpeed);
+                    stepper->setAcceleration(settings.homingAccel);
+                    stepper->applySpeedAcceleration();
                     stepper->runForward();
                     state.homingState = HOMING_MEASURE_MAX_APPROACH;
                     state.homingStateStartTime = millis();
@@ -323,7 +333,6 @@ void AxisUnit::updateHoming() {
             }
 
             if (stallDetected) {
-                stepper->forceStop();
                 int32_t measured = stepper->getCurrentPosition();
                 hardLimitMax = measured - settings.homingBackoffSteps;
                 if (hardLimitMax < 2000) {
@@ -332,6 +341,7 @@ void AxisUnit::updateHoming() {
                 settings.totalWorkingRange = hardLimitMax;
 
                 // Back off from MAX hard stop
+                stepper->forceStopAndNewPosition(measured);
                 stepper->moveTo(hardLimitMax);
                 state.homingState = HOMING_MEASURE_MAX_BACKOFF;
             }
@@ -353,7 +363,7 @@ void AxisUnit::updateHoming() {
 
         case HOMING_RETURN_HOME:
             if (!stepper->isRunning()) {
-                // Homing completely finished! Restore normal high speed & snappy acceleration
+                // Homing completely finished! Restore normal high speed
                 stepper->setSpeedInHz(settings.maxSpeed);
                 stepper->setAcceleration(settings.acceleration);
                 stepper->applySpeedAcceleration();
@@ -423,7 +433,13 @@ void AxisUnit::moveToIdle(bool blocking) {
     // Park at relaxed position (10% or 90% depending on invertTensionDir)
     float idlePct = settings.invertTensionDir ? (100.0f - IDLE_POSITION_PCT) : IDLE_POSITION_PCT;
     int32_t idlePos = (int32_t)((idlePct / 100.0f) * (float)hardLimitMax);
-    stepper->moveTo(idlePos, blocking);
+    stepper->moveTo(idlePos);
+
+    if (blocking) {
+        while (stepper->isRunning()) {
+            delay(1);
+        }
+    }
 }
 
 void AxisUnit::updateIdleWatchdog(unsigned long idleTimeoutMs) {
