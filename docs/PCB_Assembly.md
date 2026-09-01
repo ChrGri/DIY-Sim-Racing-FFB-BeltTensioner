@@ -8,21 +8,15 @@ This guide walks you through assembling and soldering the controller PCB (`Contr
 
 Because the Belt Tensioner operates via position control and sensorless Modbus telemetry instead of a load cell, **more than half of the components from the pedal PCB are omitted**. This makes assembling the board much faster and easier!
 
-```
-                    ┌──────────────────────────────────────────────────────────┐
-                    │            ControlBoard_V7 (ESP32-S3 Zero)               │
-                    ├─────────────────────────────┬────────────────────────────┤
-                    │   ✅ REQUIRED & POPULATED    │   ❌ OMITTED & SKIPPED      │
-                    ├─────────────────────────────┼────────────────────────────┤
-                    │ • SR5100 Schottky Diode     │ • ADS1220 ADC Chip         │
-                    │ • XT30 Power Connector      │ • RC Filter Network        │
-                    │ • SP2323 / SP3232 RS232 IC  │ • FR120N MOSFET            │
-                    │ • RS232 Charge-Pump Caps    │ • 8Ω / 10Ω Brake Resistor  │
-                    │ • ESP32-S3 Zero Board       │ • Load Cell Terminals      │
-                    │ • Pulse / Dir / Alm Header  │                            │
-                    │ • Modbus Telemetry Port     │                            │
-                    └─────────────────────────────┴────────────────────────────┘
-```
+| ✅ Required & Populated (Belt Tensioner) | ❌ Omitted & Skipped (Pedal Only) |
+| :--- | :--- |
+| **SR5100 Schottky Diode** (Power input protection) | **ADS1220 ADC Chip** (Load cell amplifier) |
+| **XT30 Power Connector** (Angled male DC input) | **RC Filter Network** (100Ω resistors & 0.1µF caps) |
+| **SP2323 / SP3232 RS232 Transceiver** | **FR120N MOSFET** (Brake chopper circuit) |
+| **RS232 Charge-Pump Caps** (0.1 µF / 104) | **8Ω / 10Ω 5W Brake Resistor** (Load dump) |
+| **ESP32-S3 Zero Board** (Microcontroller) | **Load Cell Screw Terminals** |
+| **Pulse / Dir / Alm Servo Interface Headers** | |
+| **Modbus Telemetry Port** (5-pin debug interface) | |
 
 > [!TIP]
 > Base Soldering Guide: This guide builds upon the original pedal documentation:  
