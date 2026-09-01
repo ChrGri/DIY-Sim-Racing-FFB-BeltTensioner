@@ -27,6 +27,16 @@ This guide covers hardware pinouts, board configurations, firmware parameters in
 | **Actuator 1 Modbus RX** | `GPIO 3` | RS232 Receive |
 | **Actuator 1 Modbus TX** | `GPIO 2` | RS232 Transmit |
 
+### 🛠️ Soldering & PCB Assembly
+
+Follow the dedicated step-by-step soldering tutorial:  
+👉 **[Control PCB Assembly & Soldering Guide](PCB_Assembly.md)**
+
+**Belt Tensioner Specific Simplifications:**
+* **Power Circuit:** Populate only the **SR5100 diode** and the **XT30 power connector**. The MOSFET and brake resistor circuit are **not needed**.
+* **Loadcell Circuit:** Do **not** solder the ADS1220 ADC or RC filter network (no loadcell is used).
+* **Connections:** Only the **RS232** (Modbus telemetry) and **PUL / DIR / ALM** servo interface lines are required.
+
 ---
 
 ## ⚙️ Firmware Configuration (`src/Config.h`)

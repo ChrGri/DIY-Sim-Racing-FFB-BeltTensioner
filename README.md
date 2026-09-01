@@ -18,7 +18,9 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 
 ## 🎬 Demonstration in Action
 
-https://github.com/user-attachments/assets/4027d6b4-1a5e-4edc-9e6e-c9eee0924ece
+[![DIY Sim Racing Active FFB Belt Tensioner in Action](https://img.youtube.com/vi/B-jjR-Q3g08/maxresdefault.jpg)](https://www.youtube.com/watch?v=B-jjR-Q3g08)
+
+> 📺 **Watch on YouTube:** [DIY Active FFB Sim Racing Belt Tensioner Showcase](https://www.youtube.com/watch?v=B-jjR-Q3g08)
 
 ---
 
@@ -50,15 +52,37 @@ If you have already built or gathered parts for the [DIY Sim Racing FFB Pedal](h
 
 ---
 
+## 📦 Bill of Materials (BOM)
+
+All components are derived from the [DIY Sim Racing FFB Pedal Ecosystem](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/BOM).
+
+> [!NOTE]
+> **Simpler than a pedal!** Unlike an active FFB pedal, the belt tensioner does **not** need a load cell or an ADS1220 ADC amplifier. Physical homing, travel limits, and stall protection are handled sensorlessly through real-time Modbus current and encoder telemetry.
+
+A complete, categorized bill of materials with direct part links, 3D print STLs, and hardware fastener specifications is available here:
+
+👉 **[Complete Bill of Materials (BOM) & Sourcing Guide](docs/BOM.md)**
+
+* **⚡ Electronics:** ControlBoard_V6 / V7, ESP32-S3, iSV57 integrated servo, SP2323 / SP3232 RS232 transceiver, SR5100 diode, 36V/48V PSU, wiring & connectors.
+* **🔩 Mechanics:** KK60 ballscrew linear rail, 8mm to 8mm coupler, 3060 adapter plate, lower load cell arm adapter (`8mmLowerAdapter_v3`), 3060 aluminum profile (400 mm).
+* **🎗️ Harness & Straps:** 20 cm heavy-duty soft tie-down loops & racing harness connection.
+* **🔧 Fasteners:** M4×16, M5×20, M5×25 cylinder head screws, M8×45 threaded rod, and 3030 M5 spring ball nuts.
+
+---
+
 ## ⚡ Quick Setup Guide
 
-Getting your active FFB Belt Tensioner up and running takes just two steps:
+Getting your active FFB Belt Tensioner up and running takes just three steps:
 
-### 1️⃣ Flash the Firmware
+### 1️⃣ Assemble & Wire the PCB
+Solder your controller board (SR5100 diode, XT30 connector, SP2323 RS232 transceiver, ESP32-S3) and wire the iSV57 servo:
+👉 **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)**
+
+### 2️⃣ Flash the Firmware
 Download the latest pre-compiled release for your board and flash it directly within SimHub using the FFB Pedal Dashboard plugin:
 👉 **[Firmware Flashing Guide (Step-by-Step with Screenshots)](docs/Firmware_Flashing.md)**
 
-### 2️⃣ Configure the SimHub Motion Plugin
+### 3️⃣ Configure the SimHub Motion Plugin
 Import the pre-configured preset or configure the controller in SimHub Motion:
 👉 **[SimHub Motion Plugin Setup Guide](docs/SimHub_Motion_Setup.md)**
 
@@ -68,6 +92,8 @@ Import the pre-configured preset or configure the controller in SimHub Motion:
 
 | Document | Topic & Content |
 | :--- | :--- |
+| 📦 **[Bill of Materials (BOM)](docs/BOM.md)** | Complete parts list, electronics, mechanics, 3D printable adapters, fasteners, and sourcing links. |
+| 🛠️ **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)** | Step-by-step soldering tutorial for ControlBoard_V7 / V6, servo interface wiring, and tensioner simplifications. |
 | 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
 | 🛠️ **[Developer & Hardware Guide](docs/Developer_Guide.md)** | Hardware pinouts, board wiring, `src/Config.h` parameters, and compiling from source with PlatformIO. |
