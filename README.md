@@ -125,7 +125,7 @@ If this project helps bring your sim racing rig to life, consider supporting fur
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ChrGri/DiyFfbBeltTensioner&type=Date)](https://star-history.com/#ChrGri/DiyFfbBeltTensioner&Date)
+[![Star History Chart](https://api.star-history.com/chart?repos=ChrGri/DiyFfbBeltTensioner&type=date&legend=top-left&sealed_token=bU_N2pO7zcl_FN1FrXp7FpKBsTZACjaeoyXgMpcmtA8QwEkaVNSGiPmMHPFU7dm510jqpZ3HKHn8_k_cV-o-usMo8Z3ZsTaLgwZr7wuKhwaF31afl9FDw0UKsi9uR0hmWOQjopRnrDcQni-tIJUvpBQRT8JItmSNgfBnkiTxjxA4fLhZRUi2oxrk3Hsm)](https://www.star-history.com/?type=date&repos=ChrGri%2FDiyFfbBeltTensioner)
 
 ---
 
