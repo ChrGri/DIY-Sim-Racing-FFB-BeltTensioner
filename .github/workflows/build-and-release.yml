@@ -28,6 +28,7 @@ jobs:
         environment:
           - ControlBoard_V6
           - ControlBoard_V7
+          - ControlBoard_PCBA_V2X_without_espnow
           - esp32_devkit
 
     steps:

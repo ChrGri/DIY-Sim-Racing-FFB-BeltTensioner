@@ -45,6 +45,14 @@ void modbusTelemetryTask(void* pvParameters) {
 }
 
 void setup() {
+    // 0. Enable hardware servo power rail if supported by board
+#ifdef SERVO_POWER_PIN
+    if (SERVO_POWER_PIN >= 0) {
+        pinMode(SERVO_POWER_PIN, OUTPUT);
+        digitalWrite(SERVO_POWER_PIN, HIGH);
+    }
+#endif
+
     // 1. Immediately clamp all control & communication pins to prevent floating state / glitches
     if (ACTUATOR1_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);

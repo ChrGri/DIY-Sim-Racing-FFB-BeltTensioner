@@ -76,6 +76,42 @@
   #endif
 
 // ------------------------------------------------------------------------------
+// PCB_VERSION == 9: ControlBoard_PCBA_V2X (LOLIN S3 Mini)
+// ------------------------------------------------------------------------------
+#elif PCB_VERSION == 9
+  #define BOARD_NAME "ControlBoard_PCBA_V2X"
+
+  // Actuator 1 (Primary / Left Belt)
+  #define ACTUATOR1_STEP_PIN            38
+  #define ACTUATOR1_DIR_PIN             37
+  #define ACTUATOR1_ENA_PIN             -1
+  #define ACTUATOR1_INVERT_DIR          false
+  #define ACTUATOR1_MODBUS_RX_PIN       9
+  #define ACTUATOR1_MODBUS_TX_PIN       10
+  #define ACTUATOR1_MODBUS_SLAVE_ID     63
+  #define ACTUATOR1_ALM_PIN             -1
+  #define ACTUATOR1_BRAKE_RESISTOR_PIN  4
+
+  // Actuator 2 (Secondary / Right Belt - Expansion / Header pins)
+  #define ACTUATOR2_STEP_PIN            18
+  #define ACTUATOR2_DIR_PIN             17
+  #define ACTUATOR2_ENA_PIN             -1
+  #define ACTUATOR2_INVERT_DIR          false
+  #define ACTUATOR2_MODBUS_RX_PIN       15
+  #define ACTUATOR2_MODBUS_TX_PIN       16
+  #define ACTUATOR2_MODBUS_SLAVE_ID     63
+  #define ACTUATOR2_ALM_PIN             -1
+  #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // Hardware servo power control (MOSFET switch on GPIO 3)
+  #define SERVO_POWER_PIN               3
+
+  // On-board WS2812 RGB LED (GPIO 12 on PCBA V2)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 12
+  #endif
+
+// ------------------------------------------------------------------------------
 // PCB_VERSION == 3: Classic ESP32 DevKit (V3)
 // ------------------------------------------------------------------------------
 #elif PCB_VERSION == 3
