@@ -29,16 +29,16 @@ void Modbus::unlock() {
     }
 }
 
-bool Modbus::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enableLogging_b) {
+bool Modbus::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enableLogging_b, bool invertSignal_b) {
     this->logEnabled_b = enableLogging_b;
     if (this->mutex == nullptr) {
         this->mutex = xSemaphoreCreateMutex();
     }
     if (this->serial_pHS != nullptr) {
         if (rxPin >= 0 && txPin >= 0) {
-            this->serial_pHS->begin(baudrate, SERIAL_8N1, rxPin, txPin);
+            this->serial_pHS->begin(baudrate, SERIAL_8N1, rxPin, txPin, invertSignal_b);
         } else {
-            this->serial_pHS->begin(baudrate, SERIAL_8N1);
+            this->serial_pHS->begin(baudrate, SERIAL_8N1, -1, -1, invertSignal_b);
         }
     }
     return true;

@@ -26,7 +26,8 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
                      int8_t rxPin,
                      int8_t txPin,
                      int16_t slaveId,
-                     bool calibrateAtBoot) {
+                     bool calibrateAtBoot,
+                     bool invertModbusSignal) {
     settings = axisSettings;
     logHeader = "M" + String(settings.stepperId) + " ";
     hardLimitMax = settings.totalWorkingRange;
@@ -37,13 +38,14 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
     }
 
     if (txPin >= 0) {
+        // UART idle level: HIGH for normal, LOW for inverted signal
         pinMode(txPin, OUTPUT);
-        digitalWrite(txPin, HIGH);
+        digitalWrite(txPin, invertModbusSignal ? LOW : HIGH);
     }
 
     // 1. Initialize Modbus communication structure (asynchronous discovery in Core 0 task)
     isv57.setSerial(serial, slaveId);
-    isv57.initialize(ISV57_MODBUS_BAUDRATE, rxPin, txPin);
+    isv57.initialize(ISV57_MODBUS_BAUDRATE, rxPin, txPin, invertModbusSignal);
     servoInitialized = false;
 
     state.motorPowered = calibrateAtBoot;

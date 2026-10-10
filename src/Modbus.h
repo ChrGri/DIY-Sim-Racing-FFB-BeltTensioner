@@ -31,7 +31,7 @@ public:
     explicit Modbus(HardwareSerial* serial);
 
     void setSerial(HardwareSerial* serial);
-    bool initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enableLogging_b = false);
+    bool initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enableLogging_b = false, bool invertSignal_b = false);
     void setSerialTimeout(uint16_t timeout_u16);
 
     uint8_t readByteFromRxBuffer(int32_t index_i32);

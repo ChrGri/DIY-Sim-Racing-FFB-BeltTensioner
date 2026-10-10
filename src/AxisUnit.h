@@ -71,7 +71,8 @@ public:
                int8_t rxPin,
                int8_t txPin,
                int16_t slaveId,
-               bool calibrateAtBoot = true);
+               bool calibrateAtBoot = true,
+               bool invertModbusSignal = false);
 
     void setPosition16Bits(uint16_t inputPosition);
     void setMaxSpeed16Bits(uint16_t speed);

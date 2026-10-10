@@ -16,9 +16,9 @@ void Isv57Communication::setSerial(HardwareSerial* serial, int16_t defaultSlaveI
     this->modbus.setSerial(serial);
 }
 
-bool Isv57Communication::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin) {
+bool Isv57Communication::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool invertSignal) {
     this->modbus.setSerialTimeout(60);
-    return this->modbus.initialize(baudrate, rxPin, txPin, false);
+    return this->modbus.initialize(baudrate, rxPin, txPin, false, invertSignal);
 }
 
 void Isv57Communication::setupServoStateReading() {

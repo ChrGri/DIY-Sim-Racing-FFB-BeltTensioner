@@ -39,6 +39,39 @@ This guide covers hardware pinouts, board configurations, firmware parameters in
 | **Servo Power Switch** | `GPIO 3` | MOSFET power switch (driven HIGH at boot) |
 | **Status RGB LED** | `GPIO 12` | On-board WS2812B NeoPixel |
 
+### ControlBoard_V4 (ESP32-S3 DevKit)
+
+| Function | ESP32-S3 Pin | Note |
+| :--- | :--- | :--- |
+| **Actuator 1 STEP (PUL+)** | `GPIO 38` | Hardware pulse output |
+| **Actuator 1 DIR (DIR+)** | `GPIO 37` | Direction signal |
+| **Actuator 1 Modbus RX** | `GPIO 9` | RS232 Receive (inverted UART signal) |
+| **Actuator 1 Modbus TX** | `GPIO 10` | RS232 Transmit (inverted UART signal) |
+| **USB Serial** | `CP2102 UART0` | SimHub connection (`250000` baud) |
+
+### ControlBoard_V5 (ESP32-S3 DevKit)
+
+| Function | ESP32-S3 Pin | Note |
+| :--- | :--- | :--- |
+| **Actuator 1 STEP (PUL+)** | `GPIO 37` | Hardware pulse output |
+| **Actuator 1 DIR (DIR+)** | `GPIO 36` | Direction signal |
+| **Actuator 1 Modbus RX** | `GPIO 1` | RS232 Receive |
+| **Actuator 1 Modbus TX** | `GPIO 2` | RS232 Transmit |
+| **Actuator 1 Brake Resistor** | `GPIO 35` | Brake resistor chopper control |
+| **Status RGB LED** | `GPIO 38` | On-board WS2812B NeoPixel |
+| **USB Serial** | `CP2102 UART0` | SimHub connection (`250000` baud) |
+
+### ControlBoard_PCBA_V1X (ESP32-S3, native USB)
+
+| Function | ESP32-S3 Pin | Note |
+| :--- | :--- | :--- |
+| **Actuator 1 STEP (PUL+)** | `GPIO 38` | Hardware pulse output |
+| **Actuator 1 DIR (DIR+)** | `GPIO 37` | Direction signal |
+| **Actuator 1 Modbus RX** | `GPIO 9` | RS232 Receive (inverted UART signal) |
+| **Actuator 1 Modbus TX** | `GPIO 10` | RS232 Transmit (inverted UART signal) |
+| **Status RGB LED** | `GPIO 12` | On-board WS2812B NeoPixel |
+| **USB Serial** | `Native USB CDC` | SimHub connection |
+
 ### 🛠️ Soldering & PCB Assembly
 
 Follow the dedicated step-by-step soldering tutorial:  
@@ -95,6 +128,9 @@ git clone https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner.git
    * `ControlBoard_V6` for ESP32-S3 DevKit
    * `ControlBoard_V7` for ESP32-S3-Zero
    * `ControlBoard_PCBA_V2X_without_espnow` for ControlBoard PCBA V2.x (LOLIN S3 Mini)
+   * `ControlBoard_PCBA_V1X` for ControlBoard PCBA V1.x
+   * `ControlBoard_V5_without_espnow` for ControlBoard_V5 (ESP32-S3 DevKit)
+   * `ControlBoard_V4` for ControlBoard_V4 (ESP32-S3 DevKit)
    * `esp32_devkit` for ESP32 DevKit v1
 3. Connect your board via USB and click **Upload** (or run):
    ```powershell
