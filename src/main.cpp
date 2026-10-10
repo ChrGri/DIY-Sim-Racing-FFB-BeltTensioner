@@ -54,6 +54,10 @@ void setup() {
 #endif
 
     // 1. Immediately clamp all control & communication pins to prevent floating state / glitches
+    if (ACTUATOR1_BRAKE_RESISTOR_PIN >= 0) {
+        pinMode(ACTUATOR1_BRAKE_RESISTOR_PIN, OUTPUT);
+        digitalWrite(ACTUATOR1_BRAKE_RESISTOR_PIN, LOW);
+    }
     if (ACTUATOR1_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);
         digitalWrite(ACTUATOR1_MODBUS_TX_PIN, HIGH);
@@ -71,6 +75,10 @@ void setup() {
         digitalWrite(ACTUATOR1_ENA_PIN, LOW);
     }
 #if (NUM_ACTUATORS >= 2)
+    if (ACTUATOR2_BRAKE_RESISTOR_PIN >= 0) {
+        pinMode(ACTUATOR2_BRAKE_RESISTOR_PIN, OUTPUT);
+        digitalWrite(ACTUATOR2_BRAKE_RESISTOR_PIN, LOW);
+    }
     if (ACTUATOR2_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR2_MODBUS_TX_PIN, OUTPUT);
         digitalWrite(ACTUATOR2_MODBUS_TX_PIN, HIGH);

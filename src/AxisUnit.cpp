@@ -429,6 +429,8 @@ void AxisUnit::moveToIdle(bool blocking) {
     stepper->setSpeedInHz(settings.homingSpeed);
     stepper->setAcceleration(settings.homingAccel);
     stepper->applySpeedAcceleration();
+    // Force the next position command to restore full drive speed/acceleration
+    state.finalVelocityApplied = false;
 
     // Park at relaxed position (10% or 90% depending on invertTensionDir)
     float idlePct = settings.invertTensionDir ? (100.0f - IDLE_POSITION_PCT) : IDLE_POSITION_PCT;
