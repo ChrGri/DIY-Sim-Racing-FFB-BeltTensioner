@@ -45,7 +45,7 @@ public:
     explicit Isv57Communication(HardwareSerial* serial, int16_t defaultSlaveId = 63);
 
     void setSerial(HardwareSerial* serial, int16_t defaultSlaveId = 63);
-    bool initialize(int32_t baudrate, int8_t rxPin, int8_t txPin);
+    bool initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool invertSignal = false);
 
     void setupServoStateReading();
     void sendTunedServoParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32);

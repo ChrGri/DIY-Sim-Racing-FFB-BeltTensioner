@@ -60,7 +60,7 @@ void setup() {
     }
     if (ACTUATOR1_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);
-        digitalWrite(ACTUATOR1_MODBUS_TX_PIN, HIGH);
+        digitalWrite(ACTUATOR1_MODBUS_TX_PIN, ACTUATOR1_MODBUS_INVERT ? LOW : HIGH);
     }
     if (ACTUATOR1_STEP_PIN >= 0) {
         pinMode(ACTUATOR1_STEP_PIN, OUTPUT);
@@ -81,7 +81,7 @@ void setup() {
     }
     if (ACTUATOR2_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR2_MODBUS_TX_PIN, OUTPUT);
-        digitalWrite(ACTUATOR2_MODBUS_TX_PIN, HIGH);
+        digitalWrite(ACTUATOR2_MODBUS_TX_PIN, ACTUATOR2_MODBUS_INVERT ? LOW : HIGH);
     }
     if (ACTUATOR2_STEP_PIN >= 0) {
         pinMode(ACTUATOR2_STEP_PIN, OUTPUT);
@@ -134,7 +134,8 @@ void setup() {
                     ACTUATOR1_MODBUS_RX_PIN,
                     ACTUATOR1_MODBUS_TX_PIN,
                     ACTUATOR1_MODBUS_SLAVE_ID,
-                    CALIBRATE_AT_BOOT);
+                    CALIBRATE_AT_BOOT,
+                    ACTUATOR1_MODBUS_INVERT);
 
     // 5. Configure and initialize Actuator 2 (if enabled)
 #if (NUM_ACTUATORS >= 2)
@@ -163,7 +164,8 @@ void setup() {
                     ACTUATOR2_MODBUS_RX_PIN,
                     ACTUATOR2_MODBUS_TX_PIN,
                     ACTUATOR2_MODBUS_SLAVE_ID,
-                    CALIBRATE_AT_BOOT);
+                    CALIBRATE_AT_BOOT,
+                    ACTUATOR2_MODBUS_INVERT);
 #endif
 
     // 6. Launch FreeRTOS background task on Core 0 for Modbus telemetry & stall monitoring

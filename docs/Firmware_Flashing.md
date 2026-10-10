@@ -12,6 +12,10 @@ This guide explains how to flash the pre-compiled firmware to your **ControlBoar
    * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_V6.zip` (ESP32-S3 DevKit)
    * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_V7.zip` (ESP32-S3 Zero)
    * `DIY-Sim-Racing-FFB-BeltTensioner_esp32_devkit.zip` (ESP32 DevKit v1)
+   * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_PCBA_V2X_without_espnow.zip` (ControlBoard PCBA V2.x)
+   * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_PCBA_V1X.zip` (ControlBoard PCBA V1.x)
+   * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_V5_without_espnow.zip` (ControlBoard_V5, ESP32-S3 DevKit)
+   * `DIY-Sim-Racing-FFB-BeltTensioner_ControlBoard_V4.zip` (ControlBoard_V4, ESP32-S3 DevKit)
 
 <p align="center">
   <img src="media/flash_step1_release_download.png" alt="Download Release Assets" width="85%">

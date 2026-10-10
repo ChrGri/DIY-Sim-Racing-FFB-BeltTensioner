@@ -144,6 +144,107 @@
   #endif
 
 // ------------------------------------------------------------------------------
+// PCB_VERSION == 6: ControlBoard_V4 (ESP32-S3 DevKit)
+// ------------------------------------------------------------------------------
+#elif PCB_VERSION == 6
+  #define BOARD_NAME "ControlBoard_V4"
+
+  // Actuator 1 (servo RS232 level shifter inverts the UART signal)
+  #define ACTUATOR1_STEP_PIN            38
+  #define ACTUATOR1_DIR_PIN             37
+  #define ACTUATOR1_ENA_PIN             -1
+  #define ACTUATOR1_INVERT_DIR          false
+  #define ACTUATOR1_MODBUS_RX_PIN       9
+  #define ACTUATOR1_MODBUS_TX_PIN       10
+  #define ACTUATOR1_MODBUS_SLAVE_ID     63
+  #define ACTUATOR1_MODBUS_INVERT       true
+  #define ACTUATOR1_ALM_PIN             -1
+  #define ACTUATOR1_BRAKE_RESISTOR_PIN  -1
+
+  // Actuator 2 (not available on this PCB)
+  #define ACTUATOR2_STEP_PIN            -1
+  #define ACTUATOR2_DIR_PIN             -1
+  #define ACTUATOR2_ENA_PIN             -1
+  #define ACTUATOR2_INVERT_DIR          false
+  #define ACTUATOR2_MODBUS_RX_PIN       -1
+  #define ACTUATOR2_MODBUS_TX_PIN       -1
+  #define ACTUATOR2_MODBUS_SLAVE_ID     63
+  #define ACTUATOR2_ALM_PIN             -1
+  #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // No status LED (GPIO 48 is routed to the MCP4725 SDA on this PCB)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 -1
+  #endif
+
+// ------------------------------------------------------------------------------
+// PCB_VERSION == 12: ControlBoard_V5 (ESP32-S3 DevKit)
+// ------------------------------------------------------------------------------
+#elif PCB_VERSION == 12
+  #define BOARD_NAME "ControlBoard_V5"
+
+  // Actuator 1
+  #define ACTUATOR1_STEP_PIN            37
+  #define ACTUATOR1_DIR_PIN             36
+  #define ACTUATOR1_ENA_PIN             -1
+  #define ACTUATOR1_INVERT_DIR          false
+  #define ACTUATOR1_MODBUS_RX_PIN       1
+  #define ACTUATOR1_MODBUS_TX_PIN       2
+  #define ACTUATOR1_MODBUS_SLAVE_ID     63
+  #define ACTUATOR1_ALM_PIN             -1
+  #define ACTUATOR1_BRAKE_RESISTOR_PIN  35
+
+  // Actuator 2 (not available on this PCB)
+  #define ACTUATOR2_STEP_PIN            -1
+  #define ACTUATOR2_DIR_PIN             -1
+  #define ACTUATOR2_ENA_PIN             -1
+  #define ACTUATOR2_INVERT_DIR          false
+  #define ACTUATOR2_MODBUS_RX_PIN       -1
+  #define ACTUATOR2_MODBUS_TX_PIN       -1
+  #define ACTUATOR2_MODBUS_SLAVE_ID     63
+  #define ACTUATOR2_ALM_PIN             -1
+  #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // On-board WS2812 RGB LED (Waveshare ESP32-S3-DevKitC-1 on GPIO 38)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 38
+  #endif
+
+// ------------------------------------------------------------------------------
+// PCB_VERSION == 7: ControlBoard_PCBA_V1X (Gilphilbert PCBA, native USB)
+// ------------------------------------------------------------------------------
+#elif PCB_VERSION == 7
+  #define BOARD_NAME "ControlBoard_PCBA_V1X"
+
+  // Actuator 1 (servo RS232 level shifter inverts the UART signal)
+  #define ACTUATOR1_STEP_PIN            38
+  #define ACTUATOR1_DIR_PIN             37
+  #define ACTUATOR1_ENA_PIN             -1
+  #define ACTUATOR1_INVERT_DIR          false
+  #define ACTUATOR1_MODBUS_RX_PIN       9
+  #define ACTUATOR1_MODBUS_TX_PIN       10
+  #define ACTUATOR1_MODBUS_SLAVE_ID     63
+  #define ACTUATOR1_MODBUS_INVERT       true
+  #define ACTUATOR1_ALM_PIN             -1
+  #define ACTUATOR1_BRAKE_RESISTOR_PIN  -1
+
+  // Actuator 2 (not available on this PCB)
+  #define ACTUATOR2_STEP_PIN            -1
+  #define ACTUATOR2_DIR_PIN             -1
+  #define ACTUATOR2_ENA_PIN             -1
+  #define ACTUATOR2_INVERT_DIR          false
+  #define ACTUATOR2_MODBUS_RX_PIN       -1
+  #define ACTUATOR2_MODBUS_TX_PIN       -1
+  #define ACTUATOR2_MODBUS_SLAVE_ID     63
+  #define ACTUATOR2_ALM_PIN             -1
+  #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // On-board WS2812 RGB LED (GPIO 12 on PCBA V1)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 12
+  #endif
+
+// ------------------------------------------------------------------------------
 // Generic / Fallback default pins
 // ------------------------------------------------------------------------------
 #else
@@ -172,4 +273,12 @@
   #ifndef RGB_LED_PIN
     #define RGB_LED_PIN                 21
   #endif
+#endif
+
+// Default: non-inverted servo UART signal unless overridden per board above
+#ifndef ACTUATOR1_MODBUS_INVERT
+  #define ACTUATOR1_MODBUS_INVERT       false
+#endif
+#ifndef ACTUATOR2_MODBUS_INVERT
+  #define ACTUATOR2_MODBUS_INVERT       false
 #endif

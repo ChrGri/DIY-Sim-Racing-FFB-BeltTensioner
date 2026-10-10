@@ -26,7 +26,7 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 
 ## 🚀 Key Highlights
 
-* **Reuse Existing DIY FFB Pedal Hardware:** Designed to directly utilize the same **ControlBoard_V6 / V7 (ESP32-S3)** and **Stepperonline iSV57 integrated servo motors** used in the DIY FFB Pedal project.
+* **Reuse Existing DIY FFB Pedal Hardware:** Runs on all **ESP32-S3 ControlBoards** of the DIY FFB Pedal project (V4, V5, V6, V7, PCBA V1.x and PCBA V2.x) and drives the same **Stepperonline iSV57 integrated servo motors**. See [Supported Controller Boards](#-supported-controller-boards).
 * **100% SimHub Motion Plugin Compatible:** Communicates via the standard binary SimHub Belt Tensioner protocol (v2.0) at 250,000 baud with no custom SimHub forks required.
 * **Sensorless Homing via Modbus Telemetry:** Automatic, physical zero-point calibration using real-time Modbus current feedback from the iSV57 servo without needing fragile external microswitches or optical sensors.
 * **Dynamic Speed & Acceleration Scaling:** Built-in hardware multipliers scale SimHub's UI slider limits (36,000 Hz / 100,000 steps/s²) to the full servo potential (**180,000 Hz** pulse frequency and **600,000 steps/s²** acceleration) for instantaneous, snappy braking belt pull.
@@ -44,11 +44,27 @@ If you have already built or gathered parts for the [DIY Sim Racing FFB Pedal](h
 
 | Component | DIY FFB Pedal Equivalent | Role in Belt Tensioner |
 | :--- | :--- | :--- |
-| **Controller PCB** | `ControlBoard_V6` (ESP32-S3 DevKit) or `ControlBoard_V7` (ESP32-S3 Zero) | Microcontroller running the motion generator & SimHub protocol. |
+| **Controller PCB** | Any ESP32-S3 ControlBoard (see [Supported Controller Boards](#-supported-controller-boards)) | Microcontroller running the motion generator & SimHub protocol. |
 | **Actuator** | Stepperonline iSV57T-180 / iSV57-130 integrated servo | High-torque closed-loop servo driving the linear belt puller. |
 | **Linear Rail** | 100mm / 150mm linear rail with ball/lead screw (e.g. 10mm pitch) | Converts rotary torque into fast linear harness pull. |
 | **Power Supply** | 36V / 48V DC Power Supply (MeanWell or similar) | Powers the iSV57 integrated servo and controller. |
 | **RS232 / Modbus** | Onboard RS232 transceiver on ControlBoard | Reads live current and encoder telemetry from the servo. |
+
+### 🔌 Supported Controller Boards
+
+Pre-compiled firmware is released for every ESP32-S3 ControlBoard of the DIY FFB Pedal project. Pick the release archive (`DIY-Sim-Racing-FFB-BeltTensioner_<environment>.zip`) or PlatformIO environment matching your board:
+
+| ControlBoard | Microcontroller | PlatformIO Environment | SimHub Connection |
+| :--- | :--- | :--- | :--- |
+| **ControlBoard_V4** | ESP32-S3 DevKit | `ControlBoard_V4` | UART USB port (CP2102) |
+| **ControlBoard_V5** | ESP32-S3 DevKit | `ControlBoard_V5_without_espnow` | UART USB port (CP2102) |
+| **ControlBoard_V6** | ESP32-S3 DevKit | `ControlBoard_V6` | UART USB port (CP2102) |
+| **ControlBoard_V7** | ESP32-S3 Zero | `ControlBoard_V7` | Native USB |
+| **ControlBoard PCBA V1.x** | ESP32-S3 (pre-assembled PCBA) | `ControlBoard_PCBA_V1X` | Native USB |
+| **ControlBoard PCBA V2.x** | LOLIN S3 Mini (pre-assembled PCBA) | `ControlBoard_PCBA_V2X_without_espnow` | Native USB |
+| *Generic ESP32 DevKit v1* | *Classic ESP32* | `esp32_devkit` | *UART USB port* |
+
+Pinouts for every board are listed in the [Developer & Hardware Guide](docs/Developer_Guide.md#-hardware-setup--pinouts).
 
 ---
 
@@ -63,7 +79,7 @@ A complete, categorized bill of materials with direct part links, 3D print STLs,
 
 👉 **[Complete Bill of Materials (BOM) & Sourcing Guide](docs/BOM.md)**
 
-* **⚡ Electronics:** ControlBoard_V6 / V7, ESP32-S3, iSV57 integrated servo, SP2323 / SP3232 RS232 transceiver, SR5100 diode, 36V/48V PSU, wiring & connectors.
+* **⚡ Electronics:** Any supported ESP32-S3 ControlBoard (V4–V7 or PCBA V1.x / V2.x), iSV57 integrated servo, 36V/48V PSU, wiring & connectors. Self-soldered boards additionally need the SP2323 / SP3232 RS232 transceiver and SR5100 diode (already populated on the PCBAs).
 * **🔩 Mechanics:** KK60 ballscrew linear rail, 8mm to 8mm coupler, 3060 adapter plate, lower load cell arm adapter (`8mmLowerAdapter_v3`), 3060 aluminum profile (400 mm).
 * **🎗️ Harness & Straps:** 20 cm heavy-duty soft tie-down loops & racing harness connection.
 * **🔧 Fasteners:** M4×16, M5×20, M5×25 cylinder head screws, M8×45 threaded rod, and 3030 M5 spring ball nuts.
@@ -75,7 +91,7 @@ A complete, categorized bill of materials with direct part links, 3D print STLs,
 Getting your active FFB Belt Tensioner up and running takes just three steps:
 
 ### 1️⃣ Assemble & Wire the PCB
-Solder your controller board (SR5100 diode, XT30 connector, SP2323 RS232 transceiver, ESP32-S3) and wire the iSV57 servo:
+Use any supported ESP32-S3 ControlBoard. Self-soldered boards need the SR5100 diode, XT30 connector, SP2323 / SP3232 RS232 transceiver and ESP32-S3 module; the pre-assembled PCBAs only need the iSV57 servo wired up:
 👉 **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)**
 
 ### 2️⃣ Flash the Firmware
