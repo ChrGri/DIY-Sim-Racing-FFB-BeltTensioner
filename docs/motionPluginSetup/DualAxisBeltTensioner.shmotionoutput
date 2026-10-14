@@ -1,0 +1,175 @@
+{
+  "Geometry": {
+    "Axis": [
+      {
+        "ReviewManager": {
+          "AvailableReviewKeys": "",
+          "BypassReviewKeys": []
+        },
+        "Settings": {
+          "KeepParkedWhenGameNotConnected": true,
+          "IsCalibrated": false,
+          "UseCorrectionCurve": false,
+          "SplineFilter": {
+            "ControlPoints": [
+              "0;0",
+              "50;50",
+              "100;100"
+            ],
+            "CurveFitting": 0,
+            "TypeName": "StartEndLockedSplineFilter"
+          },
+          "KeepParked": false,
+          "PullLimit": {
+            "Enabled": false,
+            "Limit": 75.0
+          },
+          "CenterOffset": 0.0,
+          "KeepParkedPosition": 2.0,
+          "OffsetRange": 10.0,
+          "ReleaseLimit": {
+            "Enabled": false,
+            "Limit": 28.0
+          },
+          "CenterPosition": 30.0,
+          "ActuatorsSpikeFilterPercentPerSecond": 500.0,
+          "BoundsEasing": false,
+          "ResetOffsetAtStartup": false,
+          "PresetSource": null,
+          "Version": 0
+        },
+        "TypeName": "BeltDualAxis"
+      }
+    ],
+    "TypeName": "GenericGeometryNull",
+    "BaseGeometry": {
+      "ReviewManager": {
+        "AvailableReviewKeys": "",
+        "BypassReviewKeys": []
+      },
+      "Settings": {
+        "PresetSource": null,
+        "Version": 0
+      },
+      "TypeName": "NullGeometry"
+    }
+  },
+  "SecondaryGeometry": null,
+  "Output": {
+    "AggregatedOutputs": [
+      {
+        "IsEnabled": false,
+        "Output": {
+          "ImportType": 0,
+          "Comments": null,
+          "CustomName": null,
+          "ShowOriginalName": true,
+          "Settings": {
+            "EnableDataLogging": false,
+            "SerialPort": "COM8",
+            "StepperFrequency": 24000,
+            "StepperAcceleration": 60000,
+            "UseRotationCompensation": false,
+            "ActuatorOrderingSettings": {
+              "ConfigurationDone": true,
+              "Roles": [
+                {
+                  "Role": 23,
+                  "MotionTarget": 0,
+                  "ReverseDirection": true
+                },
+                {
+                  "Role": 0,
+                  "MotionTarget": 0
+                }
+              ]
+            },
+            "OutputId": "886f7b3f-1b9f-43f4-9e23-22eeac9ee0a0",
+            "PresetSource": null
+          },
+          "AutomaticOrigin": null,
+          "ReviewManager": {
+            "AvailableReviewKeys": "Controller_Connection, Controller_Options",
+            "BypassReviewKeys": []
+          },
+          "TypeName": "DIYSimHubBeltTensionerOutput"
+        }
+      },
+      {
+        "IsEnabled": true,
+        "Output": {
+          "ImportType": 0,
+          "Comments": null,
+          "CustomName": null,
+          "ShowOriginalName": true,
+          "Settings": {
+            "EnableDataLogging": false,
+            "SerialPort": "COM12",
+            "StepperFrequency": 36000,
+            "StepperAcceleration": 100000,
+            "UseRotationCompensation": false,
+            "ActuatorOrderingSettings": {
+              "ConfigurationDone": true,
+              "Roles": [
+                {
+                  "Role": 21,
+                  "MotionTarget": 0
+                },
+                {
+                  "Role": 0,
+                  "MotionTarget": 0
+                }
+              ]
+            },
+            "OutputId": "8c5225d5-6b38-443f-9093-a5d012932add",
+            "PresetSource": null
+          },
+          "AutomaticOrigin": null,
+          "ReviewManager": {
+            "AvailableReviewKeys": "Controller_Connection, Controller_Options",
+            "BypassReviewKeys": []
+          },
+          "TypeName": "DIYSimHubBeltTensionerOutput"
+        }
+      },
+      {
+        "IsEnabled": true,
+        "Output": {
+          "ImportType": 0,
+          "Comments": null,
+          "CustomName": null,
+          "ShowOriginalName": true,
+          "Settings": {
+            "EnableDataLogging": false,
+            "SerialPort": "COM8",
+            "StepperFrequency": 36000,
+            "StepperAcceleration": 100000,
+            "UseRotationCompensation": false,
+            "ActuatorOrderingSettings": {
+              "ConfigurationDone": true,
+              "Roles": [
+                {
+                  "Role": 22,
+                  "MotionTarget": 0
+                },
+                {
+                  "Role": 0,
+                  "MotionTarget": 0
+                }
+              ]
+            },
+            "OutputId": "d6529d1c-7e5e-4835-8ef6-9d4561042aa8",
+            "PresetSource": null
+          },
+          "AutomaticOrigin": null,
+          "ReviewManager": {
+            "AvailableReviewKeys": "Controller_Connection, Controller_Options",
+            "BypassReviewKeys": []
+          },
+          "TypeName": "DIYSimHubBeltTensionerOutput"
+        }
+      }
+    ],
+    "TypeName": "ControllersAggregatorOutput"
+  }
+}
