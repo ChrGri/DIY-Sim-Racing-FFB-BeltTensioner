@@ -160,6 +160,22 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         } else {
             stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
         }
+    } else if (strcasecmp(cmd, "DUMP_SERVO") == 0 || strcasecmp(cmd, "DUMP_SERVO 1") == 0 ||
+               strcasecmp(cmd, "DUMP") == 0 || strcasecmp(cmd, "DUMP 1") == 0 ||
+               strcasecmp(cmd, "DIFF_SERVO") == 0 || strcasecmp(cmd, "DIFF_SERVO 1") == 0 ||
+               strcasecmp(cmd, "DIFF") == 0 || strcasecmp(cmd, "DIFF 1") == 0) {
+        bool onlyDiff = (strncasecmp(cmd, "DIFF", 4) == 0);
+        if (numAxes > 0 && axisUnits[0] != nullptr) {
+            axisUnits[0]->dumpServoParameters(onlyDiff, stream);
+        }
+    } else if (strcasecmp(cmd, "DUMP_SERVO 2") == 0 || strcasecmp(cmd, "DUMP 2") == 0 ||
+               strcasecmp(cmd, "DIFF_SERVO 2") == 0 || strcasecmp(cmd, "DIFF 2") == 0) {
+        bool onlyDiff = (strncasecmp(cmd, "DIFF", 4) == 0);
+        if (numAxes > 1 && axisUnits[1] != nullptr) {
+            axisUnits[1]->dumpServoParameters(onlyDiff, stream);
+        } else {
+            stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        }
     } else if (strcasecmp(cmd, "ENABLE_SERVO") == 0 || strcasecmp(cmd, "ENABLE") == 0 || strcasecmp(cmd, "ENABLE 1") == 0) {
         stream->println(F(">>> Enabling Servo <<<"));
         if (numAxes > 0 && axisUnits[0] != nullptr) {
@@ -189,6 +205,8 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
     } else if (strcasecmp(cmd, "HELP") == 0) {
         stream->println(F("Available Serial Commands:"));
         stream->println(F("  FLASH_SERVO    - Flash all 305 tuned parameters into iSV57 EEPROM/NVM"));
+        stream->println(F("  DUMP_SERVO     - List all 305 servo parameters (read-only)"));
+        stream->println(F("  DIFF_SERVO     - List servo parameters differing from the tuned table (read-only)"));
         stream->println(F("  ENABLE_SERVO   - Enable servo axis"));
         stream->println(F("  DISABLE_SERVO  - Disable servo axis"));
         stream->println(F("  HOME           - Re-run sensorless homing calibration"));
