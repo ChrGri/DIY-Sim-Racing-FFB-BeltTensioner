@@ -1,6 +1,6 @@
 # Firmware Flashing Guide
 
-This guide explains how to flash the pre-compiled firmware to your **ControlBoard_V6**, **ControlBoard_V7**, or **ESP32 DevKit** controller using the built-in USB Flasher in the **FFB Pedal Dashboard (SimHub Plugin)**.
+This guide explains how to flash the pre-compiled firmware to any supported ESP32-S3 ControlBoard (V4, V5, V6, V7, PCBA V1.x, PCBA V2.x) or an **ESP32 DevKit** using the built-in USB Flasher in the **FFB Pedal Dashboard (SimHub Plugin)**.
 
 ---
 
@@ -82,7 +82,7 @@ Extract the downloaded `.zip` file into a local folder on your computer.
 ### Step 6: Flash the Firmware
 1. Click the **Flash Firmware** button.
 2. Wait for the flashing process to complete.
-3. **Done!** The status LED will cycle to indicate startup and the controller is ready for use in SimHub.
+3. The status LED will cycle to indicate startup. Continue with **Step 7** before using the belt tensioner.
 
 > [!TIP]
 > **Troubleshooting / Bootloader Mode:**  
@@ -91,3 +91,33 @@ Extract the downloaded `.zip` file into a local folder on your computer.
 > 2. Press and release the **RST** (Reset) button.
 > 3. Release the **BOOT** button.
 > 4. Click **Flash Firmware** again.
+
+
+---
+
+### Step 7: Flash the Servo Registers (required)
+
+The firmware does **not** configure the iSV57 servo automatically. Rotation direction (`Pr0.06`), microsteps per revolution (`Pr0.08`), control loop gains and alarm masks are stored in the servo's own EEPROM and must be written **once** with the `FLASH_SERVO` command. Without this step the servo keeps whatever configuration it had before (factory defaults or settings from a previous project, e.g. the FFB pedal), which can result in homing in the wrong direction, wrong travel scaling or a poor force response.
+
+> [!IMPORTANT]
+> Repeat this step whenever you connect a different servo, or when a firmware release changes the tuned servo parameters.
+
+1. Make sure no other program is using the controller's COM port: disable **SimHub Motion** for the belt tensioner, and close any other serial terminal.
+2. Open a serial terminal on the controller's COM port with **250000 baud**, for example:
+   * the **Arduino IDE** Serial Monitor: select the controller's port under **Tools → Port**, open **Tools → Serial Monitor** and set the baud rate to **250000** (no sketch needs to be uploaded).
+   * or the PlatformIO monitor (`pio device monitor -b 250000`).
+3. Power the servo on and wait until the controller has connected to it.
+4. Send **`FLASH_SERVO`** (any line ending setting works).
+5. Wait for the summary. A successful run ends with:
+   ```
+   [Flash] Successfully saved parameters to servo EEPROM (0x5555)!
+   [Flash] Done! Please power cycle the servo to activate all new gains.
+   ```
+
+<p align="center">
+  <img src="media/flash_step7_servo_flash_serial_monitor.png" alt="FLASH_SERVO in the Arduino IDE Serial Monitor" width="85%">
+</p>
+
+6. **Power cycle the servo** (switch the servo power supply off and on again) so it loads the new parameters.
+7. *Optional:* send **`DIFF_SERVO`** to verify. It reads all parameters without writing anything and should report `0 differ`.
+8. Close the serial terminal and re-enable SimHub Motion. **Done!** The belt tensioner is ready for use.

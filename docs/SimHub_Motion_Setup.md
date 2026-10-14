@@ -2,9 +2,17 @@
 
 This guide describes how to configure the official **SimHub Motion Plugin** for the DIY Active FFB Belt Tensioner.
 
-> [!NOTE]
-> **SimHub Motion License & Free Trial:**  
-> The official SimHub Motion Plugin includes a **20-minute free trial** per session for testing. For uninterrupted sim racing sessions, purchasing the dedicated SimHub Motion license is recommended (one-time purchase of **39€** on [SimHub](https://www.simhubdash.com/diy-belt-tensionner/)).
+---
+
+## 🔑 Required: SimHub Motion License
+
+The belt tensioner is driven by the **SimHub Motion** plugin, which requires a **SimHub licensed edition** together with the **Motion addon licence** (one-time purchase of **39€** on [SimHub](https://www.simhubdash.com/diy-belt-tensionner/)). The plugin includes a **20-minute free trial** per session for testing, but regular sim racing sessions need the licence.
+
+To check your licence status, open **Motion** $\rightarrow$ **Global settings** $\rightarrow$ **Motion Addon Licence**. Both **SimHub licensed edition** and **Motion addon licence** must show a green check mark:
+
+<p align="center">
+  <img src="media/simhub_motion_license.png" alt="SimHub Motion Addon Licence status" width="85%">
+</p>
 
 ---
 
@@ -27,14 +35,21 @@ To prevent serial port conflicts and ensure stable communication with the **Moti
 
 ## ⚡ Option A: Quick Setup (1-Click Import)
 
-Pre-configured configuration files are provided in the [`docs/motionPluginSetup/`](motionPluginSetup/) folder.
+Pre-configured configuration files are provided in the [`docs/motionPluginSetup/`](motionPluginSetup/) folder, one for each rig variant:
+
+| Rig variant | Preset file |
+| :--- | :--- |
+| **Single belt tensioner** (one actuator) | [`SingleAxisBeltTensioner.shmotionoutput`](motionPluginSetup/SingleAxisBeltTensioner.shmotionoutput) |
+| **Dual belt tensioner** (two actuators, one controller board each) | [`DualAxisBeltTensioner.shmotionoutput`](motionPluginSetup/DualAxisBeltTensioner.shmotionoutput) |
 
 1. Open **SimHub** and navigate to the **Motion** tab on the left.
 2. Click **Platform Config.** in the top menu bar.
 3. In the left sidebar, click on **Settings Import and export**.
-4. Click **Import all platform settings** and select:
-   [`docs/motionPluginSetup/AllPlatformSettings.shmotionoutput`](motionPluginSetup/AllPlatformSettings.shmotionoutput)
-5. Select your active ESP32 COM port (baud rate: **`250000`**) and click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and is ready for telemetry!
+4. Click **Import all platform settings** and select the preset file matching your rig from the table above.
+5. Select your ESP32 COM port (baud rate: **`250000`**). The presets contain the COM ports of the author's rig, so always select your own port(s):
+   * **Single:** select the port of your controller board.
+   * **Dual:** the preset contains two enabled SimHub DIY Belt Tensioner controllers (left and right belt). Open each enabled controller's **Settings >** page and select the COM port of the matching board. Use **Test belt pull** in **Edit axis assignments** to check that each controller moves the correct belt (see Option B, Step 3, Variant 2).
+6. Click **Enable Motion** $\rightarrow$ The carriage will automatically home against the physical stop, back off into the relaxed park position, and is ready for telemetry!
 
 <p align="center">
   <img src="motionPluginSetup/4.png" alt="SimHub Settings Import and Export" width="85%">
@@ -57,9 +72,10 @@ If you prefer to configure SimHub manually from scratch, follow these steps:
 ---
 
 ### Step 2: Add Rig Rig Geometry & Motion Controller
-1. Under **Your rig**, click **Add / remove / change parts** and choose **Single belt tensioner** (or dual if using 2 actuators).
+1. Under **Your rig**, click **Add / remove / change parts** and choose **Single belt tensioner** (one actuator) or **Dual belt tensioner** (two actuators, one per shoulder belt).
 2. Under **Motion controllers**, click **+ Add controller** and select **SimHub DIY Belt Tensioner**.
-3. Enable the controller toggle switch.
+   * **Dual belt tensioner:** every actuator has its own controller board and COM port, so add **two** SimHub DIY Belt Tensioner controllers (one per board).
+3. Enable the controller toggle switch(es).
 
 <p align="center">
   <img src="motionPluginSetup/2.png" alt="Platform Configuration Overview" width="85%">
@@ -72,9 +88,28 @@ Click on **Settings >** next to the **SimHub DIY Belt Tensioner** controller to 
 
 1. **Connection:**
    * Select your ESP32 serial port (e.g. `COM12 - CP2102 USB to UART Bridge` or `CH343`) with baud rate set to **`250000`**.
-2. **Actuators output assignments:**
+2. **Actuators output assignments** (click **Edit axis assignments**). Choose the variant matching your rig:
+
+   **Variant 1: Single belt tensioner (one actuator)**
    * Map channel `#1` to **Single belt tensioner : Center belt** (Direction: **Normal direction**).
-3. **Hardware settings:**
+
+   **Variant 2: Dual belt tensioner (two actuators)**
+
+   Each actuator runs on its own controller board, so configure each of the two SimHub DIY Belt Tensioner controllers separately and map **only one axis per actuator**:
+   * **Controller of the left actuator:** channel `#1` $\rightarrow$ **Dual belt tensioner : Left belt**, channel `#2` $\rightarrow$ **Unused actuator**.
+   * **Controller of the right actuator:** channel `#1` $\rightarrow$ **Dual belt tensioner : Right belt**, channel `#2` $\rightarrow$ **Unused actuator**.
+   * Leave **Reverse actuator direction** off (Direction: **Normal direction**). Each controller page then shows **1/2 channels mapped**.
+   * Use **Test belt pull** / **Test belt release** in the axis configuration to check that each actuator moves the correct belt in the correct direction.
+
+<p align="center">
+  <img src="media/simhub_dual_belt_axis_assignment.png" alt="Dual belt tensioner: axis assignment for the left actuator" width="85%">
+</p>
+
+<p align="center">
+  <img src="media/simhub_dual_belt_controller_settings.png" alt="Dual belt tensioner: controller settings for the right actuator" width="85%">
+</p>
+
+3. **Hardware settings** (identical for single and dual setups, set them on every controller):
    * **Maximum steppers pulse frequency:** Set to **`36000`** (Maximum slider value).
      > *Note:* The firmware automatically applies a `5.28x` scaling factor to reach the peak pulse capability of **190,000 Hz** (~59.4 rev/s = ~593 mm/s) within the stable hardware limit of `FastAccelStepper`.
    * **Maximum steppers acceleration:** Set to **`100000`** (Maximum slider value).
