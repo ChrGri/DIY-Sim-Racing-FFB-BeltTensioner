@@ -86,7 +86,7 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
 }
 
 void AxisUnit::pollModbusTelemetry() {
-    if (isFlashing) return;
+    if (isFlashing || isReadingParams) return;
 
     // 1. Asynchronously connect to servo in background without blocking SimHub communication
     if (!servoInitialized) {
@@ -485,4 +485,11 @@ bool AxisUnit::flashTunedParameters(Stream* logStream) {
     }
     isFlashing = false;
     return ok;
+}
+
+void AxisUnit::dumpServoParameters(bool onlyDiff, Stream* logStream) {
+    isReadingParams = true;
+    delay(100); // Give background task time to finish any in-flight Modbus packet
+    isv57.dumpParameters(STEPS_PER_MOTOR_REV, onlyDiff, logStream);
+    isReadingParams = false;
 }

@@ -34,6 +34,11 @@ void Isv57Communication::sendTunedServoParameters(bool commandRotationDirection,
     modbus.writeAndVerifyDeviceParameter(slaveId, pr_1_00 + 37, 1052); // Alarm mask
 }
 
+// Per-unit factory calibration values that must not be copied from one servo to another
+static bool isUnitSpecificParam(uint16_t regIdx) {
+    return regIdx == (pr_7_00 + 18); // Pr7.18: Encoder index angle compensation
+}
+
 bool Isv57Communication::flashTunedParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32, Stream* logStream) {
     if (logStream != nullptr) {
         logStream->println(F("=================================================="));
@@ -47,6 +52,7 @@ bool Isv57Communication::flashTunedParameters(bool commandRotationDirection, uin
     uint16_t matchedCount = 0;
 
     for (uint16_t regIdx = 0; regIdx < ISV57_TUNED_PARAM_COUNT; regIdx++) {
+        if (isUnitSpecificParam(regIdx)) continue;
         int32_t targetVal = isv57_tuned_parameters[regIdx];
 
         // Apply motor-specific config overrides
@@ -103,6 +109,97 @@ bool Isv57Communication::flashTunedParameters(bool commandRotationDirection, uin
         logStream->println(F("=================================================="));
     }
     return (nvmRes > 0);
+}
+
+// Parameter group start addresses (Pr0.xx ... Pr7.xx)
+static const uint16_t s_paramGroupStart_au16[] = {
+    0x0000, 0x0019, 0x0041, 0x005F, 0x007D, 0x00AF, 0x00D7, 0x00FF
+};
+
+static void printParamLabel(Stream* logStream, uint16_t regIdx) {
+    uint8_t group = 0;
+    for (uint8_t g = 0; g < sizeof(s_paramGroupStart_au16) / sizeof(s_paramGroupStart_au16[0]); g++) {
+        if (regIdx >= s_paramGroupStart_au16[g]) {
+            group = g;
+        }
+    }
+    uint16_t subIdx = regIdx - s_paramGroupStart_au16[group];
+    char label[24];
+    snprintf(label, sizeof(label), "Pr%u.%02u (0x%04X)", group, subIdx, regIdx);
+    logStream->print(label);
+}
+
+// Read-only: reads all tuned-table parameters from the servo and compares them with the tuned values.
+// onlyDiff = true prints deviating registers only. Returns the number of deviating registers.
+uint16_t Isv57Communication::dumpParameters(uint32_t stepsPerMotorRev_u32, bool onlyDiff, Stream* logStream) {
+    if (logStream == nullptr) return 0;
+
+    logStream->println(F("=================================================="));
+    if (onlyDiff) {
+        logStream->print(F("Servo parameters differing from tuned table (Slave ID "));
+    } else {
+        logStream->print(F("Servo parameters (Slave ID "));
+    }
+    logStream->print(slaveId);
+    logStream->println(F(")"));
+    logStream->println(F("=================================================="));
+
+    uint16_t diffCount = 0;
+    uint16_t errorCount = 0;
+
+    for (uint16_t regIdx = 0; regIdx < ISV57_TUNED_PARAM_COUNT; regIdx++) {
+        bool unitSpecific = isUnitSpecificParam(regIdx);
+        if (onlyDiff && unitSpecific) continue;
+        int32_t tunedVal = isv57_tuned_parameters[regIdx];
+        if (regIdx == (pr_0_00 + 8)) {
+            tunedVal = (int32_t)stepsPerMotorRev_u32;
+        }
+
+        int16_t actualVal = 0;
+        bool readOk = false;
+        for (uint8_t tryIndex_u8 = 0; tryIndex_u8 < 3 && !readOk; tryIndex_u8++) {
+            readOk = (readRegisters(regIdx, 1, &actualVal) == 1);
+        }
+
+        if (!readOk) {
+            errorCount++;
+            printParamLabel(logStream, regIdx);
+            logStream->println(F("  read error"));
+            continue;
+        }
+
+        bool differs = !unitSpecific && ((int32_t)actualVal != tunedVal);
+        if (differs) {
+            diffCount++;
+        }
+
+        if (!onlyDiff || differs) {
+            printParamLabel(logStream, regIdx);
+            logStream->print(F("  actual: "));
+            logStream->print(actualVal);
+            if (unitSpecific) {
+                logStream->print(F("  (unit-specific, not compared)"));
+            } else {
+                logStream->print(F("  tuned: "));
+                logStream->print(tunedVal);
+            }
+            if (differs) {
+                logStream->print(F("  <-- differs"));
+            }
+            logStream->println();
+        }
+    }
+
+    logStream->println(F("--------------------------------------------------"));
+    logStream->print(F("Summary: "));
+    logStream->print(ISV57_TUNED_PARAM_COUNT);
+    logStream->print(F(" registers, "));
+    logStream->print(diffCount);
+    logStream->print(F(" differ, "));
+    logStream->print(errorCount);
+    logStream->println(F(" read errors."));
+    logStream->println(F("=================================================="));
+    return diffCount;
 }
 
 void Isv57Communication::readServoStates() {

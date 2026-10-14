@@ -62,6 +62,7 @@ public:
     int32_t servoPosCorrected_i32 = 0;
     volatile bool servoInitialized = false;
     volatile bool isFlashing = false;
+    volatile bool isReadingParams = false;
 
     AxisUnit();
 
@@ -86,6 +87,7 @@ public:
     bool enableMotor();
     void disableMotor();
     bool flashTunedParameters(Stream* logStream = nullptr);
+    void dumpServoParameters(bool onlyDiff, Stream* logStream);
 
     void pollModbusTelemetry();
     void unwrapAndCalculateStepLoss();

@@ -50,6 +50,7 @@ public:
     void setupServoStateReading();
     void sendTunedServoParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32);
     bool flashTunedParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32, Stream* logStream = nullptr);
+    uint16_t dumpParameters(uint32_t stepsPerMotorRev_u32, bool onlyDiff, Stream* logStream);
     void readServoStates();
     bool checkCommunication();
     bool findServosSlaveId();

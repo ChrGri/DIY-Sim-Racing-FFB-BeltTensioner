@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
 
-// Description: Array of tuned parameters derived from the file 'tuned-130_13_09_2025.h'
+// Description: Array of tuned parameters derived from the file 'tuned-130_13_09_2025.h',
+//              updated to the values of the working ControlBoard_V6 belt tensioner servo (Pr0.06 = 1 etc.)
 // Size: 305 elements
 // Type: Signed 32-bit integer
 #define ISV57_NMB_OF_REGISTERS 305
@@ -14,7 +15,7 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     9,    // Pr0.03: Selection of machine stiffness at real-time...
     110,    // Pr0.04: Ratio of inertia. Identified via Stepperonline App (on 26th March 2026)
     0,     // Pr0.05: Command pulse input selection
-    0,     // Pr0.06: Motor rotational direction setup
+    1,     // Pr0.06: Motor rotational direction setup
     3,     // Pr0.07: Reserved parameters
     3200,  // Pr0.08: Microstep (Configured for 3200 steps/rev in Belt Tensioner)
     1,     // Pr0.09: 1st numerator of electronic gear
@@ -29,8 +30,8 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     0,     // Pr0.18: Vibration suppression - N after Stop
     0,     // Pr0.19: Microseismic inhibition
     0,     // Pr0.20: Activated pulse edge
-    -1137, // Pr0.21: Reserved parameter
-    -729,  // Pr0.22: Reserved parameter
+    1,     // Pr0.21: Reserved parameter
+    0,     // Pr0.22: Reserved parameter
     0,     // Pr0.23: Reserved parameter
     0,     // Pr0.24: Reserved parameter
     600,   // Pr1.00: 1st position loop gain
@@ -143,7 +144,7 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     3584,  // Pr4.07: Input selection SI8
     0x0303, // Pr4.08: Input selection SI9
     0,     // Pr4.09: Input selection SI10
-    0x101, //0x8181,  // Pr4.10: Output selection SO1 81: No ALARM ==> 2.4Ohm, ALARM ==> inf Ohm.    Connect A: NO. Connect B: NC
+    0x1101, //0x8181,  // Pr4.10: Output selection SO1 81: No ALARM ==> 2.4Ohm, ALARM ==> inf Ohm.    Connect A: NO. Connect B: NC
     0,     // Pr4.11: Output selection SO2
     0,     // Pr4.12: Output selection SO3
     0,     // Pr4.13: Output selection SO4
@@ -197,8 +198,8 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     0,     // Pr5.11: Torque setup for emergency stop
     0,     // Pr5.12: Over-load level setup
     5000,  // Pr5.13: Over-speed level setup
-    -2241, // Pr5.14: Motor working range setup
-    -4117, // Pr5.15: I/F reading filter
+    -2235, // Pr5.14: Motor working range setup
+    -4110, // Pr5.15: I/F reading filter
     0,     // Pr5.16: Alarm clear input setup
     3,     // Pr5.17: Counter clear input setup
     0,     // Pr5.18: Command pulse inhibit input invalidation
@@ -220,7 +221,7 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     0,     // Pr5.34: Reserved parameter
     1,     // Pr5.35: Front panel lock setup
     0,     // Pr5.36: Reserved parameter
-    322,   // Pr5.37: Reserved parameter
+    38,    // Pr5.37: Reserved parameter
     5000,  // Pr5.38: Reserved parameter
     0,     // Pr5.39: Reserved parameter
     0,     // Pr6.00: Analog torque feed forward conversion gain
@@ -256,15 +257,15 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     0,     // Pr6.30: Reserved parameter
     0,     // Pr6.31: Real-time auto tuning estimation speed
     0,     // Pr6.32: Real-time auto tuning custom setup
-    25,    // Pr6.33: Reserved parameter
+    0,     // Pr6.33: Reserved parameter
     0,     // Pr6.34: Reserved parameter
     0,     // Pr6.35: Reserved parameter
     0,     // Pr6.36: Reserved parameter
     0,     // Pr6.37: Oscillation detection level
     0,     // Pr6.38: Alarm mask setup
     0,     // Pr6.39: Reserved parameter
-    500,   // Pr7.00: Current loop gain
-    50,   // Pr7.01: Current loop integral time
+    880,   // Pr7.00: Current loop gain
+    260,   // Pr7.01: Current loop integral time
     106,   // Pr7.02: Motor rotor initial position Angle compensa...
     0,     // Pr7.03: Reserved parameter
     360,   // Pr7.04: Motor rated voltage
@@ -281,7 +282,7 @@ const int32_t isv57_tuned_parameters[ISV57_NMB_OF_REGISTERS] = {
     2,     // Pr7.15: Motor model input
     0,     // Pr7.16: Encoder selection
     250,   // Pr7.17: Motor maximum current
-    338,   // Pr7.18: Encoder Index Angle compensation
+    113,   // Pr7.18: Encoder Index Angle compensation (unit-specific, skipped by FLASH_SERVO / DIFF_SERVO)
     0,     // Pr7.19: Reserved parameter
     0,     // Pr7.20: Drive model input
     0,     // Pr7.21: Servo model input

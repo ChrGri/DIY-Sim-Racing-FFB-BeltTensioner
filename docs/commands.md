@@ -180,6 +180,8 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | :--- | :--- | :--- |
 | **`FLASH_SERVO`** | `FLASH`, `FLASH 1`, `FLASH_SERVO 1` | Verifies and flashes all **305 parameters** from `isv57_tunedParameters.h` into Servo 1 and permanently saves them to EEPROM (`0x5555`). |
 | **`FLASH_SERVO 2`** | `FLASH 2` | Flashes all 305 parameters to Servo 2 (dual-actuator setup). |
+| **`DUMP_SERVO`** | `DUMP`, `DUMP 1`, `DUMP_SERVO 1` (`DUMP_SERVO 2` for Servo 2) | Read-only: lists all **305 parameters** of the servo (`PrX.YY (address)  actual  tuned`) and marks deviations from `isv57_tunedParameters.h`. |
+| **`DIFF_SERVO`** | `DIFF`, `DIFF 1`, `DIFF_SERVO 1` (`DIFF_SERVO 2` for Servo 2) | Read-only: lists only the parameters whose servo value differs from `isv57_tunedParameters.h` (Pr0.08 is compared against `STEPS_PER_MOTOR_REV`). Nothing is written. |
 | **`ENABLE_SERVO`** | `ENABLE`, `ENABLE 1` | Enables the servo power stage (`0x0085 = 0x0383` & `0x0139 = 0x0008`) and energizes the motor immediately. |
 | **`ENABLE_SERVO 2`** | `ENABLE 2` | Enables Servo 2. |
 | **`DISABLE_SERVO`** | `DISABLE` | Disables the servo power stage (`0x0085 = 0x0303` & `0x0139 = 0x0000`). The motor shaft is free to rotate. |
