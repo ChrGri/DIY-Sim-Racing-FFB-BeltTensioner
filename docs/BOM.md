@@ -46,6 +46,9 @@ For the **Active Belt Tensioner**, assembly is substantially faster and simpler 
 
 ## 🔩 2. Mechanics, 3D Prints & Rig Mounting
 
+> [!TIP]
+> The table below covers a **single actuator** on a 3060 profile. For the **dual channel** reference design (two actuators on a 2040 spine with belt rollers, PSU and a 3D printed housing), see the **[Mechanical Design Guide (Dual Channel)](Mechanical_Design_Dual_Channel.md)**. It has its own lists of printed and purchased parts. From the electronics above you need the ControlBoard, servo and their wiring twice (one per actuator); a single PSU powers both.
+
 | Component | Description / Specification | Qty | Primary Link | Secondary Link |
 | :--- | :--- | :---: | :--- | :--- |
 | **KK60 Linear Rail** | KK60 series linear module with ballscrew (10mm pitch, 60–150mm stroke) | 1 | [StepperOnline (LKN60)*](https://www.omc-stepperonline.com/de/lkn60-kk-serie-kugelgewindetrieb-linearmodul-maximale-horizontale-vertikale-nutzlast-30kg-10kg-hub-60mm-lkn60-23dl050-060?tracking=6721c5865911c) | [JLCMC JKK60](https://jlcmc.com/product/s/B16/BQD-JKK60/steel-linear-module-kk60-series#selection-tab) |

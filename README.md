@@ -26,6 +26,7 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 
 ## 🚀 Key Highlights
 
+* **Dual Channel Mechanical Design:** Complete CAD model and printable parts for a two-actuator build (one per shoulder belt) on a single 2040 spine, with power supply and servos in a 3D printed housing. See [Mechanical Design](#%EF%B8%8F-mechanical-design-dual-channel).
 * **Reuse Existing DIY FFB Pedal Hardware:** Runs on all **ESP32-S3 ControlBoards** of the DIY FFB Pedal project (V4, V5, V6, V7, PCBA V1.x and PCBA V2.x) and drives the same **Stepperonline iSV57 integrated servo motors**. See [Supported Controller Boards](#-supported-controller-boards).
 * **100% SimHub Motion Plugin Compatible:** Communicates via the standard binary SimHub Belt Tensioner protocol (v2.0) at 250,000 baud with no custom SimHub forks required.
 * **Sensorless Homing via Modbus Telemetry:** Automatic, physical zero-point calibration using real-time Modbus current feedback from the iSV57 servo without needing fragile external microswitches or optical sensors.
@@ -68,6 +69,29 @@ Pinouts for every board are listed in the [Developer & Hardware Guide](docs/Deve
 
 ---
 
+## 🏗️ Mechanical Design (Dual Channel)
+
+<p align="center">
+  <img src="cad/DIY_BeltTensioner_Render.png" alt="Dual channel FFB belt tensioner CAD render" width="70%">
+</p>
+
+The reference mechanical design is a **dual channel** belt tensioner with one active actuator per shoulder belt:
+
+* **Two JKK60 linear modules** with **iSV57T-130S servos**, mirrored left and right on a vertical 2040 spine that mounts to the rig behind the seat.
+* **Belt rollers** on a 2020 crossbar guide both belts over the shoulders down to the carriages.
+* **MeanWell LRS-350** power supply between the rails.
+* **3D printed four-part housing** with hexagonal vents, belt slots and screwed joints, designed for a 256 mm print bed.
+
+Each actuator is driven by its own ControlBoard and set up in SimHub as a **Dual belt tensioner** (see [SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)).
+
+| Resource | Content |
+| :--- | :--- |
+| 📐 **[Mechanical Design Guide](docs/Mechanical_Design_Dual_Channel.md)** | Layout, housing concept, printed and purchased parts, and assembly order |
+| 🖨️ **[Printable parts (`cad/stl/`)](cad/stl/)** | All printed parts as 3MF; the required quantity is part of the file name |
+| 🧩 **[CAD assembly (`cad/`)](cad/)** | Complete assembly plus source models (Fusion 360, STEP, IGES) |
+
+---
+
 ## 📦 Bill of Materials (BOM)
 
 All components are derived from the [DIY Sim Racing FFB Pedal Ecosystem](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/BOM).
@@ -88,17 +112,21 @@ A complete, categorized bill of materials with direct part links, 3D print STLs,
 
 ## ⚡ Quick Setup Guide
 
-Getting your active FFB Belt Tensioner up and running takes just three steps:
+Getting your active FFB Belt Tensioner up and running takes four steps:
 
-### 1️⃣ Assemble & Wire the PCB
+### 1️⃣ Build the Mechanics
+Print the parts and assemble the dual channel frame, actuators and housing:
+👉 **[Mechanical Design Guide (Dual Channel)](docs/Mechanical_Design_Dual_Channel.md)**
+
+### 2️⃣ Assemble & Wire the PCB
 Use any supported ESP32-S3 ControlBoard. Self-soldered boards need the SR5100 diode, XT30 connector, SP2323 / SP3232 RS232 transceiver and ESP32-S3 module; the pre-assembled PCBAs only need the iSV57 servo wired up:
 👉 **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)**
 
-### 2️⃣ Flash the Firmware
+### 3️⃣ Flash the Firmware
 Download the latest pre-compiled release for your board and flash it directly within SimHub using the FFB Pedal Dashboard plugin:
 👉 **[Firmware Flashing Guide (Step-by-Step with Screenshots)](docs/Firmware_Flashing.md)**
 
-### 3️⃣ Configure the SimHub Motion Plugin
+### 4️⃣ Configure the SimHub Motion Plugin
 Import the pre-configured preset or configure the controller in SimHub Motion:
 👉 **[SimHub Motion Plugin Setup Guide](docs/SimHub_Motion_Setup.md)**
 
@@ -109,6 +137,7 @@ Import the pre-configured preset or configure the controller in SimHub Motion:
 | Document | Topic & Content |
 | :--- | :--- |
 | 📦 **[Bill of Materials (BOM)](docs/BOM.md)** | Complete parts list, electronics, mechanics, 3D printable adapters, fasteners, and sourcing links. |
+| 📐 **[Mechanical Design Guide (Dual Channel)](docs/Mechanical_Design_Dual_Channel.md)** | Dual channel layout, 3D printed housing, printable 3MF parts, purchased parts, and assembly order. |
 | 🛠️ **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)** | Step-by-step soldering tutorial for ControlBoard_V7 / V6, servo interface wiring, and tensioner simplifications. |
 | 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
