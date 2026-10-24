@@ -19,7 +19,7 @@ Each actuator is driven by its own ControlBoard and appears in SimHub as its own
 | [`cad/models/`](../cad/models/) | Source models: Fusion 360 (`.f3d`) plus STEP/IGES exports of the individual parts and purchased components |
 | [`cad/DIY_BeltTensioner_Render.png`](../cad/DIY_BeltTensioner_Render.png) | Overview render |
 
-The housing parts are designed for a **256 × 256 mm** print bed. The largest part is 163 × 78 × 204 mm.
+The housing parts are designed for a **256 × 256 mm** print bed. The largest part is 163 × 78 × 209 mm.
 
 ---
 
