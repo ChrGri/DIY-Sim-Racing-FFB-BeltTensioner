@@ -120,4 +120,33 @@ The firmware does **not** configure the iSV57 servo automatically. Rotation dire
 
 6. **Power cycle the servo** (switch the servo power supply off and on again) so it loads the new parameters.
 7. *Optional:* send **`DIFF_SERVO`** to verify. It reads all parameters without writing anything and should report `0 differ`.
-8. Close the serial terminal and re-enable SimHub Motion. **Done!** The belt tensioner is ready for use.
+8. Keep the serial terminal open and continue with **Step 8**.
+
+---
+
+### Step 8: Set Spindle Pitch & Working Range (per axis)
+
+The firmware has to know the spindle pitch (mm per motor revolution) and the usable stroke of your linear actuator. Both values are stored in the controller's flash, **separately for each axis**, and survive firmware updates. You can mix actuators: e.g. one axis with a **5 mm** and one with a **10 mm** spindle.
+
+1. In the same serial terminal (250000 baud), send **`CONFIG`**. It prints the current values of each axis, e.g.:
+   ```
+   Axis 1: spindle pitch 10.00 mm (Config.h), working range 60.00 mm (Config.h) = 19200 steps
+     motion: max speed 0.297 m/s (95000 steps/s), acceleration 9.38 m/s^2 (3000000 steps/s^2)
+   Change (saved in flash, applied after restart):
+     SET_PITCH <axis> <mm>  - spindle pitch, e.g. SET_PITCH 1 5
+     SET_RANGE <axis> <mm>  - working range, e.g. SET_RANGE 1 60
+     RESET_CONFIG           - delete saved values, use Config.h defaults
+   ```
+   `(Config.h)` means the firmware default is used, `(saved)` means the value was set by you.
+2. If the values do not match your actuator, set them:
+   * **`SET_PITCH <axis> <mm>`** - spindle pitch, e.g. `SET_PITCH 1 5`
+   * **`SET_RANGE <axis> <mm>`** - usable stroke, e.g. `SET_RANGE 1 60`
+
+   The axis number is `1` (or `2` on a board driving two actuators). In the dual belt setup with one controller board per actuator, every board drives its actuator as axis `1`, so configure each board separately. `.` and `,` are both accepted as decimal separator.
+3. **Restart the controller** (unplug USB / power, or press **RST**). The new values are only applied at startup. Send `CONFIG` again to verify; a pending change is reported as `-> changed, restart the controller to apply`.
+4. `RESET_CONFIG` deletes the saved values and returns to the firmware defaults.
+
+> [!NOTE]
+> Speed and acceleration are defined in m/s and m/s², referenced to a **5 mm** spindle: the maximum of **0.30 m/s** and **9.4 m/s²** uses the full 190 kHz pulse rate on a 5 mm spindle and 95 kHz on a 10 mm spindle. Axes with different pitches therefore move identically, and the SimHub speed and acceleration sliders mean the same on every axis.
+
+5. Close the serial terminal and re-enable SimHub Motion. **Done!** The belt tensioner is ready for use.

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <FastAccelStepper.h>
 #include "isv57communication.h"
+#include "AxisConfig.h"
 #include "Config.h"
 
 enum HomingState {
@@ -28,15 +29,26 @@ struct AxisUnitSettings {
     bool invertDir = false;
     bool invertTensionDir = INVERT_TENSION_DIRECTION;
     bool enableStepLossRecov = ENABLE_STEP_LOSS_RECOVERY;
+    AxisMechConfig mech; // Spindle pitch & working range in mm (from NVS or Config.h)
     int32_t totalWorkingRange = TOTAL_WORKING_RANGE_STEPS;
-    uint32_t maxSpeed = DEFAULT_MAX_SPEED_HZ;
-    uint32_t acceleration = DEFAULT_ACCELERATION;
     uint8_t homingCurrentThreshold = HOMING_CURRENT_THRESHOLD_PCT;
-    uint32_t homingSpeed = HOMING_SPEED_STEPS_PER_S;
-    uint32_t homingAccel = HOMING_ACCELERATION;
     bool centerAfterCalib = CENTER_AFTER_CALIBRATION;
-    int32_t homingBackoffSteps = HOMING_BACKOFF_STEPS;
     bool measureMaxTravel = MEASURE_MAX_TRAVEL_SENSORLESS;
+
+    // Motion in carriage units: identical for all axes regardless of spindle pitch
+    float maxSpeedMS = DEFAULT_MAX_SPEED_M_S;
+    float accelerationMS2 = DEFAULT_ACCELERATION_M_S2;
+    float homingSpeedMS = HOMING_SPEED_M_S;
+    float homingAccelMS2 = HOMING_ACCELERATION_M_S2;
+    float homingBackoffMm = HOMING_BACKOFF_MM;
+
+    // Derived step values for this axis' pitch (computed by AxisUnit::applyMotionUnits())
+    uint32_t maxSpeed = 0;           // steps/s
+    uint32_t acceleration = 0;       // steps/s^2
+    uint32_t homingSpeed = 0;        // steps/s
+    uint32_t homingAccel = 0;        // steps/s^2
+    int32_t homingBackoffSteps = 0;  // steps
+    int32_t homingMinTravelSteps = 0; // steps
 };
 
 struct AxisUnitState {
@@ -97,6 +109,7 @@ public:
     bool isHomed() const { return state.homingState == HOMING_DONE; }
     bool isMotorReady() const { return state.motorReady; }
     int32_t getCurrentPosition() const;
+    int32_t getCurrentSpeedHz() const { return (stepper != nullptr) ? stepper->getCurrentSpeedInMilliHz() / 1000 : 0; }
     int16_t getCurrentLoadPercent() const { return isv57.dynamicStates.servo_current_percent; }
     float getBusVoltage() const { return ((float)isv57.dynamicStates.servoVoltage0p1V_i16) * 0.1f; }
     int32_t getWorkingRange() const { return hardLimitMax; }
@@ -122,4 +135,7 @@ private:
     int32_t hardLimitMax = TOTAL_WORKING_RANGE_STEPS;
 
     void log(const String& msg);
+    // Converts the m/s and m/s^2 settings into step rates for this axis' spindle pitch
+    void applyMotionUnits();
+    uint32_t toStepRate(float metersPerSecond) const;
 };

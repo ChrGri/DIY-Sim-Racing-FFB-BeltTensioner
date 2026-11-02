@@ -2,13 +2,25 @@
 #include "isv57_tunedParameters.h"
 #include <Arduino.h>
 
+// Default motor ratings from the tuned parameter table, replaced by readMotorRatings()
+static Isv57MotorRatings defaultMotorRatings() {
+    Isv57MotorRatings ratings;
+    ratings.ratedSpeedRpm = (int16_t)isv57_tuned_parameters[pr_7_00 + 10];
+    ratings.ratedCurrent0p01A = (int16_t)isv57_tuned_parameters[pr_7_00 + 12];
+    ratings.ratedPowerW = (int16_t)isv57_tuned_parameters[pr_7_00 + 14];
+    ratings.readFromServo = false;
+    return ratings;
+}
+
 Isv57Communication::Isv57Communication() {
     this->slaveId = 63;
+    this->motorRatings = defaultMotorRatings();
 }
 
 Isv57Communication::Isv57Communication(HardwareSerial* serial, int16_t defaultSlaveId) {
     this->slaveId = defaultSlaveId;
     this->modbus.setSerial(serial);
+    this->motorRatings = defaultMotorRatings();
 }
 
 void Isv57Communication::setSerial(HardwareSerial* serial, int16_t defaultSlaveId) {
@@ -227,6 +239,21 @@ void Isv57Communication::readServoStates() {
         dynamicStates.servo_cycleCounter_u32++;
         dynamicStates.servo_receivedPacketIsValid_b = (dynamicStates.servoVoltage0p1V_i16 >= 50);
     }
+}
+
+bool Isv57Communication::readMotorRatings() {
+    // Pr7.10 ... Pr7.14 in one request: rated speed, max speed, rated current, rotor inertia, power
+    int16_t regs[5] = {0};
+    if (readRegisters(pr_7_00 + 10, 5, regs) != 5) return false;
+    if (regs[0] <= 0 || regs[2] <= 0 || regs[4] <= 0) return false;
+
+    Isv57MotorRatings ratings;
+    ratings.ratedSpeedRpm = regs[0];
+    ratings.ratedCurrent0p01A = regs[2];
+    ratings.ratedPowerW = regs[4];
+    ratings.readFromServo = true;
+    motorRatings = ratings;
+    return true;
 }
 
 bool Isv57Communication::checkCommunication() {

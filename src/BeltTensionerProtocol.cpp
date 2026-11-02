@@ -1,4 +1,5 @@
 #include "BeltTensionerProtocol.h"
+#include "WebGraphs.h"
 
 BeltTensionerProtocol::BeltTensionerProtocol() {
     axisUnits = nullptr;
@@ -47,6 +48,104 @@ void BeltTensionerProtocol::dumpSensor(Stream* stream, uint8_t axis) {
     stream->print(F(":Triggered:"));
     stream->print(triggered);
     stream->println();
+}
+
+// Prints spindle pitch & working range per axis (saved in NVS or Config.h default)
+void BeltTensionerProtocol::printAxisConfig(Stream* stream) {
+    for (uint8_t i = 0; i < numAxes; i++) {
+        AxisMechConfig saved = AxisConfig::load(i);
+        stream->print(F("Axis "));
+        stream->print(i + 1);
+        stream->print(F(": spindle pitch "));
+        stream->print(saved.spindlePitchMm, 2);
+        stream->print(saved.pitchSaved ? F(" mm (saved)") : F(" mm (Config.h)"));
+        stream->print(F(", working range "));
+        stream->print(saved.workingRangeMm, 2);
+        stream->print(saved.rangeSaved ? F(" mm (saved)") : F(" mm (Config.h)"));
+        stream->print(F(" = "));
+        stream->print(saved.workingRangeSteps());
+        stream->println(F(" steps"));
+
+        if (axisUnits != nullptr && axisUnits[i] != nullptr) {
+            const AxisUnitSettings& s = axisUnits[i]->settings;
+            stream->print(F("  motion: max speed "));
+            stream->print(s.maxSpeedMS, 3);
+            stream->print(F(" m/s ("));
+            stream->print(s.maxSpeed);
+            stream->print(F(" steps/s), acceleration "));
+            stream->print(s.accelerationMS2, 2);
+            stream->print(F(" m/s^2 ("));
+            stream->print(s.acceleration);
+            stream->println(F(" steps/s^2)"));
+
+            const AxisMechConfig& active = s.mech;
+            if (active.spindlePitchMm != saved.spindlePitchMm || active.workingRangeMm != saved.workingRangeMm) {
+                stream->print(F("  -> changed, restart the controller to apply (active: pitch "));
+                stream->print(active.spindlePitchMm, 2);
+                stream->print(F(" mm, range "));
+                stream->print(active.workingRangeMm, 2);
+                stream->println(F(" mm)"));
+            }
+        }
+    }
+}
+
+// Parses "<axis> <mm>" or "<mm>" (axis 1). Accepts ',' as decimal separator.
+static bool parseAxisAndValue(const char* args, uint8_t& axisIndex, float& value) {
+    char buf[32];
+    strlcpy(buf, args, sizeof(buf));
+    for (char* p = buf; *p != '\0'; p++) {
+        if (*p == ',') *p = '.';
+    }
+
+    char* end1 = nullptr;
+    float first = strtof(buf, &end1);
+    if (end1 == buf) return false;
+
+    char* end2 = nullptr;
+    float second = strtof(end1, &end2);
+    char* rest = end2;
+    if (end2 == end1) {
+        axisIndex = 0;
+        value = first;
+        rest = end1;
+    } else {
+        if (first != 1.0f && first != 2.0f) return false;
+        axisIndex = (uint8_t)first - 1;
+        value = second;
+    }
+
+    while (*rest == ' ') rest++;
+    return (*rest == '\0');
+}
+
+void BeltTensionerProtocol::setAxisConfigValue(Stream* stream, const char* args, bool isPitch) {
+    uint8_t axisIndex = 0;
+    float value = 0.0f;
+    if (!parseAxisAndValue(args, axisIndex, value)) {
+        stream->println(isPitch ? F("Usage: SET_PITCH <axis> <mm>   e.g. SET_PITCH 2 5")
+                                : F("Usage: SET_RANGE <axis> <mm>   e.g. SET_RANGE 1 60"));
+        return;
+    }
+
+    bool ok = isPitch ? AxisConfig::savePitch(axisIndex, value) : AxisConfig::saveRange(axisIndex, value);
+    if (!ok) {
+        stream->print(F("Invalid value, allowed: "));
+        stream->print(isPitch ? AXIS_CONFIG_MIN_PITCH_MM : AXIS_CONFIG_MIN_RANGE_MM, 1);
+        stream->print(F(" - "));
+        stream->print(isPitch ? AXIS_CONFIG_MAX_PITCH_MM : AXIS_CONFIG_MAX_RANGE_MM, 1);
+        stream->println(F(" mm"));
+        return;
+    }
+
+    stream->print(F("Axis "));
+    stream->print(axisIndex + 1);
+    stream->print(isPitch ? F(": spindle pitch ") : F(": working range "));
+    stream->print(value, 2);
+    stream->println(F(" mm saved. Restart the controller to apply."));
+    if (axisIndex >= numAxes) {
+        stream->println(F("Note: this actuator is not enabled (NUM_ACTUATORS in Config.h)"));
+    }
 }
 
 void BeltTensionerProtocol::handleCommand(Stream* stream) {
@@ -202,6 +301,22 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
                 axisUnits[i]->startSensorlessHoming();
             }
         }
+    } else if (strcasecmp(cmd, "CONFIG") == 0) {
+        printAxisConfig(stream);
+        stream->println(F("Change (saved in flash, applied after restart):"));
+        stream->println(F("  SET_PITCH <axis> <mm>  - spindle pitch, e.g. SET_PITCH 1 5"));
+        stream->println(F("  SET_RANGE <axis> <mm>  - working range, e.g. SET_RANGE 1 60"));
+        stream->println(F("  RESET_CONFIG           - delete saved values, use Config.h defaults"));
+    } else if (strncasecmp(cmd, "SET_PITCH ", 10) == 0) {
+        setAxisConfigValue(stream, cmd + 10, true);
+    } else if (strncasecmp(cmd, "SET_RANGE ", 10) == 0) {
+        setAxisConfigValue(stream, cmd + 10, false);
+    } else if (strcasecmp(cmd, "RESET_CONFIG") == 0) {
+        AxisConfig::reset();
+        stream->println(F("Saved axis configuration deleted, Config.h defaults apply after restart"));
+        printAxisConfig(stream);
+    } else if (strcasecmp(cmd, "WEBGRAPHS") == 0) {
+        webGraphs.printStatus(stream);
     } else if (strcasecmp(cmd, "HELP") == 0) {
         stream->println(F("Available Serial Commands:"));
         stream->println(F("  FLASH_SERVO    - Flash all 305 tuned parameters into iSV57 EEPROM/NVM"));
@@ -211,6 +326,11 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  DISABLE_SERVO  - Disable servo axis"));
         stream->println(F("  HOME           - Re-run sensorless homing calibration"));
         stream->println(F("  STATUS         - Print live sensor load & voltage"));
+        stream->println(F("  CONFIG         - Show spindle pitch & working range per axis"));
+        stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
+        stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
+        stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));
+        stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));
     } else if (strcasecmp(cmd, "STATUS") == 0) {
         for (uint8_t i = 0; i < numAxes; i++) {
             dumpSensor(stream, i);

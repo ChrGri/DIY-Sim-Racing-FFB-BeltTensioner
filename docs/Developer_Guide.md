@@ -92,12 +92,17 @@ All user-configurable mechanical, motion scaling, and safety parameters can be c
 // Stroke length and motor mechanics
 #define NUM_ACTUATORS                 1       // 1 = Mono tensioner, 2 = Dual (Left + Right)
 #define STEPS_PER_MOTOR_REV           3200U   // iSV57 microsteps per revolution
-#define SPINDLE_PITCH_MM              10.0f   // Lead screw pitch (mm per rev)
-#define TOTAL_WORKING_RANGE_MM        50.0f   // Usable stroke distance on rail (e.g. 50mm)
+#define SPINDLE_PITCH_MM              10.0f   // Lead screw pitch (mm per rev), default - per axis via SET_PITCH
+#define TOTAL_WORKING_RANGE_MM        50.0f   // Usable stroke distance on rail, default - per axis via SET_RANGE
+
+// Motion in carriage units, converted per axis with its own pitch
+#define MAX_STEP_RATE_HZ              190000U   // Pulse generator limit per axis (< 200 kHz FastAccelStepper limit)
+#define DEFAULT_MAX_SPEED_M_S         0.296875f // = 190 kHz at 5 mm pitch (95 kHz at 10 mm)
+#define DEFAULT_ACCELERATION_M_S2     9.375f    // = 6.0M steps/s^2 at 5 mm pitch
 
 // Dynamic Multipliers for SimHub UI Sliders
-#define SPEED_MULTIPLIER              ((float)DEFAULT_MAX_SPEED_HZ / 36000.0f) // Scales 36k Hz -> 190k Hz (< 200 kHz FastAccelStepper limit)
-#define ACCELERATION_MULTIPLIER       60.0f                                    // Scales 100k -> 6.0M steps/s^2
+#define SPEED_MULTIPLIER              (DEFAULT_MAX_SPEED_M_S / 36000.0f)       // Scales 36k -> 0.297 m/s
+#define ACCELERATION_MULTIPLIER       (DEFAULT_ACCELERATION_M_S2 / 100000.0f)  // Scales 100k -> 9.375 m/s^2
 
 // Tension Direction (false = 0% loose / 100% pull tight on braking)
 #define INVERT_TENSION_DIRECTION      false

@@ -35,10 +35,20 @@ struct Isv57DynamicStates {
     bool servo_receivedPacketIsValid_b = false;
 };
 
+// Motor ratings stored in the servo (Pr7.10 / Pr7.12 / Pr7.14).
+// servo_current_percent is relative to ratedCurrent0p01A.
+struct Isv57MotorRatings {
+    int16_t ratedSpeedRpm = 0;      // Pr7.10: Motor rated speed (rpm)
+    int16_t ratedCurrent0p01A = 0;  // Pr7.12: Motor rated current (0.01 A)
+    int16_t ratedPowerW = 0;        // Pr7.14: Motor power selection (W)
+    bool readFromServo = false;     // false = values from isv57_tunedParameters.h
+};
+
 class Isv57Communication {
 public:
     int16_t slaveId = 63;
     Isv57DynamicStates dynamicStates;
+    Isv57MotorRatings motorRatings;
     int16_t regArray[NUMBER_OF_ISV57_REGISTERS_TO_READ_IN_CYCLIC_READ] = {0};
 
     Isv57Communication();
@@ -52,6 +62,7 @@ public:
     bool flashTunedParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32, Stream* logStream = nullptr);
     uint16_t dumpParameters(uint32_t stepsPerMotorRev_u32, bool onlyDiff, Stream* logStream);
     void readServoStates();
+    bool readMotorRatings();
     bool checkCommunication();
     bool findServosSlaveId();
     bool clearServoAlarms();

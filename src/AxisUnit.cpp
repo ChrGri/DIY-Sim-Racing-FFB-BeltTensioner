@@ -20,6 +20,21 @@ void AxisUnit::log(const String& msg) {
     Serial.println(msg);
 }
 
+uint32_t AxisUnit::toStepRate(float metersPerSecond) const {
+    return (uint32_t)(metersPerSecond * 1000.0f * settings.mech.stepsPerMm());
+}
+
+void AxisUnit::applyMotionUnits() {
+    // Clamp only protects the pulse generator for pitches finer than 5 mm
+    uint32_t speedHz = toStepRate(settings.maxSpeedMS);
+    settings.maxSpeed = (speedHz > MAX_STEP_RATE_HZ) ? MAX_STEP_RATE_HZ : speedHz;
+    settings.acceleration = toStepRate(settings.accelerationMS2);
+    settings.homingSpeed = toStepRate(settings.homingSpeedMS);
+    settings.homingAccel = toStepRate(settings.homingAccelMS2);
+    settings.homingBackoffSteps = (int32_t)(settings.homingBackoffMm * settings.mech.stepsPerMm());
+    settings.homingMinTravelSteps = (int32_t)(HOMING_MIN_TRAVEL_MM * settings.mech.stepsPerMm());
+}
+
 bool AxisUnit::begin(FastAccelStepperEngine* engine,
                      const AxisUnitSettings& axisSettings,
                      HardwareSerial* serial,
@@ -29,6 +44,7 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
                      bool calibrateAtBoot,
                      bool invertModbusSignal) {
     settings = axisSettings;
+    applyMotionUnits();
     logHeader = "M" + String(settings.stepperId) + " ";
     hardLimitMax = settings.totalWorkingRange;
 
@@ -92,6 +108,7 @@ void AxisUnit::pollModbusTelemetry() {
     if (!servoInitialized) {
         if (isv57.findServosSlaveId()) {
             isv57.clearServoAlarms();
+            isv57.readMotorRatings(); // Keeps the table defaults if the read fails
             isv57.setupServoStateReading();
             if (state.motorPowered) {
                 isv57.enableAxis();
@@ -323,8 +340,8 @@ void AxisUnit::updateHoming() {
         case HOMING_MEASURE_MAX_APPROACH: {
             int16_t currentLoad = abs(isv57.dynamicStates.servo_current_percent);
             int32_t stepPos = stepper->getCurrentPosition();
-            // Ignore stall check for first 2000 steps to clear the MIN backoff region
-            bool stallDetected = (stepPos > 2000) && (currentLoad >= settings.homingCurrentThreshold);
+            // Ignore stall check for the first HOMING_MIN_TRAVEL_MM to clear the MIN backoff region
+            bool stallDetected = (stepPos > settings.homingMinTravelSteps) && (currentLoad >= settings.homingCurrentThreshold);
 
             // Timeout failsafe (25s)
             if (millis() - state.homingStateStartTime > 25000) {
@@ -337,7 +354,7 @@ void AxisUnit::updateHoming() {
             if (stallDetected) {
                 int32_t measured = stepper->getCurrentPosition();
                 hardLimitMax = measured - settings.homingBackoffSteps;
-                if (hardLimitMax < 2000) {
+                if (hardLimitMax < settings.homingMinTravelSteps) {
                     hardLimitMax = settings.totalWorkingRange;
                 }
                 settings.totalWorkingRange = hardLimitMax;
@@ -405,7 +422,8 @@ void AxisUnit::setPosition16Bits(uint16_t inputPosition) {
 
 void AxisUnit::setMaxSpeed16Bits(uint16_t speed) {
     if (speed > 0) {
-        settings.maxSpeed = (uint32_t)((float)speed * SPEED_MULTIPLIER);
+        settings.maxSpeedMS = (float)speed * SPEED_MULTIPLIER;
+        applyMotionUnits();
         if (stepper != nullptr && state.motorReady) {
             stepper->setSpeedInHz(settings.maxSpeed);
             stepper->applySpeedAcceleration();
@@ -416,7 +434,8 @@ void AxisUnit::setMaxSpeed16Bits(uint16_t speed) {
 
 void AxisUnit::setMaxAcceleration32Bits(uint32_t accel) {
     if (accel > 0) {
-        settings.acceleration = (uint32_t)((float)accel * ACCELERATION_MULTIPLIER);
+        settings.accelerationMS2 = (float)accel * ACCELERATION_MULTIPLIER;
+        applyMotionUnits();
         if (stepper != nullptr && state.motorReady) {
             stepper->setAcceleration(settings.acceleration);
             stepper->applySpeedAcceleration();

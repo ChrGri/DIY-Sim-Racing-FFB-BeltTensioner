@@ -4,6 +4,7 @@
 #include "AxisUnit.h"
 #include "BeltTensionerProtocol.h"
 #include "StatusLed.h"
+#include "WebGraphs.h"
 
 // Stepper engine instance (hardware RMT / MCPWM pulse generator)
 FastAccelStepperEngine engine = FastAccelStepperEngine();
@@ -40,6 +41,8 @@ void modbusTelemetryTask(void* pvParameters) {
                 axisUnits[i]->pollModbusTelemetry();
             }
         }
+        // Feed the live web graphs (no-op if disabled)
+        webGraphs.recordSample();
         vTaskDelay(pdMS_TO_TICKS(MODBUS_POLL_INTERVAL_MS));
     }
 }
@@ -101,6 +104,7 @@ void setup() {
     Serial.setRxBufferSize(128);
     Serial.begin(SIMHUB_SERIAL_BAUDRATE);
     protocol.begin(axisUnits, axisCount);
+    webGraphs.begin(axisUnits, axisCount);
 
     // SimHub BeltTensioner boot greeting
     protocol.sendGreeting(&Serial);
@@ -109,6 +113,9 @@ void setup() {
     engine.init();
 
     // 4. Configure and initialize Actuator 1
+    // Spindle pitch & working range come from NVS or Config.h; speeds are in m/s,
+    // so axes with different pitches move identically.
+    AxisMechConfig mech1 = AxisConfig::load(0);
     AxisUnitSettings settings1;
     settings1.stepperId               = 1;
     settings1.stepPin                 = ACTUATOR1_STEP_PIN;
@@ -118,14 +125,15 @@ void setup() {
     settings1.brakeResistorPin        = ACTUATOR1_BRAKE_RESISTOR_PIN;
     settings1.invertDir               = ACTUATOR1_INVERT_DIR;
     settings1.invertTensionDir        = INVERT_TENSION_DIRECTION;
-    settings1.totalWorkingRange       = TOTAL_WORKING_RANGE_STEPS;
-    settings1.maxSpeed                = DEFAULT_MAX_SPEED_HZ;
-    settings1.acceleration            = DEFAULT_ACCELERATION;
+    settings1.mech                    = mech1;
+    settings1.totalWorkingRange       = mech1.workingRangeSteps();
+    settings1.maxSpeedMS              = DEFAULT_MAX_SPEED_M_S;
+    settings1.accelerationMS2         = DEFAULT_ACCELERATION_M_S2;
     settings1.homingCurrentThreshold  = HOMING_CURRENT_THRESHOLD_PCT;
-    settings1.homingSpeed             = HOMING_SPEED_STEPS_PER_S;
-    settings1.homingAccel             = HOMING_ACCELERATION;
+    settings1.homingSpeedMS           = HOMING_SPEED_M_S;
+    settings1.homingAccelMS2          = HOMING_ACCELERATION_M_S2;
     settings1.centerAfterCalib        = CENTER_AFTER_CALIBRATION;
-    settings1.homingBackoffSteps      = HOMING_BACKOFF_STEPS;
+    settings1.homingBackoffMm         = HOMING_BACKOFF_MM;
     settings1.measureMaxTravel        = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     axisUnit1.begin(&engine,
@@ -139,6 +147,7 @@ void setup() {
 
     // 5. Configure and initialize Actuator 2 (if enabled)
 #if (NUM_ACTUATORS >= 2)
+    AxisMechConfig mech2 = AxisConfig::load(1);
     AxisUnitSettings settings2;
     settings2.stepperId               = 2;
     settings2.stepPin                 = ACTUATOR2_STEP_PIN;
@@ -148,14 +157,15 @@ void setup() {
     settings2.brakeResistorPin        = ACTUATOR2_BRAKE_RESISTOR_PIN;
     settings2.invertDir               = ACTUATOR2_INVERT_DIR;
     settings2.invertTensionDir        = INVERT_TENSION_DIRECTION;
-    settings2.totalWorkingRange       = TOTAL_WORKING_RANGE_STEPS;
-    settings2.maxSpeed                = DEFAULT_MAX_SPEED_HZ;
-    settings2.acceleration            = DEFAULT_ACCELERATION;
+    settings2.mech                    = mech2;
+    settings2.totalWorkingRange       = mech2.workingRangeSteps();
+    settings2.maxSpeedMS              = DEFAULT_MAX_SPEED_M_S;
+    settings2.accelerationMS2         = DEFAULT_ACCELERATION_M_S2;
     settings2.homingCurrentThreshold  = HOMING_CURRENT_THRESHOLD_PCT;
-    settings2.homingSpeed             = HOMING_SPEED_STEPS_PER_S;
-    settings2.homingAccel             = HOMING_ACCELERATION;
+    settings2.homingSpeedMS           = HOMING_SPEED_M_S;
+    settings2.homingAccelMS2          = HOMING_ACCELERATION_M_S2;
     settings2.centerAfterCalib        = CENTER_AFTER_CALIBRATION;
-    settings2.homingBackoffSteps      = HOMING_BACKOFF_STEPS;
+    settings2.homingBackoffMm         = HOMING_BACKOFF_MM;
     settings2.measureMaxTravel        = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     axisUnit2.begin(&engine,
@@ -181,6 +191,13 @@ void setup() {
 
     // 7. Initialize on-board RGB Status LED (WS2812)
     statusLed.begin(RGB_LED_GPIO, RGB_LED_BRIGHTNESS);
+
+    // 8. Start WiFi + live web graphs (if enabled in Config.h).
+    // Runs silently: any extra text line on Serial would break the SimHub handshake
+    // (SimHub parses the reply to CMD 10 as "Enabled motors:<N>"). Use WEBGRAPHS to print the address.
+#if ENABLE_WEBGRAPHS
+    webGraphs.activate();
+#endif
 }
 
 void loop() {

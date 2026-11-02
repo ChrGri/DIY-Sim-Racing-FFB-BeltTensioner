@@ -63,7 +63,7 @@ Configures the maximum step frequency in Hz (steps per second) for both axes.
   [0xFF] [0xFF] [0x02] [M1_High] [M1_Low] [M2_High] [M2_Low] [0x0A] [0x0D]
   ```
 * **Value Range:** `uint16_t` (`1` to `65535` steps/s).
-* **Behavior:** Applies hardware speed scaling via `SPEED_MULTIPLIER` and updates `stepper->setSpeedInHz()`.
+* **Behavior:** Converts the value to a carriage speed in m/s via `SPEED_MULTIPLIER` (36,000 = 0.297 m/s = 190 kHz at 5 mm pitch), then to a step rate with each axis' own spindle pitch (95 kHz at 10 mm pitch), and updates `stepper->setSpeedInHz()`. Axes with different pitches therefore move identically.
 * **Response / Log:**
   ```text
   M1 Speed set to <speed>
@@ -80,7 +80,7 @@ Configures the maximum acceleration in steps/$s^2$ for both axes (as a 32-bit un
   [0xFF] [0xFF] [0x03] [M1_B3] [M1_B2] [M1_B1] [M1_B0] [M2_B3] [M2_B2] [M2_B1] [M2_B0] [0x0A] [0x0D]
   ```
 * **Value Range:** `uint32_t` (`1` to `4294967295` steps/$s^2$).
-* **Behavior:** Applies hardware acceleration scaling via `ACCELERATION_MULTIPLIER` and updates `stepper->setAcceleration()`.
+* **Behavior:** Converts the value to a carriage acceleration in m/s² via `ACCELERATION_MULTIPLIER` (100,000 = 9.375 m/s² = 6.0M steps/s² at 5 mm pitch), then to steps/s² with each axis' own spindle pitch, and updates `stepper->setAcceleration()`.
 * **Response / Log:**
   ```text
   M1 Acceleration set to <accel>
@@ -187,7 +187,20 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`DISABLE_SERVO`** | `DISABLE` | Disables the servo power stage (`0x0085 = 0x0303` & `0x0139 = 0x0000`). The motor shaft is free to rotate. |
 | **`HOME`** | `CALIBRATE` | Starts automatic sensorless homing and endstop calibration. |
 | **`STATUS`** | - | Prints live load current (%), bus voltage (V), and calibration status in SimHub diagnostic format. |
+| **`CONFIG`** | - | Shows spindle pitch and working range of each axis, whether the value is saved in flash or the `Config.h` default, and whether a restart is pending. |
+| **`SET_PITCH <axis> <mm>`** | `SET_PITCH <mm>` (axis 1) | Saves the spindle pitch of axis 1 or 2 in flash (NVS), e.g. `SET_PITCH 2 5`. Allowed 0.5 - 50 mm, `,` or `.` as decimal separator. Applied after a restart of the controller. |
+| **`SET_RANGE <axis> <mm>`** | `SET_RANGE <mm>` (axis 1) | Saves the usable working range of axis 1 or 2 in flash, e.g. `SET_RANGE 1 60`. Allowed 5 - 500 mm. Applied after a restart. |
+| **`RESET_CONFIG`** | - | Deletes all saved pitch/range values; the `SPINDLE_PITCH_MM` / `TOTAL_WORKING_RANGE_MM` defaults from `Config.h` apply after a restart. |
+| **`WEBGRAPHS`** | - | Prints the address of the live graph web page (see below). |
 | **`HELP`** | - | Prints an overview of all available serial commands. |
+
+### Live graph web page (`ENABLE_WEBGRAPHS` in `Config.h`)
+
+With `ENABLE_WEBGRAPHS true` the controller starts WiFi at boot and serves a web page with live graphs (position, target, servo encoder, current, bus voltage, following error) on port 80. There is no serial command to switch it on or off; WiFi is only available when it is enabled in the firmware. The web graphs never write to the serial port on their own, so the SimHub protocol is not affected; use `WEBGRAPHS` in the serial monitor to print the address.
+
+* By default the ESP32 opens the access point `diy_belt_tensioner` (password `belttensioner`), the page is then at `http://192.168.4.1/`.
+* To join your local network instead, open the **WiFi** panel on the page, pick/enter SSID and password and press *Save & connect*. The credentials are stored in flash (NVS) and used at every following boot (address then `http://belttensioner.local/` or the IP printed by `WEBGRAPHS`). Defaults can also be set via `WEBGRAPHS_STA_SSID` in `Config.h`.
+* If the network cannot be joined within 15 s, the access point opens again.
 
 ---
 

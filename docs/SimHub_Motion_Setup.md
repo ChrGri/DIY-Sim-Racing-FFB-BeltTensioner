@@ -111,9 +111,9 @@ Click on **Settings >** next to the **SimHub DIY Belt Tensioner** controller to 
 
 3. **Hardware settings** (identical for single and dual setups, set them on every controller):
    * **Maximum steppers pulse frequency:** Set to **`36000`** (Maximum slider value).
-     > *Note:* The firmware automatically applies a `5.28x` scaling factor to reach the peak pulse capability of **190,000 Hz** (~59.4 rev/s = ~593 mm/s) within the stable hardware limit of `FastAccelStepper`.
+     > *Note:* The firmware converts the slider value into a carriage speed: `36000` = **0.30 m/s**, which is the peak pulse rate of **190,000 Hz** on a 5 mm spindle (95,000 Hz on a 10 mm spindle). The speed is the same on every axis, independent of its spindle pitch (see [Spindle Pitch & Working Range](Firmware_Flashing.md#step-8-set-spindle-pitch--working-range-per-axis)).
    * **Maximum steppers acceleration:** Set to **`100000`** (Maximum slider value).
-     > *Note:* The firmware automatically applies a `60.0x` scaling factor to reach **6,000,000 steps/s²** for instantaneous torque and crisp, lag-free response.
+     > *Note:* `100000` = **9.4 m/s²**, i.e. **6,000,000 steps/s²** on a 5 mm spindle (3,000,000 steps/s² on a 10 mm spindle) for instantaneous torque and crisp, lag-free response.
    * **Enable Rotary lever compensation:** **OFF / Disabled** (Ensure this is turned off, as our design uses a direct linear rail / spindle mechanism).
 
 <p align="center">

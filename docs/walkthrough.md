@@ -25,7 +25,7 @@ We have created the complete ESP32 firmware for the DIY Belt Tensioner in `src/`
 - Monitors cyclic register `0x0081` (Servo Current Feedback %).
 - Automatically sweeps backward towards the linear rail endstop at a safe, controlled speed.
 - Detects mechanical hard stop when current exceeds `HOMING_CURRENT_THRESHOLD_PCT` (default 30%).
-- Immediately executes `forceStop()`, backs off slightly by `HOMING_BACKOFF_STEPS` (500 steps) to prevent mechanical binding, and zeros both the ESP coordinate frame and the iSV57 internal encoder.
+- Immediately executes `forceStop()`, backs off slightly by `HOMING_BACKOFF_MM` (3.125 mm) to prevent mechanical binding, and zeros both the ESP coordinate frame and the iSV57 internal encoder.
 
 ### 3. Dual-Core FreeRTOS Performance
 - **Core 0 (`modbusTelemetryTask`):** Cyclic Modbus telemetry polling & stall detection.
