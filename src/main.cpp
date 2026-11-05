@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "AxisUnit.h"
 #include "BeltTensionerProtocol.h"
+#include "HostSerial.h"
 #include "StatusLed.h"
 #include "WebGraphs.h"
 
@@ -202,7 +203,10 @@ void setup() {
 
 void loop() {
     // 1. Process incoming SimHub commands on USB serial
-    protocol.processIncomingStream(&Serial);
+    protocol.processIncomingStream(&hostSerial);
+    if (hostGreetingDue()) {
+        protocol.sendGreeting(&hostSerial);
+    }
 
     // 2. Update sensorless homing and idle parking watchdogs
     for (uint8_t i = 0; i < axisCount; i++) {

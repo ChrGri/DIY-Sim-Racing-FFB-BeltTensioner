@@ -27,6 +27,17 @@ This guide covers hardware pinouts, board configurations, firmware parameters in
 | **Actuator 1 Modbus RX** | `GPIO 3` | RS232 Receive |
 | **Actuator 1 Modbus TX** | `GPIO 2` | RS232 Transmit |
 
+### ControlBoard_V8 (ESP32-S3-Zero)
+
+| Function | ESP32-S3 Pin | Note |
+| :--- | :--- | :--- |
+| **Actuator 1 STEP (PUL+)** | `GPIO 4` | Hardware pulse output |
+| **Actuator 1 DIR (DIR+)** | `GPIO 3` | Direction signal |
+| **Actuator 1 Modbus RX** | `GPIO 6` | RS232 Receive (via SP3232) |
+| **Actuator 1 Modbus TX** | `GPIO 5` | RS232 Transmit (via SP3232) |
+| **Actuator 1 Alarm (ALM)** | `GPIO 2` | Servo fault detection |
+| **Status RGB LED** | `GPIO 21` | On-board WS2812B NeoPixel |
+
 ### ControlBoard_PCBA_V2X (LOLIN S3 Mini)
 
 | Function | ESP32-S3 Pin | Note |
@@ -131,7 +142,8 @@ git clone https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner.git
 1. Open the cloned folder in **VS Code**.
 2. Select your environment from the PlatformIO status bar:
    * `ControlBoard_V6` for ESP32-S3 DevKit
-   * `ControlBoard_V7` for ESP32-S3-Zero
+   * `ControlBoard_V7` for ControlBoard_V7 (ESP32-S3-Zero)
+   * `ControlBoard_V8` for ControlBoard_V8 (ESP32-S3-Zero)
    * `ControlBoard_PCBA_V2X_without_espnow` for ControlBoard PCBA V2.x (LOLIN S3 Mini)
    * `ControlBoard_PCBA_V1X` for ControlBoard PCBA V1.x
    * `ControlBoard_V5_without_espnow` for ControlBoard_V5 (ESP32-S3 DevKit)

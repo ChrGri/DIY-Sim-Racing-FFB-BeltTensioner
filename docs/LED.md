@@ -50,6 +50,7 @@ The RGB LED GPIO pin is pre-configured per board revision in [`src/BoardPins.h`]
 | :--- | :--- | :--- | :--- |
 | **Waveshare ESP32-S3-DevKitC-1** | `13` (`ControlBoard_V6`) | **GPIO 38** | On-Board WS2812B NeoPixel |
 | **Waveshare ESP32-S3-Zero** | `14` (`ControlBoard_V7`) | **GPIO 21** | On-Board WS2812B NeoPixel |
+| **Waveshare ESP32-S3-Zero** | `15` (`ControlBoard_V8`) | **GPIO 21** | On-Board WS2812B NeoPixel |
 | **ControlBoard PCBA V2.x** | `9` (`ControlBoard_PCBA_V2X`) | **GPIO 12** | On-Board WS2812B NeoPixel |
 | **ControlBoard PCBA V1.x** | `7` (`ControlBoard_PCBA_V1X`) | **GPIO 12** | On-Board WS2812B NeoPixel |
 | **Waveshare ESP32-S3-DevKitC-1** | `12` (`ControlBoard_V5`) | **GPIO 38** | On-Board WS2812B NeoPixel |

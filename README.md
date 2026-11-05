@@ -27,7 +27,7 @@ It is designed to **reuse the electronics, controller boards, and mechanical com
 ## 🚀 Key Highlights
 
 * **Dual Channel Mechanical Design:** Complete CAD model and printable parts for a two-actuator build (one per shoulder belt) on a single 2040 spine, with power supply and servos in a 3D printed housing. See [Mechanical Design](#%EF%B8%8F-mechanical-design-dual-channel).
-* **Reuse Existing DIY FFB Pedal Hardware:** Runs on all **ESP32-S3 ControlBoards** of the DIY FFB Pedal project (V4, V5, V6, V7, PCBA V1.x and PCBA V2.x) and drives the same **Stepperonline iSV57 integrated servo motors**. See [Supported Controller Boards](#-supported-controller-boards).
+* **Reuse Existing DIY FFB Pedal Hardware:** Runs on all **ESP32-S3 ControlBoards** of the DIY FFB Pedal project (V4, V5, V6, V7, V8, PCBA V1.x and PCBA V2.x) and drives the same **Stepperonline iSV57 integrated servo motors**. See [Supported Controller Boards](#-supported-controller-boards).
 * **100% SimHub Motion Plugin Compatible:** Communicates via the standard binary SimHub Belt Tensioner protocol (v2.0) at 250,000 baud with no custom SimHub forks required.
 * **Sensorless Homing via Modbus Telemetry:** Automatic, physical zero-point calibration using real-time Modbus current feedback from the iSV57 servo without needing fragile external microswitches or optical sensors.
 * **Dynamic Speed & Acceleration Scaling:** Built-in hardware multipliers scale SimHub's UI slider limits (36,000 Hz / 100,000 steps/s²) to the full servo potential (**180,000 Hz** pulse frequency and **600,000 steps/s²** acceleration) for instantaneous, snappy braking belt pull.
@@ -61,6 +61,7 @@ Pre-compiled firmware is released for every ESP32-S3 ControlBoard of the DIY FFB
 | **ControlBoard_V5** | ESP32-S3 DevKit | `ControlBoard_V5_without_espnow` | UART USB port (CP2102) |
 | **ControlBoard_V6** | ESP32-S3 DevKit | `ControlBoard_V6` | UART USB port (CP2102) |
 | **ControlBoard_V7** | ESP32-S3 Zero | `ControlBoard_V7` | Native USB |
+| **ControlBoard_V8** | ESP32-S3 Zero | `ControlBoard_V8` | Native USB |
 | **ControlBoard PCBA V1.x** | ESP32-S3 (pre-assembled PCBA) | `ControlBoard_PCBA_V1X` | Native USB |
 | **ControlBoard PCBA V2.x** | LOLIN S3 Mini (pre-assembled PCBA) | `ControlBoard_PCBA_V2X_without_espnow` | Native USB |
 | *Generic ESP32 DevKit v1* | *Classic ESP32* | `esp32_devkit` | *UART USB port* |

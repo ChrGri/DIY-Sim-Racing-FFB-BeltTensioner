@@ -76,6 +76,39 @@
   #endif
 
 // ------------------------------------------------------------------------------
+// PCB_VERSION == 15: ControlBoard_V8 (ESP32-S3-Zero)
+// ------------------------------------------------------------------------------
+#elif PCB_VERSION == 15
+  #define BOARD_NAME "ControlBoard_V8"
+
+  // Actuator 1 (servo UART via SP3232, signal not inverted)
+  #define ACTUATOR1_STEP_PIN            4
+  #define ACTUATOR1_DIR_PIN             3
+  #define ACTUATOR1_ENA_PIN             -1
+  #define ACTUATOR1_INVERT_DIR          false
+  #define ACTUATOR1_MODBUS_RX_PIN       6
+  #define ACTUATOR1_MODBUS_TX_PIN       5
+  #define ACTUATOR1_MODBUS_SLAVE_ID     63
+  #define ACTUATOR1_ALM_PIN             2
+  #define ACTUATOR1_BRAKE_RESISTOR_PIN  -1  // No brake resistor on V8
+
+  // Actuator 2 (on the ADS1220 pins, same as V7)
+  #define ACTUATOR2_STEP_PIN            11
+  #define ACTUATOR2_DIR_PIN             12
+  #define ACTUATOR2_ENA_PIN             -1
+  #define ACTUATOR2_INVERT_DIR          false
+  #define ACTUATOR2_MODBUS_RX_PIN       9
+  #define ACTUATOR2_MODBUS_TX_PIN       10
+  #define ACTUATOR2_MODBUS_SLAVE_ID     63
+  #define ACTUATOR2_ALM_PIN             -1
+  #define ACTUATOR2_BRAKE_RESISTOR_PIN  -1
+
+  // On-board WS2812 RGB LED (Waveshare ESP32-S3 Zero)
+  #ifndef RGB_LED_PIN
+    #define RGB_LED_PIN                 21
+  #endif
+
+// ------------------------------------------------------------------------------
 // PCB_VERSION == 9: ControlBoard_PCBA_V2X (LOLIN S3 Mini)
 // ------------------------------------------------------------------------------
 #elif PCB_VERSION == 9

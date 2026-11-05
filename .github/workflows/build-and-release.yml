@@ -28,6 +28,7 @@ jobs:
         environment:
           - ControlBoard_V6
           - ControlBoard_V7
+          - ControlBoard_V8
           - ControlBoard_PCBA_V2X_without_espnow
           - ControlBoard_V4
           - ControlBoard_V5_without_espnow
