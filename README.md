@@ -88,6 +88,7 @@ Each actuator is driven by its own ControlBoard and set up in SimHub as a **Dual
 | Resource | Content |
 | :--- | :--- |
 | 📐 **[Mechanical Design Guide](docs/Mechanical_Design_Dual_Channel.md)** | Layout, housing concept, printed and purchased parts, and assembly order |
+| 🔧 **[Build Instructions](docs/Build_Instructions.md)** | Step-by-step assembly with a CAD picture for every step |
 | 🖨️ **[Printable parts (`cad/stl/`)](cad/stl/)** | All printed parts as 3MF; the required quantity is part of the file name |
 | 🧩 **[CAD assembly (`cad/`)](cad/)** | Complete assembly plus source models (Fusion 360, STEP, IGES) |
 
@@ -139,6 +140,7 @@ Import the pre-configured preset or configure the controller in SimHub Motion:
 | :--- | :--- |
 | 📦 **[Bill of Materials (BOM)](docs/BOM.md)** | Complete parts list, electronics, mechanics, 3D printable adapters, fasteners, and sourcing links. |
 | 📐 **[Mechanical Design Guide (Dual Channel)](docs/Mechanical_Design_Dual_Channel.md)** | Dual channel layout, 3D printed housing, printable 3MF parts, purchased parts, and assembly order. |
+| 🔧 **[Build Instructions (Dual Channel)](docs/Build_Instructions.md)** | Step-by-step assembly with CAD pictures. |
 | 🛠️ **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)** | Step-by-step soldering tutorial for ControlBoard_V7 / V6, servo interface wiring, and tensioner simplifications. |
 | 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |

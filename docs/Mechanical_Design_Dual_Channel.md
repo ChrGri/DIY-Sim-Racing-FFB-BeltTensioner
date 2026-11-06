@@ -26,7 +26,7 @@ The housing parts are designed for a **256 × 256 mm** print bed. The largest pa
 ## 🧭 Layout
 
 * **Spine:** two 2040 V-slot profiles (400 mm each) stacked vertically and joined by the printed `4020_connector`. The 40 mm side faces sideways.
-* **Rig mount:** the printed 2040 holder (`BeltTensionerAdapter` + `RigAdapter`) sits on the back of the spine about 100 mm above its lower end. A M12 threaded rod runs through it into the rig.
+* **Rig mount:** the printed 2040 holder (`BeltTensionerAdapter` + one `RigAdapter` on each side) sits on the back of the spine about 100 mm above its lower end. A M12 threaded rod runs through it into the rig.
 * **Crossbar:** a 2020 V-slot profile (400 mm) on top of the spine, fixed with two corner brackets.
 * **Belt rollers:** two rollers on the front top edge of the 2020, each held by two `RollerAdapter` parts (one on each side of the roller).
 * **Seat distance holders:** two `SeatDistanceHolder` at the ends of the 2020. A M8×100 bolt with an M8 bolt damper rests against the seat back.
@@ -66,7 +66,7 @@ All files are in [`cad/stl/`](../cad/stl/).
 | Roller adapter | `RollerAdapter_4x.3mf` | 4 |
 | Belt roller bracket | `BeltRoller_2x.3mf` | 2 |
 | 2040 holder, profile side | `2040Holder_BeltTensionerAdapter_1x.3mf` | 1 |
-| 2040 holder, rig side | `2040Holder_RigAdapter_1x.3mf` | 1 |
+| 2040 holder, rig side (left and right, identical) | `2040Holder_RigAdapter_2x.3mf` | 2 |
 | 2040 connector | `4020_connector_1x.3mf` | 1 |
 | PSU adapter | `Lrs350To2040Adapter_2x.3mf` | 2 |
 | Seat distance holder | `SeatDistanceHolder_2x.3mf` | 2 |
@@ -88,6 +88,8 @@ All files are in [`cad/stl/`](../cad/stl/).
 | 2020 V-slot profile, 400 mm | 1 |
 | 2020 corner bracket | 2 |
 | M12 threaded rod (~150 mm) with nuts | 1 |
+| Ball bearing 625-2Z (5 × 16 × 5 mm), two per roller | 4 |
+| M5×20 cylinder head screw, roller axles | 4 |
 | M8×100 cylinder head screw | 2 |
 | M8 bolt damper (rubber bumper) | 2 |
 
@@ -119,20 +121,33 @@ All files are in [`cad/stl/`](../cad/stl/).
 | M3 cylinder head screw | 16 | Hood to back plates |
 | M3×6 cylinder head screw | 4 | ControlBoards to their holder |
 | M3 screw + nut | 10 | Hood segments to each other |
-| M5 screw + T-nut | 4 | Lower back plates to the 2040 |
-| M5×12 screw + T-nut | 4 | ControlBoard holder to the front of the 2040 |
+
+### Profile Fasteners
+
+All printed parts are screwed into the profile slots with M5 cylinder head screws (DIN 912) and M5 T-nuts for 20-series slots. The lengths below are modelled in the CAD assembly.
+
+| Component | Qty | Use |
+| :--- | :---: | :--- |
+| M5 T-nut (20-series slot) | 42 | One per M5 screw below |
+| M5×10 | 4 | Corner brackets (2020 to 2040) |
+| M5×12 | 16 | `4020_connector` (4), lower back plates (4), PSU adapters into the 2040 side slots (4), ControlBoard holder (4) |
+| M5×16 | 18 | Roller adapters (8), seat distance holders (2), upper back plates (8) |
+| M5×20 | 4 | 2040 holder (`BeltTensionerAdapter`) |
+| M4×10 | 4 | PSU adapters to the power supply |
 
 > [!NOTE]
-> The 2040 holder, connector, PSU adapters, roller adapters, seat distance holders and linear modules are fastened with M4/M5 screws and T-nuts into the profile slots. Choose the screw lengths to suit the printed part thicknesses. Because the belt adapter is 31 mm deep, the four M5 screws between `BeltToJkkAdapter` and carriage are 11 mm longer than with the original 20 mm adapter.
+> The linear modules are fastened to the upper back plates with M4 screws, and the belt adapters to the carriages with M5 screws; choose those lengths to suit the module. Because the belt adapter is 31 mm deep, the four M5 screws between `BeltToJkkAdapter` and carriage are 11 mm longer than with the original 20 mm adapter.
 
 ---
 
 ## 🛠️ Assembly Order
 
+For a detailed walkthrough with a CAD picture for every step, see the **[Build Instructions](Build_Instructions.md)**.
+
 1. Join both 2040 profiles with the `4020_connector` and mount the 2020 crossbar with the corner brackets.
 2. Mount the 2040 holder and the M12 rod, and fix the spine to the rig.
-3. Fit the rollers with their adapters and the seat distance holders to the 2020.
+3. Press two 625-2Z bearings into each roller, fit the adapters with M5×20 axle screws, then mount the rollers and the seat distance holders to the 2020.
 4. Screw the linear modules onto the upper back plates, flange the servos to the modules and mount the plates to the back of the 2040.
 5. Mount the lower back plates and the PSU with its two adapters. Screw the ControlBoard holder to the front of the 2040 before fitting the boards: the boards cover its M5 screws.
 6. Fit the belt adapters, spacers and M8 bolts to the carriages and route the belts over the rollers.
-7. Press the M3 inserts into the back plates, then slide the hood segments on from the front and screw them together.
+7. Join the four hood segments on the bench with M3 screws and nuts, slide the complete hood on from the front and screw it to the back plates (M3 inserts pressed in beforehand).
