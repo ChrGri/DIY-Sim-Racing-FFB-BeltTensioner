@@ -31,8 +31,9 @@ The housing parts are designed for a **256 × 256 mm** print bed. The largest pa
 * **Belt rollers:** two rollers on the front top edge of the 2020, each held by two `RollerAdapter` parts (one on each side of the roller).
 * **Seat distance holders:** two `SeatDistanceHolder` at the ends of the 2020. A M8×100 bolt with an M8 bolt damper rests against the seat back.
 * **Actuators:** two JKK60 linear modules (10 mm pitch, 150 mm stroke), mirrored left/right at ±110 mm. The rails face forward. Each module carries an iSV57T servo at the bottom, with the connectors pointing inwards.
-* **Belt attachment:** a `BeltToJkkAdapter` on each carriage with an M8×35 bolt and six M8 washers. The washer stack runs through a slot in the housing front, and the belt loop is attached there.
+* **Belt attachment:** a `BeltToJkkAdapter` on each carriage with an M8×40 bolt and a printed 15 mm spacer (`Distanzhuelse_M8_15mm`, Ø 16 mm with a Ø 20 mm collar at the outer end). The spacer runs through a slot in the housing front. The belt loop sits on it between the housing and the collar, and the collar keeps the loop from sliding off.
 * **Power supply:** a MeanWell LRS-350 mounted between the rails with two `Lrs350To2040Adapter`, terminals facing down.
+* **Control boards:** two ControlBoards V8 (one per actuator) below the PSU, on the printed `PCB_Halter` on the front of the 2040. The boards stand vertically and are turned 25° about the vertical axis. The screw terminals face outwards toward the servo ports, which leaves room for the servo plugs.
 
 ---
 
@@ -69,9 +70,11 @@ All files are in [`cad/stl/`](../cad/stl/).
 | 2040 connector | `4020_connector_1x.3mf` | 1 |
 | PSU adapter | `Lrs350To2040Adapter_2x.3mf` | 2 |
 | Seat distance holder | `SeatDistanceHolder_2x.3mf` | 2 |
+| ControlBoard holder | `PCB_Halter_1x.3mf` | 1 |
+| Belt spacer M8, 15 mm | `Distanzhuelse_M8_15mm_2x.3mf` | 2 |
 
 > [!TIP]
-> The parts are exported in their installed orientation. Rotate them onto a flat face in the slicer. Print the hood segments front-face down so the hexagonal vents need no supports.
+> The parts are exported in their installed orientation. Rotate them onto a flat face in the slicer. Print the hood segments front-face down so the hexagonal vents need no supports. Print the ControlBoard holder on its flat back (the side that rests on the 2040). It needs no supports in that orientation. Print the belt spacers standing on their collar.
 
 ---
 
@@ -105,18 +108,19 @@ All files are in [`cad/stl/`](../cad/stl/).
 
 | Component | Qty |
 | :--- | :---: |
-| M8×35 cylinder head screw | 2 |
-| M8 washer (DIN 125) | 12 |
+| M8×40 cylinder head screw | 2 |
 | Soft tie-down loop (20 cm) | 2 |
 
 ### Housing Fasteners
 
 | Component | Qty | Use |
 | :--- | :---: | :--- |
-| M3 heat-set insert (for Ø 4.2 mm holes) | 16 | 14 in the upper back plates, 2 in the lower back plates |
+| M3 heat-set insert (for Ø 4.2 mm holes) | 20 | 14 in the upper back plates, 2 in the lower back plates, 4 in the ControlBoard holder |
 | M3 cylinder head screw | 16 | Hood to back plates |
+| M3×6 cylinder head screw | 4 | ControlBoards to their holder |
 | M3 screw + nut | 10 | Hood segments to each other |
 | M5 screw + T-nut | 4 | Lower back plates to the 2040 |
+| M5×12 screw + T-nut | 4 | ControlBoard holder to the front of the 2040 |
 
 > [!NOTE]
 > The 2040 holder, connector, PSU adapters, roller adapters, seat distance holders and linear modules are fastened with M4/M5 screws and T-nuts into the profile slots. Choose the screw lengths to suit the printed part thicknesses. Because the belt adapter is 31 mm deep, the four M5 screws between `BeltToJkkAdapter` and carriage are 11 mm longer than with the original 20 mm adapter.
@@ -129,6 +133,6 @@ All files are in [`cad/stl/`](../cad/stl/).
 2. Mount the 2040 holder and the M12 rod, and fix the spine to the rig.
 3. Fit the rollers with their adapters and the seat distance holders to the 2020.
 4. Screw the linear modules onto the upper back plates, flange the servos to the modules and mount the plates to the back of the 2040.
-5. Mount the lower back plates and the PSU with its two adapters.
-6. Fit the belt adapters, washers and M8 bolts to the carriages and route the belts over the rollers.
+5. Mount the lower back plates and the PSU with its two adapters. Screw the ControlBoard holder to the front of the 2040 before fitting the boards: the boards cover its M5 screws.
+6. Fit the belt adapters, spacers and M8 bolts to the carriages and route the belts over the rollers.
 7. Press the M3 inserts into the back plates, then slide the hood segments on from the front and screw them together.
