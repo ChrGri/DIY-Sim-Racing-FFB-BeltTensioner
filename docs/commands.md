@@ -191,6 +191,7 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`SET_PITCH <axis> <mm>`** | `SET_PITCH <mm>` (axis 1) | Saves the spindle pitch of axis 1 or 2 in flash (NVS), e.g. `SET_PITCH 2 5`. Allowed 0.5 - 50 mm, `,` or `.` as decimal separator. Applied after a restart of the controller. |
 | **`SET_RANGE <axis> <mm>`** | `SET_RANGE <mm>` (axis 1) | Saves the usable working range of axis 1 or 2 in flash, e.g. `SET_RANGE 1 60`. Allowed 5 - 500 mm. Applied after a restart. |
 | **`RESET_CONFIG`** | - | Deletes all saved pitch/range values; the `SPINDLE_PITCH_MM` / `TOTAL_WORKING_RANGE_MM` defaults from `Config.h` apply after a restart. |
+| **`RESTART`** | `REBOOT` | Disables the motors and restarts the controller, e.g. to apply values saved with `SET_PITCH` / `SET_RANGE`. On native USB boards the COM port disappears briefly. |
 | **`WEBGRAPHS`** | - | Prints the address of the live graph web page (see below). |
 | **`HELP`** | - | Prints an overview of all available serial commands. |
 

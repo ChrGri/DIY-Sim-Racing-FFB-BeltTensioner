@@ -315,6 +315,16 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         AxisConfig::reset();
         stream->println(F("Saved axis configuration deleted, Config.h defaults apply after restart"));
         printAxisConfig(stream);
+    } else if (strcasecmp(cmd, "RESTART") == 0 || strcasecmp(cmd, "REBOOT") == 0) {
+        stream->println(F(">>> Restarting controller <<<"));
+        stream->flush();
+        for (uint8_t i = 0; i < numAxes; i++) {
+            if (axisUnits[i] != nullptr) {
+                axisUnits[i]->disableMotor();
+            }
+        }
+        delay(200);
+        ESP.restart();
     } else if (strcasecmp(cmd, "WEBGRAPHS") == 0) {
         webGraphs.printStatus(stream);
     } else if (strcasecmp(cmd, "HELP") == 0) {
@@ -330,6 +340,7 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
         stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));
+        stream->println(F("  RESTART        - Restart the controller (applies saved pitch/range)"));
         stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));
     } else if (strcasecmp(cmd, "STATUS") == 0) {
         for (uint8_t i = 0; i < numAxes; i++) {

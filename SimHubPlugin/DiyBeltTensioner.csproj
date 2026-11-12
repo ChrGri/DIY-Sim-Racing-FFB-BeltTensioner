@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SimHub plugin for the DIY Sim Racing FFB Belt Tensioner.
+
+    Build (Windows, SimHub closed):
+      dotnet build -c Release
+    or open DiyBeltTensioner.sln in Visual Studio 2022.
+
+    SimHubPath points to the SimHub installation and is used for the references
+    and as copy target of the built DLL. Override it if SimHub lives elsewhere:
+      dotnet build -c Release -p:SimHubPath="D:\SimHub\"
+    Disable the copy step with -p:CopyToSimHub=false
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>Library</OutputType>
+    <AssemblyName>DiyBeltTensioner</AssemblyName>
+    <RootNamespace>DiyBeltTensioner</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <SimHubPath Condition="'$(SimHubPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubPath>
+    <CopyToSimHub Condition="'$(CopyToSimHub)' == ''">true</CopyToSimHub>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Allows building without the .NET Framework 4.8 developer pack -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shipped with SimHub, never copied to the output -->
+    <Reference Include="SimHub.Plugins">
+      <HintPath>$(SimHubPath)SimHub.Plugins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="GameReaderCommon">
+      <HintPath>$(SimHubPath)GameReaderCommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(SimHubPath)Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SimHub.Logging">
+      <HintPath>$(SimHubPath)SimHub.Logging.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="log4net">
+      <HintPath>$(SimHubPath)log4net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+
+    <Reference Include="System.Management" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\icon.png" LogicalName="DiyBeltTensioner.icon.png" />
+    <!-- esptool (https://github.com/espressif/esptool, GPL-2.0), extracted to %TEMP% for flashing -->
+    <EmbeddedResource Include="Resources\esptool.exe" LogicalName="DiyBeltTensioner.esptool.exe" Condition="Exists('Resources\esptool.exe')" />
+    <!-- SimHub Motion presets from docs/motionPluginSetup, used as templates for the preset generator -->
+    <EmbeddedResource Include="..\docs\motionPluginSetup\SingleAxisBeltTensioner.shmotionoutput" LogicalName="DiyBeltTensioner.Presets.Single.shmotionoutput" />
+    <EmbeddedResource Include="..\docs\motionPluginSetup\DualAxisBeltTensioner.shmotionoutput" LogicalName="DiyBeltTensioner.Presets.Dual.shmotionoutput" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToSimHub" AfterTargets="Build" Condition="'$(CopyToSimHub)' == 'true' And Exists('$(SimHubPath)SimHubWPF.exe')">
+    <Message Importance="high" Text="Copying $(TargetFileName) to $(SimHubPath) (SimHub must be closed)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SimHubPath)" ContinueOnError="true" />
+  </Target>
+
+</Project>

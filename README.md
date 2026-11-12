@@ -125,6 +125,9 @@ Use any supported ESP32-S3 ControlBoard. Self-soldered boards need the SR5100 di
 👉 **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)**
 
 ### 3️⃣ Flash the Firmware
+> [!TIP]
+> The **[Belt Tensioner SimHub plugin](SimHubPlugin/README.md)** does steps 3 and 4 in one place: flash the latest release, flash the servo, set pitch & range, test the actuator and create the SimHub Motion preset.
+
 Download the latest pre-compiled release for your board and flash it directly within SimHub using the FFB Pedal Dashboard plugin. Afterwards flash the servo registers (`FLASH_SERVO`) and set spindle pitch & working range of each axis (`SET_PITCH` / `SET_RANGE`, e.g. 5 mm or 10 mm spindles) via the serial monitor:
 👉 **[Firmware Flashing Guide (Step-by-Step with Screenshots)](docs/Firmware_Flashing.md)**
 
@@ -143,6 +146,7 @@ Import the pre-configured preset or configure the controller in SimHub Motion:
 | 🔧 **[Build Instructions (Dual Channel)](docs/Build_Instructions.md)** | Step-by-step assembly with CAD pictures. |
 | 🛠️ **[PCB Soldering & Assembly Guide](docs/PCB_Assembly.md)** | Step-by-step soldering tutorial for ControlBoard_V7 / V6, servo interface wiring, and tensioner simplifications. |
 | 💾 **[Firmware Flashing Guide](docs/Firmware_Flashing.md)** | Step-by-step guide to flashing pre-compiled releases using the SimHub FFB Pedal Dashboard USB Flasher. |
+| 🧩 **[Belt Tensioner SimHub Plugin](SimHubPlugin/README.md)** | SimHub plugin to flash the firmware, configure pitch & working range, test the actuator and create SimHub Motion presets. |
 | 📖 **[SimHub Motion Setup Guide](docs/SimHub_Motion_Setup.md)** | Step-by-step installation guide with screenshots, axis calibration, and importable `.shmotionoutput` profiles. |
 | 🛠️ **[Developer & Hardware Guide](docs/Developer_Guide.md)** | Hardware pinouts, board wiring, `src/Config.h` parameters, and compiling from source with PlatformIO. |
 | ⚡ **[Protocol & Command Specification](docs/commands.md)** | Complete specification of binary SimHub packets (`CMD 1`–`15`), serial ASCII commands (`FLASH_SERVO`, `HOME`, `STATUS`, `CONFIG`, `SET_PITCH`, `SET_RANGE`), and diagnostic responses. |

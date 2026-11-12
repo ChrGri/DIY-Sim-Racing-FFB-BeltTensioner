@@ -1,0 +1,359 @@
+<UserControl x:Class="DiyBeltTensioner.UI.BeltTensionerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:styles="clr-namespace:SimHub.Plugins.Styles;assembly=SimHub.Plugins"
+             MinWidth="700">
+
+    <UserControl.Resources>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,4" />
+        </Style>
+        <Style x:Key="Warn" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#FFFFB74D" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,8" />
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style TargetType="GroupBox" BasedOn="{StaticResource {x:Type GroupBox}}">
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="MinWidth" Value="80" />
+        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Margin="10" LastChildFill="True">
+
+        <!-- ============ Connection bar ============ -->
+        <GroupBox DockPanel.Dock="Top" Header="Controller connection">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="COM port" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="ComboPort" Width="300" Margin="0,0,6,0" DisplayMemberPath="DisplayName" />
+                    <Button x:Name="BtnRefreshPorts" Content="Refresh" Click="BtnRefreshPorts_Click" />
+                    <styles:SHButtonPrimary x:Name="BtnConnect" Content="Connect" Click="BtnConnect_Click" MinWidth="100" Margin="0,0,6,0" />
+                    <CheckBox x:Name="CheckAutoConnect" Content="Connect when SimHub starts" VerticalAlignment="Center" Margin="10,0,0,0"
+                              Checked="CheckAutoConnect_Changed" Unchecked="CheckAutoConnect_Changed" />
+                </StackPanel>
+                <TextBlock x:Name="TextConnectionState" Margin="0,8,0,0" Text="Not connected" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="Only one program can use the COM port. Disconnect here (or click 'Release port for SimHub Motion') before you enable SimHub Motion, and disable SimHub Motion before you connect here. Serial: 250000 baud." />
+            </StackPanel>
+        </GroupBox>
+
+        <!-- ============ Log / serial console ============ -->
+        <GroupBox DockPanel.Dock="Bottom" Header="Log / serial console">
+            <DockPanel Height="230">
+                <DockPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                    <Button DockPanel.Dock="Right" x:Name="BtnClearLog" Content="Clear" Click="BtnClearLog_Click" Margin="6,0,0,0" />
+                    <Button DockPanel.Dock="Right" x:Name="BtnSend" Content="Send" Click="BtnSend_Click" Margin="6,0,0,0" />
+                    <Button DockPanel.Dock="Right" x:Name="BtnHelp" Content="HELP" Click="BtnHelp_Click" Margin="6,0,0,0" />
+                    <TextBox x:Name="TextCommand" KeyDown="TextCommand_KeyDown"
+                             ToolTip="ASCII command, e.g. CONFIG, STATUS, DIFF_SERVO, SET_PITCH 1 5 (Enter to send)" />
+                </DockPanel>
+                <TextBox x:Name="TextLog" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
+            </DockPanel>
+        </GroupBox>
+
+        <!-- ============ Tabs ============ -->
+        <TabControl x:Name="Tabs" Margin="0,0,0,10">
+
+            <!-- ======== 1. Firmware ======== -->
+            <TabItem Header="1. Firmware">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="Controller board">
+                            <StackPanel>
+                                <ComboBox x:Name="ComboBoard" Width="460" HorizontalAlignment="Left" DisplayMemberPath="DisplayName"
+                                          SelectionChanged="ComboBoard_SelectionChanged" />
+                                <TextBlock Style="{StaticResource Hint}" Text="Pick the ControlBoard your belt tensioner runs on. The firmware archive of this board is flashed." />
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Firmware source">
+                            <StackPanel>
+                                <RadioButton x:Name="RadioSourceGitHub" GroupName="FwSource" Content="Latest GitHub release (download automatically)" Checked="FirmwareSource_Changed" Margin="0,2" />
+                                <StackPanel Orientation="Horizontal" Margin="22,4,0,6">
+                                    <TextBlock Text="Repository" Style="{StaticResource Label}" />
+                                    <TextBox x:Name="TextRepository" Width="320" LostFocus="TextRepository_LostFocus" />
+                                    <Button x:Name="BtnCheckRelease" Content="Check latest release" Click="BtnCheckRelease_Click" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <TextBlock x:Name="TextReleaseInfo" Margin="22,0,0,6" Style="{StaticResource Hint}" Text="Release not checked yet." />
+
+                                <RadioButton x:Name="RadioSourceZip" GroupName="FwSource" Content="Local release archive (.zip)" Checked="FirmwareSource_Changed" Margin="0,2" />
+                                <RadioButton x:Name="RadioSourceFolder" GroupName="FwSource" Content="Local folder / firmware.bin (e.g. .pio\build\&lt;env&gt;)" Checked="FirmwareSource_Changed" Margin="0,2" />
+                                <DockPanel Margin="22,4,0,0">
+                                    <Button DockPanel.Dock="Right" x:Name="BtnBrowseFirmware" Content="Browse..." Click="BtnBrowseFirmware_Click" Margin="6,0,0,0" />
+                                    <TextBox x:Name="TextLocalFirmware" LostFocus="TextLocalFirmware_LostFocus" />
+                                </DockPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Flash">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <styles:SHButtonPrimary x:Name="BtnFlash" Content="Flash firmware" Click="BtnFlash_Click" MinWidth="160" Margin="0,0,6,0" />
+                                    <CheckBox x:Name="CheckReconnectAfterFlash" Content="Reconnect after flashing" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="Uses the COM port selected above; an open connection is closed while flashing. Saved spindle pitch and working range are kept. If esptool cannot connect: hold BOOT, press and release RST, release BOOT and flash again." />
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="After the first flash: power the servo, connect, and run 'Flash servo parameters' once on the Configuration tab." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ======== 2. Configuration ======== -->
+            <TabItem Header="2. Configuration">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="Spindle pitch &amp; working range (saved in the controller)">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="32" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="32" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Pitch [mm]" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Range [mm]" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="Value in the controller" FontWeight="SemiBold" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Axis 1" Style="{StaticResource Label}" />
+                                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="TextPitch1" Margin="0,3,10,3" ToolTip="Spindle pitch in mm per motor revolution (0.5 - 50), e.g. 5 or 10" />
+                                    <TextBox Grid.Row="1" Grid.Column="2" x:Name="TextRange1" Margin="0,3,10,3" ToolTip="Usable stroke in mm (5 - 500), e.g. 60" />
+                                    <TextBlock Grid.Row="1" Grid.Column="3" x:Name="TextAxis1Info" VerticalAlignment="Center" TextWrapping="Wrap" Text="-" />
+                                    <TextBlock Grid.Row="2" Grid.Column="3" x:Name="TextAxis1Motion" Style="{StaticResource Hint}" Text="" />
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Axis 2" Style="{StaticResource Label}" />
+                                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="TextPitch2" Margin="0,3,10,3" ToolTip="Only used by boards driving two actuators" />
+                                    <TextBox Grid.Row="3" Grid.Column="2" x:Name="TextRange2" Margin="0,3,10,3" ToolTip="Only used by boards driving two actuators" />
+                                    <TextBlock Grid.Row="3" Grid.Column="3" x:Name="TextAxis2Info" VerticalAlignment="Center" TextWrapping="Wrap" Text="-" />
+                                    <TextBlock Grid.Row="4" Grid.Column="3" x:Name="TextAxis2Motion" Style="{StaticResource Hint}" Text="" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button x:Name="BtnReadConfig" Content="Read" Click="BtnReadConfig_Click" />
+                                    <styles:SHButtonPrimary x:Name="BtnWriteConfig" Content="Save to controller" Click="BtnWriteConfig_Click" MinWidth="140" Margin="0,0,6,0" />
+                                    <Button x:Name="BtnRestart" Content="Restart controller" Click="BtnRestart_Click" />
+                                    <Button x:Name="BtnResetConfig" Content="Reset to firmware defaults" Click="BtnResetConfig_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="TextRestartPending" Style="{StaticResource Warn}" Visibility="Collapsed"
+                                           Text="Saved values differ from the active ones: restart the controller to apply them." />
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="Values are stored per axis in the controller flash and applied after a restart. In a dual belt setup with one board per actuator every board drives its actuator as axis 1: connect to each board and configure it separately. Speed and acceleration are defined in m/s, so different pitches move identically." />
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="iSV57 servo">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Servo" Style="{StaticResource Label}" />
+                                    <ComboBox x:Name="ComboServo" Width="60" Margin="0,0,10,0" SelectedIndex="0">
+                                        <ComboBoxItem Content="1" />
+                                        <ComboBoxItem Content="2" />
+                                    </ComboBox>
+                                    <styles:SHButtonPrimary x:Name="BtnFlashServo" Content="Flash servo parameters" Click="BtnFlashServo_Click" MinWidth="170" Margin="0,0,6,0" />
+                                    <Button x:Name="BtnDiffServo" Content="Check (DIFF)" Click="BtnDiffServo_Click" />
+                                    <Button x:Name="BtnEnableServo" Content="Enable" Click="BtnEnableServo_Click" />
+                                    <Button x:Name="BtnDisableServo" Content="Disable (all)" Click="BtnDisableServo_Click" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="'Flash servo parameters' writes the 305 tuned registers (direction, microsteps, gains) into the servo EEPROM. Needed once per servo and after firmware releases that change the tuning. Power cycle the servo afterwards; 'Check (DIFF)' should then report 0 differ." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ======== 3. Test ======== -->
+            <TabItem Header="3. Test">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <TextBlock Style="{StaticResource Warn}"
+                                   Text="Start with low values and without wearing the harness. The actuator moves immediately; the firmware limits the stroke to 5 - 95 % and homes automatically when needed." />
+
+                        <GroupBox Header="Basic commands">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnHome" Content="Home (calibrate)" Click="BtnHome_Click" />
+                                    <Button x:Name="BtnPark" Content="Park (release)" Click="BtnPark_Click" />
+                                    <Button x:Name="BtnStatus" Content="Status" Click="BtnStatus_Click" />
+                                    <CheckBox x:Name="CheckLiveLoad" Content="Live servo load" VerticalAlignment="Center" Margin="10,0,0,0"
+                                              Checked="CheckLiveLoad_Changed" Unchecked="CheckLiveLoad_Changed" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Load axis 1" Style="{StaticResource Label}" />
+                                    <ProgressBar x:Name="BarLoad1" Width="160" Height="14" Maximum="100" />
+                                    <TextBlock x:Name="TextLoad1" Width="110" Margin="8,0,20,0" VerticalAlignment="Center" Text="-" />
+                                    <TextBlock Text="Load axis 2" Style="{StaticResource Label}" />
+                                    <ProgressBar x:Name="BarLoad2" Width="160" Height="14" Maximum="100" />
+                                    <TextBlock x:Name="TextLoad2" Width="110" Margin="8,0,0,0" VerticalAlignment="Center" Text="-" />
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Motion test">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <RadioButton x:Name="RadioTestHold" GroupName="TestMode" Content="Hold position" Margin="0,0,16,0" Checked="TestParam_Changed" />
+                                    <RadioButton x:Name="RadioTestSine" GroupName="TestMode" Content="Sine" Margin="0,0,16,0" Checked="TestParam_Changed" />
+                                    <RadioButton x:Name="RadioTestPulse" GroupName="TestMode" Content="Brake pulse" Margin="0,0,16,0" Checked="TestParam_Changed" />
+                                    <CheckBox x:Name="CheckTestAxis1" Content="Axis 1" Margin="20,0,10,0" Checked="TestParam_Changed" Unchecked="TestParam_Changed" />
+                                    <CheckBox x:Name="CheckTestAxis2" Content="Axis 2" Checked="TestParam_Changed" Unchecked="TestParam_Changed" />
+                                </StackPanel>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Text="Hold: position" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="0" Grid.Column="1" x:Name="SliderHold" Minimum="0" Maximum="100" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=SliderHold, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="1" Text="Sine: center" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="1" Grid.Column="1" x:Name="SliderSineCenter" Minimum="0" Maximum="100" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=SliderSineCenter, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="2" Text="Sine: amplitude" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="2" Grid.Column="1" x:Name="SliderSineAmplitude" Minimum="0" Maximum="50" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=SliderSineAmplitude, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="3" Text="Sine: frequency" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="3" Grid.Column="1" x:Name="SliderSineFrequency" Minimum="0.1" Maximum="10" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Value, ElementName=SliderSineFrequency, StringFormat='{}{0:0.0} Hz'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="4" Text="Pulse: base" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="4" Grid.Column="1" x:Name="SliderPulseBase" Minimum="0" Maximum="100" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding Value, ElementName=SliderPulseBase, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="5" Text="Pulse: peak" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="5" Grid.Column="1" x:Name="SliderPulsePeak" Minimum="0" Maximum="100" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding Value, ElementName=SliderPulsePeak, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="6" Text="Pulse: duration" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="6" Grid.Column="1" x:Name="SliderPulseDuration" Minimum="50" Maximum="2000" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="6" Grid.Column="2" Text="{Binding Value, ElementName=SliderPulseDuration, StringFormat='{}{0:0} ms'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                    <TextBlock Grid.Row="7" Text="Pulse: repeat every" Style="{StaticResource Label}" />
+                                    <Slider Grid.Row="7" Grid.Column="1" x:Name="SliderPulseInterval" Minimum="500" Maximum="10000" VerticalAlignment="Center" ValueChanged="TestSlider_Changed" />
+                                    <TextBlock Grid.Row="7" Grid.Column="2" Text="{Binding Value, ElementName=SliderPulseInterval, StringFormat='{}{0:0} ms'}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBlock Text="Max. pulse frequency" Style="{StaticResource Label}" />
+                                    <TextBox x:Name="TextTestFrequency" Width="70" Margin="0,0,16,0" ToolTip="Same unit as the SimHub Motion slider: 36000 = 0.30 m/s (full speed)" />
+                                    <TextBlock Text="Max. acceleration" Style="{StaticResource Label}" />
+                                    <TextBox x:Name="TextTestAcceleration" Width="80" ToolTip="Same unit as the SimHub Motion slider: 100000 = 9.4 m/s^2" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <styles:SHButtonPrimary x:Name="BtnTestStart" Content="Start test" Click="BtnTestStart_Click" MinWidth="120" Margin="0,0,6,0" />
+                                    <Button x:Name="BtnTestStop" Content="Stop &amp; park" Click="BtnTestStop_Click" IsEnabled="False" />
+                                    <TextBlock x:Name="TextTestState" VerticalAlignment="Center" Margin="10,0,0,0" Text="" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="The test streams positions like SimHub Motion (0 % = slack, 100 % = full pull of the working range). Axes that are not selected stay at the 10 % idle position." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ======== 4. SimHub Motion ======== -->
+            <TabItem Header="4. SimHub Motion">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="Rig layout">
+                            <StackPanel>
+                                <RadioButton x:Name="RadioMotionSingle" GroupName="MotionLayout" Content="Single belt tensioner (one actuator)" Checked="MotionLayout_Changed" Margin="0,2" />
+                                <RadioButton x:Name="RadioMotionDual" GroupName="MotionLayout" Content="Dual belt tensioner (two actuators, one controller board each)" Checked="MotionLayout_Changed" Margin="0,2" />
+
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="320" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="32" />
+                                        <RowDefinition Height="32" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" x:Name="LabelMotionPort1" Text="COM port" Style="{StaticResource Label}" />
+                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ComboMotionPort1" IsEditable="True" Margin="0,3" />
+                                    <CheckBox Grid.Row="0" Grid.Column="2" x:Name="CheckMotionReverse1" Content="Reverse direction" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                                    <TextBlock Grid.Row="1" x:Name="LabelMotionPort2" Text="Right belt COM port" Style="{StaticResource Label}" />
+                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="ComboMotionPort2" IsEditable="True" Margin="0,3" />
+                                    <CheckBox Grid.Row="1" Grid.Column="2" x:Name="CheckMotionReverse2" Content="Reverse direction" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Max. steppers pulse frequency" Style="{StaticResource Label}" />
+                                    <TextBox x:Name="TextMotionFrequency" Width="70" Margin="0,0,16,0" ToolTip="36000 = 0.30 m/s, the maximum" />
+                                    <TextBlock Text="Max. steppers acceleration" Style="{StaticResource Label}" />
+                                    <TextBox x:Name="TextMotionAcceleration" Width="80" ToolTip="100000 = 9.4 m/s^2, the maximum" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}" Text="Recommended: 36000 and 100000 (the maximum of the SimHub sliders, scaled to the full servo speed by the firmware). Rotary lever compensation is always off." />
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Create preset">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <styles:SHButtonPrimary x:Name="BtnSavePreset" Content="Save SimHub Motion preset..." Click="BtnSavePreset_Click" MinWidth="200" Margin="0,0,6,0" />
+                                    <Button x:Name="BtnReleasePort" Content="Release port for SimHub Motion" Click="BtnReleasePort_Click" />
+                                    <Button x:Name="BtnOpenMotionDocs" Content="Setup guide" Click="BtnOpenMotionDocs_Click" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0">
+                                    <Run Text="Import the saved file in SimHub:" FontWeight="SemiBold" /><LineBreak />
+                                    <Run Text="1. Arduino → My Hardware → Arduino scan settings: make sure SimHub does not scan the belt tensioner port(s), Apply changes." /><LineBreak />
+                                    <Run Text="2. Motion → Platform Config. → Settings Import and export → Import all platform settings → select the saved file." /><LineBreak />
+                                    <Run Text="3. Release the port here, then click Enable Motion. The carriage homes, backs off into the park position and is ready." /><LineBreak />
+                                    <Run Text="4. Dual: use 'Test belt pull' in Edit axis assignments to check that each controller moves the correct belt." />
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Hint}" Text="Importing replaces the current rig and controller configuration of SimHub Motion. SimHub Motion needs the Motion addon licence." />
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>
