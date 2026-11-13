@@ -1,4 +1,5 @@
 #include "BeltTensionerProtocol.h"
+#include "ControllerConfig.h"
 #include "WebGraphs.h"
 
 BeltTensionerProtocol::BeltTensionerProtocol() {
@@ -307,13 +308,19 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  SET_PITCH <axis> <mm>  - spindle pitch, e.g. SET_PITCH 1 5"));
         stream->println(F("  SET_RANGE <axis> <mm>  - working range, e.g. SET_RANGE 1 60"));
         stream->println(F("  RESET_CONFIG           - delete saved values, use Config.h defaults"));
+        stream->println(F("More settings: SETTINGS"));
     } else if (strncasecmp(cmd, "SET_PITCH ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, true);
     } else if (strncasecmp(cmd, "SET_RANGE ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, false);
+    } else if (strcasecmp(cmd, "SETTINGS") == 0) {
+        ControllerConfig::print(stream);
+    } else if (strncasecmp(cmd, "SET ", 4) == 0) {
+        ControllerConfig::set(stream, cmd + 4);
     } else if (strcasecmp(cmd, "RESET_CONFIG") == 0) {
         AxisConfig::reset();
-        stream->println(F("Saved axis configuration deleted, Config.h defaults apply after restart"));
+        ControllerConfig::reset();
+        stream->println(F("Saved configuration deleted, Config.h defaults apply after restart"));
         printAxisConfig(stream);
     } else if (strcasecmp(cmd, "RESTART") == 0 || strcasecmp(cmd, "REBOOT") == 0) {
         stream->println(F(">>> Restarting controller <<<"));
@@ -339,6 +346,8 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  CONFIG         - Show spindle pitch & working range per axis"));
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
+        stream->println(F("  SETTINGS       - Show direction, position, idle & homing settings"));
+        stream->println(F("  SET key value  - Save a setting in flash, e.g. SET IDLE_POSITION 15"));
         stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));
         stream->println(F("  RESTART        - Restart the controller (applies saved pitch/range)"));
         stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));

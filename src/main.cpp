@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <FastAccelStepper.h>
 #include "Config.h"
+#include "ControllerConfig.h"
 #include "AxisUnit.h"
 #include "BeltTensionerProtocol.h"
 #include "HostSerial.h"
@@ -116,6 +117,9 @@ void setup() {
     // 4. Configure and initialize Actuator 1
     // Spindle pitch & working range come from NVS or Config.h; speeds are in m/s,
     // so axes with different pitches move identically.
+    // Behaviour settings (direction, positions, idle, homing) from NVS or Config.h
+    const ControllerSettings& ctrl = ControllerConfig::begin();
+
     AxisMechConfig mech1 = AxisConfig::load(0);
     AxisUnitSettings settings1;
     settings1.stepperId               = 1;
@@ -125,16 +129,19 @@ void setup() {
     settings1.almPin                  = ACTUATOR1_ALM_PIN;
     settings1.brakeResistorPin        = ACTUATOR1_BRAKE_RESISTOR_PIN;
     settings1.invertDir               = ACTUATOR1_INVERT_DIR;
-    settings1.invertTensionDir        = INVERT_TENSION_DIRECTION;
+    settings1.invertTensionDir        = ctrl.invertTension;
     settings1.mech                    = mech1;
     settings1.totalWorkingRange       = mech1.workingRangeSteps();
     settings1.maxSpeedMS              = DEFAULT_MAX_SPEED_M_S;
     settings1.accelerationMS2         = DEFAULT_ACCELERATION_M_S2;
-    settings1.homingCurrentThreshold  = HOMING_CURRENT_THRESHOLD_PCT;
+    settings1.homingCurrentThreshold  = ctrl.homingThresholdPct;
     settings1.homingSpeedMS           = HOMING_SPEED_M_S;
     settings1.homingAccelMS2          = HOMING_ACCELERATION_M_S2;
-    settings1.centerAfterCalib        = CENTER_AFTER_CALIBRATION;
-    settings1.homingBackoffMm         = HOMING_BACKOFF_MM;
+    settings1.centerAfterCalib        = ctrl.centerAfterHoming;
+    settings1.homingBackoffMm         = ctrl.homingBackoffMm;
+    settings1.idlePositionPct         = ctrl.idlePositionPct;
+    settings1.minSafetyPct            = ctrl.minSafetyPct;
+    settings1.maxSafetyPct            = ctrl.maxSafetyPct;
     settings1.measureMaxTravel        = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     axisUnit1.begin(&engine,
@@ -143,7 +150,7 @@ void setup() {
                     ACTUATOR1_MODBUS_RX_PIN,
                     ACTUATOR1_MODBUS_TX_PIN,
                     ACTUATOR1_MODBUS_SLAVE_ID,
-                    CALIBRATE_AT_BOOT,
+                    ctrl.homeAtBoot,
                     ACTUATOR1_MODBUS_INVERT);
 
     // 5. Configure and initialize Actuator 2 (if enabled)
@@ -157,16 +164,19 @@ void setup() {
     settings2.almPin                  = ACTUATOR2_ALM_PIN;
     settings2.brakeResistorPin        = ACTUATOR2_BRAKE_RESISTOR_PIN;
     settings2.invertDir               = ACTUATOR2_INVERT_DIR;
-    settings2.invertTensionDir        = INVERT_TENSION_DIRECTION;
+    settings2.invertTensionDir        = ctrl.invertTension;
     settings2.mech                    = mech2;
     settings2.totalWorkingRange       = mech2.workingRangeSteps();
     settings2.maxSpeedMS              = DEFAULT_MAX_SPEED_M_S;
     settings2.accelerationMS2         = DEFAULT_ACCELERATION_M_S2;
-    settings2.homingCurrentThreshold  = HOMING_CURRENT_THRESHOLD_PCT;
+    settings2.homingCurrentThreshold  = ctrl.homingThresholdPct;
     settings2.homingSpeedMS           = HOMING_SPEED_M_S;
     settings2.homingAccelMS2          = HOMING_ACCELERATION_M_S2;
-    settings2.centerAfterCalib        = CENTER_AFTER_CALIBRATION;
-    settings2.homingBackoffMm         = HOMING_BACKOFF_MM;
+    settings2.centerAfterCalib        = ctrl.centerAfterHoming;
+    settings2.homingBackoffMm         = ctrl.homingBackoffMm;
+    settings2.idlePositionPct         = ctrl.idlePositionPct;
+    settings2.minSafetyPct            = ctrl.minSafetyPct;
+    settings2.maxSafetyPct            = ctrl.maxSafetyPct;
     settings2.measureMaxTravel        = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     axisUnit2.begin(&engine,
@@ -175,7 +185,7 @@ void setup() {
                     ACTUATOR2_MODBUS_RX_PIN,
                     ACTUATOR2_MODBUS_TX_PIN,
                     ACTUATOR2_MODBUS_SLAVE_ID,
-                    CALIBRATE_AT_BOOT,
+                    ctrl.homeAtBoot,
                     ACTUATOR2_MODBUS_INVERT);
 #endif
 
@@ -211,7 +221,7 @@ void loop() {
     // 2. Update sensorless homing and idle parking watchdogs
     for (uint8_t i = 0; i < axisCount; i++) {
         if (axisUnits[i] != nullptr) {
-            axisUnits[i]->updateIdleWatchdog(IDLE_DELAY_MS);
+            axisUnits[i]->updateIdleWatchdog(ControllerConfig::active().idleDelayMs);
         }
     }
 

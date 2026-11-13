@@ -29,6 +29,9 @@ namespace DiyBeltTensioner.Core
         private SerialPort port;
         private Thread readerThread;
         private volatile bool running;
+        private Timer keepAliveTimer;
+        private long lastWriteTicks;
+        private bool greetingLogged;
 
         /// <summary>Every line received from the controller (raised on the reader thread).</summary>
         public event Action<string> LineReceived;
@@ -40,6 +43,9 @@ namespace DiyBeltTensioner.Core
         public string PortName { get; private set; } = "";
         public string FirmwareVersion { get; private set; } = "";
         public int EnabledMotors { get; private set; } = 0;
+
+        /// <summary>The controller sent its boot greeting since the port was opened.</summary>
+        public bool GreetingReceived { get; private set; }
 
         public void Open(string portName)
         {
@@ -70,7 +76,11 @@ namespace DiyBeltTensioner.Core
             PortName = portName;
             FirmwareVersion = "";
             EnabledMotors = 0;
+            GreetingReceived = false;
             running = true;
+            greetingLogged = false;
+            lastWriteTicks = DateTime.UtcNow.Ticks;
+            keepAliveTimer = new Timer(KeepAlive, null, 400, 400);
             readerThread = new Thread(ReaderLoop) { IsBackground = true, Name = "BeltTensionerReader" };
             readerThread.Start();
             ConnectionChanged?.Invoke(true);
@@ -80,6 +90,9 @@ namespace DiyBeltTensioner.Core
         {
             bool wasOpen = port != null;
             running = false;
+            var timer = keepAliveTimer;
+            keepAliveTimer = null;
+            timer?.Dispose();
             var p = port;
             port = null;
             if (p != null)
@@ -102,6 +115,23 @@ namespace DiyBeltTensioner.Core
         public void Dispose()
         {
             Close();
+        }
+
+        /// <summary>
+        /// Native USB boards repeat their boot greeting every 250 ms while the host is silent
+        /// (see HostSerial.h). An empty line is ignored by the firmware and keeps it quiet.
+        /// </summary>
+        private void KeepAlive(object state)
+        {
+            if (!running) return;
+            if ((DateTime.UtcNow.Ticks - Interlocked.Read(ref lastWriteTicks)) < TimeSpan.TicksPerMillisecond * 500) return;
+            try
+            {
+                Write(new byte[] { (byte)'\n' });
+            }
+            catch (Exception)
+            {
+            }
         }
 
         private void ReaderLoop()
@@ -163,6 +193,13 @@ namespace DiyBeltTensioner.Core
             {
                 int n;
                 if (int.TryParse(line.Substring(0, line.IndexOf(' ')), out n)) EnabledMotors = n;
+                GreetingReceived = true;
+                if (greetingLogged)
+                {
+                    NotifyListeners(line); // repeated greeting: not for the log
+                    return;
+                }
+                greetingLogged = true;
             }
             else if (IsVersionLine(line))
             {
@@ -170,7 +207,11 @@ namespace DiyBeltTensioner.Core
             }
 
             LineReceived?.Invoke(line);
+            NotifyListeners(line);
+        }
 
+        private void NotifyListeners(string line)
+        {
             Action<string>[] current;
             lock (listenerLock)
             {
@@ -197,6 +238,7 @@ namespace DiyBeltTensioner.Core
             {
                 p.BaseStream.Write(data, 0, data.Length);
                 p.BaseStream.Flush();
+                Interlocked.Exchange(ref lastWriteTicks, DateTime.UtcNow.Ticks);
             }
         }
 

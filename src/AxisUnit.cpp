@@ -326,7 +326,7 @@ void AxisUnit::updateHoming() {
                 } else {
                     // Single-endstop homing: assume configured working range
                     hardLimitMax = settings.totalWorkingRange;
-                    float idlePct = settings.invertTensionDir ? (100.0f - IDLE_POSITION_PCT) : IDLE_POSITION_PCT;
+                    float idlePct = settings.invertTensionDir ? (100.0f - settings.idlePositionPct) : settings.idlePositionPct;
                     int32_t targetIdle = (int32_t)((idlePct / 100.0f) * (float)hardLimitMax);
                     stepper->setSpeedInHz(settings.homingSpeed);
                     stepper->setAcceleration(settings.homingAccel);
@@ -370,7 +370,7 @@ void AxisUnit::updateHoming() {
         case HOMING_MEASURE_MAX_BACKOFF:
             if (!stepper->isRunning()) {
                 // Step 3: Move to relaxed park position
-                float idlePct = settings.invertTensionDir ? (100.0f - IDLE_POSITION_PCT) : IDLE_POSITION_PCT;
+                float idlePct = settings.invertTensionDir ? (100.0f - settings.idlePositionPct) : settings.idlePositionPct;
                 int32_t targetIdle = (int32_t)((idlePct / 100.0f) * (float)hardLimitMax);
                 stepper->setSpeedInHz(settings.homingSpeed);
                 stepper->setAcceleration(settings.homingAccel);
@@ -454,7 +454,7 @@ void AxisUnit::moveToIdle(bool blocking) {
     state.finalVelocityApplied = false;
 
     // Park at relaxed position (10% or 90% depending on invertTensionDir)
-    float idlePct = settings.invertTensionDir ? (100.0f - IDLE_POSITION_PCT) : IDLE_POSITION_PCT;
+    float idlePct = settings.invertTensionDir ? (100.0f - settings.idlePositionPct) : settings.idlePositionPct;
     int32_t idlePos = (int32_t)((idlePct / 100.0f) * (float)hardLimitMax);
     stepper->moveTo(idlePos);
 

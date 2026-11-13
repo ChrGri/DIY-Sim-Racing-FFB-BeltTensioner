@@ -20,6 +20,18 @@ namespace DiyBeltTensioner.Core
         public bool RestartPending { get; set; }
     }
 
+    /// <summary>One behaviour setting as reported by the SETTINGS command.</summary>
+    public class ControllerSetting
+    {
+        public string Key { get; set; }
+        public double Value { get; set; }
+        public string Unit { get; set; }
+        public bool Saved { get; set; }      // false = Config.h default
+        public double Min { get; set; }
+        public double Max { get; set; }
+        public bool RestartPending { get; set; }
+    }
+
     /// <summary>
     /// Parses the output of the CONFIG command (BeltTensionerProtocol::printAxisConfig):
     ///   Axis 1: spindle pitch 10.00 mm (Config.h), working range 60.00 mm (saved) = 19200 steps
@@ -73,6 +85,32 @@ namespace DiyBeltTensioner.Core
                 {
                     current.RestartPending = true;
                 }
+            }
+            return result;
+        }
+
+        // Setting IDLE_POSITION = 10.00 % (default, 0.00..50.00) -> restart to apply
+        private static readonly Regex SettingLine = new Regex(
+            @"^Setting (\w+) = (-?[\d.]+)(?: (\S+))? \((saved|default), (-?[\d.]+)\.\.(-?[\d.]+)\)(.*)$",
+            RegexOptions.Compiled);
+
+        public static List<ControllerSetting> ParseSettings(IEnumerable<string> lines)
+        {
+            var result = new List<ControllerSetting>();
+            foreach (var raw in lines)
+            {
+                var m = SettingLine.Match(raw.Trim());
+                if (!m.Success) continue;
+                result.Add(new ControllerSetting
+                {
+                    Key = m.Groups[1].Value,
+                    Value = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture),
+                    Unit = m.Groups[3].Success ? m.Groups[3].Value : "",
+                    Saved = m.Groups[4].Value == "saved",
+                    Min = double.Parse(m.Groups[5].Value, CultureInfo.InvariantCulture),
+                    Max = double.Parse(m.Groups[6].Value, CultureInfo.InvariantCulture),
+                    RestartPending = m.Groups[7].Value.Contains("restart"),
+                });
             }
             return result;
         }

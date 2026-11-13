@@ -155,7 +155,7 @@ namespace DiyBeltTensioner.Core
 
         private static Dictionary<string, ComPortInfo> Snapshot()
         {
-            return ComPortInfo.GetPresentPorts().ToDictionary(p => p.PortName, p => p, StringComparer.OrdinalIgnoreCase);
+            return ComPortInfo.GetPresentPorts(false).ToDictionary(p => p.PortName, p => p, StringComparer.OrdinalIgnoreCase);
         }
 
         private static string Describe(Dictionary<string, ComPortInfo> ports)

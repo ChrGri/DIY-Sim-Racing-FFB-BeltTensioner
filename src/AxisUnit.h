@@ -33,6 +33,9 @@ struct AxisUnitSettings {
     int32_t totalWorkingRange = TOTAL_WORKING_RANGE_STEPS;
     uint8_t homingCurrentThreshold = HOMING_CURRENT_THRESHOLD_PCT;
     bool centerAfterCalib = CENTER_AFTER_CALIBRATION;
+    float idlePositionPct = IDLE_POSITION_PCT;   // park position in % of the working range
+    float minSafetyPct = MIN_SAFETY_LIMIT_PCT;   // carriage never travels below this %
+    float maxSafetyPct = MAX_SAFETY_LIMIT_PCT;   // carriage never travels above this %
     bool measureMaxTravel = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     // Motion in carriage units: identical for all axes regardless of spindle pitch
@@ -115,8 +118,8 @@ public:
     int32_t getWorkingRange() const { return hardLimitMax; }
 
     int32_t convertPosition16Bits(uint16_t inputPosition) const {
-        int32_t minPos = (int32_t)((MIN_SAFETY_LIMIT_PCT / 100.0f) * (float)hardLimitMax);
-        int32_t maxPos = (int32_t)((MAX_SAFETY_LIMIT_PCT / 100.0f) * (float)hardLimitMax);
+        int32_t minPos = (int32_t)((settings.minSafetyPct / 100.0f) * (float)hardLimitMax);
+        int32_t maxPos = (int32_t)((settings.maxSafetyPct / 100.0f) * (float)hardLimitMax);
         int32_t target;
         if (settings.invertTensionDir) {
             // Inverted: 0 input (idle/no brake) -> maxPos (relaxed), 65535 input (full brake) -> minPos (pulled tight)

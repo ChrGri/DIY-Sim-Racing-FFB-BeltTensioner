@@ -1,15 +1,17 @@
 # SimHub Plugin: DIY FFB Belt Tensioner
 
-A small SimHub plugin to set up the belt tensioner without a serial terminal. It shows up as **FFB Belt Tensioner** in the left SimHub menu and has four tabs:
+A SimHub plugin to set up the belt tensioner without a serial terminal. It shows up as **FFB Belt Tensioner** in the left SimHub menu and uses the look of the DIY FFB Pedal plugin:
 
 | Tab | What it does |
 | :--- | :--- |
-| **1. Firmware** | Flashes the controller via USB with the embedded `esptool`. The firmware is downloaded from the latest [GitHub release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases) for the selected board, or taken from a local release `.zip` / build folder. Native USB boards (1200 bps touch, new bootloader COM port) and CP2102 boards (DTR/RTS reset) are handled automatically. |
-| **2. Configuration** | Reads and writes spindle pitch and working range per axis (`CONFIG`, `SET_PITCH`, `SET_RANGE`, `RESET_CONFIG`), restarts the controller to apply them, and flashes / checks the iSV57 servo parameters (`FLASH_SERVO`, `DIFF_SERVO`). |
-| **3. Test** | Homing, park, servo load display (CMD 11), and a motion test that streams positions like SimHub Motion: *hold position*, *sine* (center, amplitude, frequency) and *brake pulse* (base, peak, duration, interval), per axis, with the SimHub speed / acceleration values. |
-| **4. SimHub Motion** | Creates a ready-to-import `.shmotionoutput` preset (single or dual belt tensioner) with your COM port(s), direction and speed / acceleration limits, based on the presets in [`docs/motionPluginSetup`](../docs/motionPluginSetup/). |
+| **TENSIONER** | Left: info, COM port and connection, plugin settings, action buttons (Restart, Home, Park, Status, Read, Serial Logs) and status. Right: the **STROKE** view (working range, safety window, park position, braking direction and the live position of a test) or the **MOTION TEST** (hold / sine / brake pulse per axis). Below: settings in the tabs **General** (spindle pitch, working range per axis, tension direction, center after homing), **Positions** (park position, min. / max. limit), **Idle & Homing** (idle delay, homing load threshold, back-off, home after power on) and **Servo** (flash / check the iSV57 parameters). Changes are written with **Save to controller** and applied after a restart. |
+| **FIRMWARE** | Flashes the controller via USB with the embedded `esptool`. The firmware is downloaded from the latest [GitHub release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases) for the selected board, or taken from a local release `.zip` / build folder. Native USB boards (1200 bps touch, new bootloader COM port) and CP2102 boards (DTR/RTS reset) are handled automatically. |
+| **MOTION** | Creates a ready-to-import `.shmotionoutput` preset (single or dual belt tensioner) with your COM port(s), direction and speed / acceleration limits, based on the presets in [`docs/motionPluginSetup`](../docs/motionPluginSetup/). |
+| **SERIAL LOGS** | Log and console for any ASCII command (`HELP`, `SETTINGS`, `STATUS`, `DUMP_SERVO`, ...). |
 
-At the bottom there is a log / serial console for any ASCII command (`HELP`, `STATUS`, `DUMP_SERVO`, ...).
+**COM port detection:** the port list shows what is connected, e.g. `COM19  (Belt Tensioner)` or `COM31  (FFB Pedal)`. Native USB boards are recognized by their USB product name (`diy_belt_tensioner`, `DiyFfbPedal`) or the pedal's VID/PID `F011:F011`. CP2102 boards all look the same on USB: **Identify USB-UART boards** opens them briefly and waits for the belt tensioner greeting (this resets the ESP32 behind the port).
+
+**Settings:** spindle pitch and working range need firmware with `SET_PITCH` / `SET_RANGE`; direction, positions, idle and homing need firmware with the `SETTINGS` / `SET` commands (see [docs/commands.md](../docs/commands.md)). With older firmware these controls stay disabled.
 
 > [!IMPORTANT]
 > A COM port can only be used by one program. The plugin and SimHub Motion therefore never use the controller at the same time: disable SimHub Motion before you connect in the plugin, and click **Disconnect** / **Release port for SimHub Motion** before you enable SimHub Motion again.
@@ -22,10 +24,12 @@ At the bottom there is a log / serial console for any ASCII command (`HELP`, `ST
 
 ## Typical first setup
 
-1. **Firmware tab:** select your COM port and your board, keep *Latest GitHub release*, click **Flash firmware**.
-2. **Configuration tab:** power the servo, click **Flash servo parameters**, then power cycle the servo. Enter spindle pitch and working range of your actuator, click **Save to controller** and confirm the restart.
-3. **Test tab:** click **Home**, then start a *Hold position* test with a low value, then try *sine* and *brake pulse*. **Stop & park** when done.
-4. **SimHub Motion tab:** choose single or dual, select the COM port(s), click **Save SimHub Motion preset...** and import the file in *Motion → Platform Config. → Settings Import and export → Import all platform settings*. Click **Release port for SimHub Motion** and enable motion.
+1. **TENSIONER:** select the COM port of the controller (the list shows which port is the belt tensioner).
+2. **FIRMWARE:** select your board, keep *Latest GitHub release*, click **Flash firmware**. The plugin reconnects afterwards.
+3. **TENSIONER → Servo:** power the servo, click **Flash servo parameters**, then power cycle the servo.
+4. **TENSIONER → General / Positions / Idle & Homing:** enter spindle pitch and working range, check direction and limits on the STROKE view, click **Save to controller** and confirm the restart.
+5. **TENSIONER → MOTION TEST:** click **Home**, then start a *Hold position* test with a low value, then try *Sine* and *Brake pulse*. **Stop & park** when done.
+6. **MOTION:** choose single or dual, check the COM port(s), click **Save SimHub Motion preset...** and import the file in *Motion → Platform Config. → Settings Import and export → Import all platform settings*. Click **Release port for SimHub Motion** and enable motion.
 
 For a dual belt tensioner (one board per actuator) connect to each board in turn: flash it, configure it (every board drives its actuator as axis 1) and test it.
 

@@ -62,6 +62,9 @@
 // ==============================================================================
 // 3. TENSION DIRECTION & SAFETY BOUNDARIES
 // ==============================================================================
+// Direction, positions, IDLE_DELAY_MS, CALIBRATE_AT_BOOT and the homing threshold /
+// back-off below are defaults: they can be changed via the serial command
+// SET <KEY> <value> or the SimHub plugin (saved in flash, see SETTINGS).
 
 // Invert tension direction (pull/release direction for braking):
 // false = 0% input (idle) is at MIN stop, 100% input (braking) pulls towards

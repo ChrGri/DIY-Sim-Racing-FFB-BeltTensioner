@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
@@ -7,7 +8,18 @@ using System.Text.RegularExpressions;
 
 namespace DiyBeltTensioner.Core
 {
-    /// <summary>A COM port that is currently present, with USB VID/PID if available.</summary>
+    public enum DeviceKind
+    {
+        Unknown,
+        BeltTensioner,      // belt tensioner firmware (USB product "diy_belt_tensioner" or answered the probe)
+        FfbPedal,           // DIY FFB Pedal firmware (VID/PID F011:F011 or USB product "DiyFfbPedal")
+        EspBootloader,      // ESP32-S3 in ROM download mode
+        EspNativeUsb,       // other ESP32-S3 native USB device
+        UsbUart,            // CP2102 / CH340 / FTDI bridge: firmware unknown until probed
+        Other,
+    }
+
+    /// <summary>A COM port that is currently present, with USB information.</summary>
     public class ComPortInfo
     {
         public string PortName { get; set; }
@@ -15,12 +27,42 @@ namespace DiyBeltTensioner.Core
         public string Vid { get; set; }
         public string Pid { get; set; }
 
+        /// <summary>USB product string reported by the device (DEVPKEY_Device_BusReportedDeviceDesc).</summary>
+        public string Product { get; set; }
+
+        public DeviceKind Kind { get; set; } = DeviceKind.Unknown;
+
+        public string KindText
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case DeviceKind.BeltTensioner: return "Belt Tensioner";
+                    case DeviceKind.FfbPedal: return "FFB Pedal";
+                    case DeviceKind.EspBootloader: return "ESP32 bootloader";
+                    case DeviceKind.EspNativeUsb: return "ESP32 USB";
+                    case DeviceKind.UsbUart: return "USB-UART, firmware unknown";
+                    default: return string.IsNullOrEmpty(Description) ? "" : Description;
+                }
+            }
+        }
+
+        /// <summary>"COM19  (Belt Tensioner)"</summary>
         public string DisplayName
         {
             get
             {
-                if (string.IsNullOrEmpty(Description)) return PortName;
-                return PortName + " - " + Description;
+                string kind = KindText;
+                return string.IsNullOrEmpty(kind) ? PortName : PortName + "  (" + kind + ")";
+            }
+        }
+
+        public string ToolTip
+        {
+            get
+            {
+                return $"{PortName}: {Description}\nUSB {Vid ?? "?"}:{Pid ?? "?"}" + (string.IsNullOrEmpty(Product) ? "" : "\nProduct: " + Product);
             }
         }
 
@@ -30,11 +72,19 @@ namespace DiyBeltTensioner.Core
         private static readonly Regex VidRegex = new Regex(@"VID_([0-9A-F]{4})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex PidRegex = new Regex(@"PID_([0-9A-F]{4})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        // Ports identified by actively probing them (UART boards have no USB product string of their own)
+        private static readonly ConcurrentDictionary<string, DeviceKind> probedKinds = new ConcurrentDictionary<string, DeviceKind>(StringComparer.OrdinalIgnoreCase);
+
+        public static void RememberKind(string portName, DeviceKind kind)
+        {
+            if (!string.IsNullOrEmpty(portName)) probedKinds[portName] = kind;
+        }
+
         /// <summary>
         /// Lists the COM ports that are present right now (WMI). SerialPort.GetPortNames() reads the
         /// registry and also returns ports of unplugged devices, so it is only used as fallback.
         /// </summary>
-        public static List<ComPortInfo> GetPresentPorts()
+        public static List<ComPortInfo> GetPresentPorts(bool readUsbProduct = true)
         {
             var result = new Dictionary<string, ComPortInfo>(StringComparer.OrdinalIgnoreCase);
             try
@@ -43,20 +93,29 @@ namespace DiyBeltTensioner.Core
                 {
                     foreach (ManagementObject obj in searcher.Get())
                     {
-                        string name = obj["Name"] as string ?? "";
-                        string deviceId = obj["DeviceID"] as string ?? "";
-                        var m = ComRegex.Match(name);
-                        if (!m.Success) continue;
-                        string com = m.Groups[1].Value;
-                        var vid = VidRegex.Match(deviceId);
-                        var pid = PidRegex.Match(deviceId);
-                        result[com] = new ComPortInfo
+                        using (obj)
                         {
-                            PortName = com,
-                            Description = name.Replace("(" + com + ")", "").Trim(),
-                            Vid = vid.Success ? vid.Groups[1].Value.ToUpperInvariant() : null,
-                            Pid = pid.Success ? pid.Groups[1].Value.ToUpperInvariant() : null,
-                        };
+                            string name = obj["Name"] as string ?? "";
+                            string deviceId = obj["DeviceID"] as string ?? "";
+                            var m = ComRegex.Match(name);
+                            if (!m.Success) continue;
+                            string com = m.Groups[1].Value;
+                            var vid = VidRegex.Match(deviceId);
+                            var pid = PidRegex.Match(deviceId);
+                            var info = new ComPortInfo
+                            {
+                                PortName = com,
+                                Description = name.Replace("(" + com + ")", "").Trim(),
+                                Vid = vid.Success ? vid.Groups[1].Value.ToUpperInvariant() : null,
+                                Pid = pid.Success ? pid.Groups[1].Value.ToUpperInvariant() : null,
+                            };
+                            if (readUsbProduct && info.Vid != null)
+                            {
+                                info.Product = ReadUsbProduct(obj);
+                            }
+                            info.Kind = Classify(info);
+                            result[com] = info;
+                        }
                     }
                 }
             }
@@ -69,7 +128,9 @@ namespace DiyBeltTensioner.Core
             {
                 foreach (var name in SerialPort.GetPortNames())
                 {
-                    result[name] = new ComPortInfo { PortName = name, Description = "" };
+                    var info = new ComPortInfo { PortName = name, Description = "" };
+                    info.Kind = Classify(info);
+                    result[name] = info;
                 }
             }
 
@@ -78,7 +139,110 @@ namespace DiyBeltTensioner.Core
 
         public static ComPortInfo Find(string portName)
         {
-            return GetPresentPorts().FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase));
+            return GetPresentPorts(false).FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static DeviceKind Classify(ComPortInfo p)
+        {
+            string product = p.Product ?? "";
+            if (product.IndexOf("belt_tensioner", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                product.IndexOf("belttensioner", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return DeviceKind.BeltTensioner;
+            }
+            if ((p.Vid == "F011" && p.Pid == "F011") || product.IndexOf("DiyFfbPedal", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return DeviceKind.FfbPedal;
+            }
+
+            DeviceKind probed;
+            if (probedKinds.TryGetValue(p.PortName, out probed) && probed != DeviceKind.Unknown)
+            {
+                return probed;
+            }
+
+            if (p.Vid == "303A")
+            {
+                if (p.Pid == "0002" || (p.Pid == "1001" && product.IndexOf("JTAG", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    return DeviceKind.EspBootloader;
+                }
+                return DeviceKind.EspNativeUsb;
+            }
+            // Silicon Labs CP210x, WCH CH340/CH9102, FTDI
+            if (p.Vid == "10C4" || p.Vid == "1A86" || p.Vid == "0403")
+            {
+                return DeviceKind.UsbUart;
+            }
+            return p.Vid == null ? DeviceKind.Other : DeviceKind.Unknown;
+        }
+
+        /// <summary>
+        /// Reads the USB product string. Composite devices (TinyUSB CDC) report the interface name
+        /// on the COM port node, the product string sits on the parent USB device.
+        /// </summary>
+        private static string ReadUsbProduct(ManagementObject portDevice)
+        {
+            string desc, parent;
+            ReadProperties(portDevice, out desc, out parent);
+            if (IsUseful(desc)) return desc;
+
+            if (!string.IsNullOrEmpty(parent) && parent.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    string query = "SELECT DeviceID FROM Win32_PnPEntity WHERE DeviceID = '" + parent.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
+                    using (var searcher = new ManagementObjectSearcher(query))
+                    {
+                        foreach (ManagementObject parentObj in searcher.Get())
+                        {
+                            using (parentObj)
+                            {
+                                string parentDesc, ignored;
+                                ReadProperties(parentObj, out parentDesc, out ignored);
+                                if (IsUseful(parentDesc)) return parentDesc;
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return desc;
+        }
+
+        private static bool IsUseful(string desc)
+        {
+            if (string.IsNullOrWhiteSpace(desc)) return false;
+            // Generic interface names say nothing about the firmware
+            return desc.IndexOf("CDC", StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        /// <summary>Win32_PnPEntity.GetDeviceProperties (Windows 10 and newer).</summary>
+        private static void ReadProperties(ManagementObject device, out string busReportedDesc, out string parent)
+        {
+            busReportedDesc = null;
+            parent = null;
+            try
+            {
+                var inParams = device.GetMethodParameters("GetDeviceProperties");
+                inParams["devicePropertyKeys"] = new[] { "DEVPKEY_Device_BusReportedDeviceDesc", "DEVPKEY_Device_Parent" };
+                var outParams = device.InvokeMethod("GetDeviceProperties", inParams, null);
+                var properties = outParams?["deviceProperties"] as ManagementBaseObject[];
+                if (properties == null) return;
+                foreach (var property in properties)
+                {
+                    string key = property["KeyName"] as string;
+                    string data = property["Data"] as string;
+                    if (key == "DEVPKEY_Device_BusReportedDeviceDesc") busReportedDesc = data;
+                    else if (key == "DEVPKEY_Device_Parent") parent = data;
+                }
+            }
+            catch (Exception)
+            {
+                // Older Windows or missing property
+            }
         }
 
         private static int PortNumber(string name)

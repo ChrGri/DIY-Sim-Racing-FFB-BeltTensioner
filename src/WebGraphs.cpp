@@ -1,4 +1,5 @@
 #include "WebGraphs.h"
+#include "ControllerConfig.h"
 
 #if ENABLE_WEBGRAPHS
 
@@ -331,9 +332,9 @@ static void handleInfo() {
     }
     json += ']';
     json += F(",\"minPct\":");
-    json += String(MIN_SAFETY_LIMIT_PCT, 1);
+    json += String(ControllerConfig::active().minSafetyPct, 1);
     json += F(",\"maxPct\":");
-    json += String(MAX_SAFETY_LIMIT_PCT, 1);
+    json += String(ControllerConfig::active().maxSafetyPct, 1);
     json += F(",\"threshold\":[");
     for (uint8_t i = 0; i < webGraphs.getAxisCount(); i++) {
         if (i > 0) json += ',';

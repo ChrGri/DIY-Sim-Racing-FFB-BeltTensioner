@@ -18,7 +18,11 @@ namespace DiyBeltTensioner.Core
     /// </summary>
     public class TestRunner
     {
-        public const double IdlePercent = 10.0; // IDLE_POSITION_PCT of the firmware
+        /// <summary>
+        /// Game input (0..100 %) that keeps an axis which is not tested at its park position.
+        /// Set by the UI from the controller settings (park position, limits, direction).
+        /// </summary>
+        public double IdleInputPercent = 5.6;
         private const int UpdateIntervalMs = 10;
 
         private readonly BeltTensionerLink link;
@@ -103,7 +107,7 @@ namespace DiyBeltTensioner.Core
                 double pct = Math.Max(0, Math.Min(100, Target(sw.Elapsed.TotalSeconds)));
                 CurrentPercent = pct;
                 ushort active = BeltTensionerLink.PercentToValue(pct);
-                ushort idle = BeltTensionerLink.PercentToValue(IdlePercent);
+                ushort idle = BeltTensionerLink.PercentToValue(IdleInputPercent);
                 try
                 {
                     link.SetPosition(Axis1 ? active : idle, Axis2 ? active : idle);

@@ -190,7 +190,9 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`CONFIG`** | - | Shows spindle pitch and working range of each axis, whether the value is saved in flash or the `Config.h` default, and whether a restart is pending. |
 | **`SET_PITCH <axis> <mm>`** | `SET_PITCH <mm>` (axis 1) | Saves the spindle pitch of axis 1 or 2 in flash (NVS), e.g. `SET_PITCH 2 5`. Allowed 0.5 - 50 mm, `,` or `.` as decimal separator. Applied after a restart of the controller. |
 | **`SET_RANGE <axis> <mm>`** | `SET_RANGE <mm>` (axis 1) | Saves the usable working range of axis 1 or 2 in flash, e.g. `SET_RANGE 1 60`. Allowed 5 - 500 mm. Applied after a restart. |
-| **`RESET_CONFIG`** | - | Deletes all saved pitch/range values; the `SPINDLE_PITCH_MM` / `TOTAL_WORKING_RANGE_MM` defaults from `Config.h` apply after a restart. |
+| **`SETTINGS`** | - | Lists the behaviour settings below with their saved value, unit, source (`saved` / `default` = `Config.h`) and allowed range. `-> restart to apply` marks values that are saved but not active yet. |
+| **`SET <KEY> <value>`** | - | Saves one behaviour setting in flash (applied after a restart), e.g. `SET IDLE_POSITION 15`, `SET INVERT_TENSION 1`. Switches accept `0`/`1` or `ON`/`OFF`. |
+| **`RESET_CONFIG`** | - | Deletes all saved values (pitch, range and the behaviour settings); the `Config.h` defaults apply after a restart. |
 | **`RESTART`** | `REBOOT` | Disables the motors and restarts the controller, e.g. to apply values saved with `SET_PITCH` / `SET_RANGE`. On native USB boards the COM port disappears briefly. |
 | **`WEBGRAPHS`** | - | Prints the address of the live graph web page (see below). |
 | **`HELP`** | - | Prints an overview of all available serial commands. |
@@ -247,3 +249,19 @@ Every log message intended for the SimHub motion log window **must** begin with 
 When enabled in configuration, the controller enters a continuous diagnostic stream:
 - Motors remain disabled.
 - Streams live telemetry every 500 ms in the format `Sensor #<axis>:<value>:Trigger level:<level>:Triggered:<0|1>`.
+
+## Behaviour settings (`SET <KEY> <value>`)
+
+Saved in flash and applied after a restart (`RESTART`). Without a saved value the `Config.h` default applies. All settings are valid for every axis of the controller.
+
+| Key | Config.h default | Range | Description |
+| :--- | :--- | :--- | :--- |
+| `INVERT_TENSION` | `INVERT_TENSION_DIRECTION` | 0 / 1 | 1 = 0 % input (idle) is at the MAX stop and braking pulls towards MIN. |
+| `IDLE_POSITION` | `IDLE_POSITION_PCT` | 0 - 50 % | Park position after homing and after the idle delay. |
+| `MIN_LIMIT` | `MIN_SAFETY_LIMIT_PCT` | 0 - 45 % | The carriage never travels below this position. |
+| `MAX_LIMIT` | `MAX_SAFETY_LIMIT_PCT` | 55 - 100 % | The carriage never travels above this position. |
+| `CENTER_AFTER_HOMING` | `CENTER_AFTER_CALIBRATION` | 0 / 1 | 1 = move to 50 % instead of the idle position after homing. |
+| `IDLE_DELAY` | `IDLE_DELAY_MS` | 1 - 600 s | Time without commands until the actuator parks and the servo is disabled. |
+| `HOME_AT_BOOT` | `CALIBRATE_AT_BOOT` | 0 / 1 | 1 = sensorless homing directly after power on instead of on the first command. |
+| `HOMING_THRESHOLD` | `HOMING_CURRENT_THRESHOLD_PCT` | 5 - 100 % | Servo load that detects the mechanical end stop while homing. |
+| `HOMING_BACKOFF` | `HOMING_BACKOFF_MM` | 0.5 - 20 mm | Distance to back off from the end stop after homing. |
