@@ -12,7 +12,8 @@ namespace DiyBeltTensioner.Core
     {
         Unknown,
         BeltTensioner,      // belt tensioner firmware (USB product "diy_belt_tensioner" or answered the probe)
-        FfbPedal,           // DIY FFB Pedal firmware (VID/PID F011:F011 or USB product "DiyFfbPedal")
+        FfbPedal,           // DIY FFB Pedal firmware (303A:8332..8334, F011:F011, USB product "FFB_Pedal_..." / "DiyFfbPedal")
+        FfbPedalBridge,     // DIY FFB Pedal wireless bridge (303A:8331)
         EspBootloader,      // ESP32-S3 in ROM download mode
         EspNativeUsb,       // other ESP32-S3 native USB device
         UsbUart,            // CP2102 / CH340 / FTDI bridge: firmware unknown until probed
@@ -32,6 +33,12 @@ namespace DiyBeltTensioner.Core
 
         public DeviceKind Kind { get; set; } = DeviceKind.Unknown;
 
+        /// <summary>Pedal role (Clutch, Brake, Throttle) if known.</summary>
+        public string Role { get; set; }
+
+        /// <summary>Any DIY FFB Pedal device (pedal or bridge): never the belt tensioner.</summary>
+        public bool IsPedalDevice => Kind == DeviceKind.FfbPedal || Kind == DeviceKind.FfbPedalBridge;
+
         public string KindText
         {
             get
@@ -39,7 +46,8 @@ namespace DiyBeltTensioner.Core
                 switch (Kind)
                 {
                     case DeviceKind.BeltTensioner: return "Belt Tensioner";
-                    case DeviceKind.FfbPedal: return "FFB Pedal";
+                    case DeviceKind.FfbPedal: return string.IsNullOrEmpty(Role) ? "FFB Pedal" : "FFB Pedal: " + Role;
+                    case DeviceKind.FfbPedalBridge: return "FFB Pedal Bridge";
                     case DeviceKind.EspBootloader: return "ESP32 bootloader";
                     case DeviceKind.EspNativeUsb: return "ESP32 USB";
                     case DeviceKind.UsbUart: return "USB-UART, firmware unknown";
@@ -113,7 +121,7 @@ namespace DiyBeltTensioner.Core
                             {
                                 info.Product = ReadUsbProduct(obj);
                             }
-                            info.Kind = Classify(info);
+                            Classify(info);
                             result[com] = info;
                         }
                     }
@@ -129,7 +137,7 @@ namespace DiyBeltTensioner.Core
                 foreach (var name in SerialPort.GetPortNames())
                 {
                     var info = new ComPortInfo { PortName = name, Description = "" };
-                    info.Kind = Classify(info);
+                    Classify(info);
                     result[name] = info;
                 }
             }
@@ -142,7 +150,12 @@ namespace DiyBeltTensioner.Core
             return GetPresentPorts(false).FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static DeviceKind Classify(ComPortInfo p)
+        private static void Classify(ComPortInfo p)
+        {
+            p.Kind = ClassifyKind(p);
+        }
+
+        private static DeviceKind ClassifyKind(ComPortInfo p)
         {
             string product = p.Product ?? "";
             if (product.IndexOf("belt_tensioner", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -150,7 +163,27 @@ namespace DiyBeltTensioner.Core
             {
                 return DeviceKind.BeltTensioner;
             }
-            if ((p.Vid == "F011" && p.Pid == "F011") || product.IndexOf("DiyFfbPedal", StringComparison.OrdinalIgnoreCase) >= 0)
+
+            // DIY FFB Pedal: the firmware sets VID 303A with one PID per pedal role and the
+            // product name FFB_Pedal_<role> (ESP32/src/Controller.cpp of the pedal repository)
+            if (p.Vid == "303A")
+            {
+                switch (p.Pid)
+                {
+                    case "8331": return DeviceKind.FfbPedalBridge;
+                    case "8332": p.Role = "Clutch"; return DeviceKind.FfbPedal;
+                    case "8333": p.Role = "Brake"; return DeviceKind.FfbPedal;
+                    case "8334": p.Role = "Throttle"; return DeviceKind.FfbPedal;
+                }
+            }
+            if (product.StartsWith("FFB_Pedal_", StringComparison.OrdinalIgnoreCase))
+            {
+                string role = product.Substring("FFB_Pedal_".Length);
+                p.Role = role.Equals("NOASSIGNMENT", StringComparison.OrdinalIgnoreCase) ? "unassigned" : role;
+                return DeviceKind.FfbPedal;
+            }
+            if ((p.Vid == "F011" && p.Pid == "F011") || product.IndexOf("DiyFfbPedal", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                product.IndexOf("FFB_Pedal", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return DeviceKind.FfbPedal;
             }

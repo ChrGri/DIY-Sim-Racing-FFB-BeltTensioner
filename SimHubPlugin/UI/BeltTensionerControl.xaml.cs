@@ -425,9 +425,9 @@ namespace DiyBeltTensioner.UI
                 Status("No COM port selected.");
                 return false;
             }
-            if (port.Kind == DeviceKind.FfbPedal)
+            if (port.IsPedalDevice)
             {
-                var answer = MessageBox.Show(port.PortName + " looks like a DIY FFB Pedal. Connect anyway?", "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                var answer = MessageBox.Show(port.PortName + " is a DIY FFB Pedal device (" + port.KindText + "). Connect anyway?", "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return false;
             }
 
@@ -1485,9 +1485,9 @@ namespace DiyBeltTensioner.UI
                 FlashLog("Select the COM port (TENSIONER tab) and the controller board first.");
                 return;
             }
-            if (port.Kind == DeviceKind.FfbPedal)
+            if (port.IsPedalDevice)
             {
-                var answer = MessageBox.Show(port.PortName + " looks like a DIY FFB Pedal. Flash the belt tensioner firmware onto it anyway?",
+                var answer = MessageBox.Show(port.PortName + " is a DIY FFB Pedal device (" + port.KindText + "). Flash the belt tensioner firmware onto it anyway?",
                     "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
             }

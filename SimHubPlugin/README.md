@@ -9,7 +9,7 @@ A SimHub plugin to set up the belt tensioner without a serial terminal. It shows
 | **MOTION** | Creates a ready-to-import `.shmotionoutput` preset (single or dual belt tensioner) with your COM port(s), direction and speed / acceleration limits, based on the presets in [`docs/motionPluginSetup`](../docs/motionPluginSetup/). |
 | **SERIAL LOGS** | Log and console for any ASCII command (`HELP`, `SETTINGS`, `STATUS`, `DUMP_SERVO`, ...). |
 
-**COM port detection:** the port list shows what is connected, e.g. `COM19  (Belt Tensioner)` or `COM31  (FFB Pedal)`. Native USB boards are recognized by their USB product name (`diy_belt_tensioner`, `DiyFfbPedal`) or the pedal's VID/PID `F011:F011`. CP2102 boards all look the same on USB: **Identify USB-UART boards** opens them briefly and waits for the belt tensioner greeting (this resets the ESP32 behind the port).
+**COM port detection:** the port list shows what is connected, e.g. `COM19  (Belt Tensioner)` or `COM31  (FFB Pedal: Throttle)`. Native USB boards are recognized by their USB product name (`diy_belt_tensioner`, `DiyFfbPedal`) or their USB IDs (pedals: VID `303A` with PID `8332` clutch, `8333` brake, `8334` throttle, `8331` bridge, product `FFB_Pedal_<role>`). CP2102 boards all look the same on USB: **Identify USB-UART boards** opens them briefly and waits for the belt tensioner greeting (this resets the ESP32 behind the port).
 
 **Servo register editor:** reading works with every firmware (`DUMP_SERVO`); editing and saving single registers needs firmware with `SERVO_WRITE` / `SERVO_SAVE`.
 
