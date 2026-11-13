@@ -187,6 +187,31 @@ void BeltTensionerProtocol::servoSave(Stream* stream, const char* args) {
     stream->println(ok ? F(" OK - power cycle the servo to activate all values") : F(" failed (no ACK from the servo)"));
 }
 
+// Prints the result of finished range measurements (called from the main loop)
+void BeltTensionerProtocol::reportRangeMeasurements(Stream* stream) {
+    if (stream == nullptr || axisUnits == nullptr) return;
+    for (uint8_t i = 0; i < numAxes; i++) {
+        if (axisUnits[i] == nullptr) continue;
+        int32_t steps = 0;
+        bool ok = false;
+        if (!axisUnits[i]->takeRangeMeasurement(steps, ok)) continue;
+        if (ok) {
+            float mm = (float)steps / axisUnits[i]->settings.mech.stepsPerMm();
+            stream->print(F("Measured working range axis "));
+            stream->print(i + 1);
+            stream->print(F(": "));
+            stream->print(mm, 2);
+            stream->print(F(" mm ("));
+            stream->print(steps);
+            stream->println(F(" steps)"));
+        } else {
+            stream->print(F("Working range measurement axis "));
+            stream->print(i + 1);
+            stream->println(F(" failed (homing failed or no end stop found)"));
+        }
+    }
+}
+
 void BeltTensionerProtocol::setAxisConfigValue(Stream* stream, const char* args, bool isPitch) {
     uint8_t axisIndex = 0;
     float value = 0.0f;
@@ -380,6 +405,19 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         setAxisConfigValue(stream, cmd + 10, true);
     } else if (strncasecmp(cmd, "SET_RANGE ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, false);
+    } else if (strncasecmp(cmd, "MEASURE_RANGE", 13) == 0) {
+        const char* args = cmd + 13;
+        int8_t index = parseServoIndex(args);
+        if (index < 0 || *args != '\0') {
+            stream->println(F("Usage: MEASURE_RANGE <axis>"));
+        } else if (index >= numAxes || axisUnits[index] == nullptr) {
+            stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        } else {
+            stream->print(F("Measuring working range of axis "));
+            stream->print(index + 1);
+            stream->println(F(": homing to both end stops..."));
+            axisUnits[index]->startRangeMeasurement();
+        }
     } else if (strncasecmp(cmd, "SERVO_WRITE ", 12) == 0) {
         servoWrite(stream, cmd + 12);
     } else if (strncasecmp(cmd, "SERVO_SAVE", 10) == 0) {
@@ -417,6 +455,7 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  CONFIG         - Show spindle pitch & working range per axis"));
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
+        stream->println(F("  MEASURE_RANGE a - Home axis a to both end stops and report the measured working range"));
         stream->println(F("  SERVO_WRITE s reg value - Write one servo register (RAM), e.g. SERVO_WRITE 1 0x0008 3200"));
         stream->println(F("  SERVO_SAVE s   - Store the current servo registers in the servo EEPROM"));
         stream->println(F("  SETTINGS       - Show direction, position, idle & homing settings"));

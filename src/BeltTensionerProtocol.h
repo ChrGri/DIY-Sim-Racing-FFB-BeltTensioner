@@ -21,6 +21,7 @@ public:
     void processIncomingStream(Stream* stream);
     void sendGreeting(Stream* stream);
     void flushStream(Stream* stream);
+    void reportRangeMeasurements(Stream* stream);
 
 private:
     AxisUnit** axisUnits = nullptr;

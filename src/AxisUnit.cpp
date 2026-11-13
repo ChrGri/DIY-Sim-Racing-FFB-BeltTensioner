@@ -218,6 +218,9 @@ bool AxisUnit::enableMotor() {
 }
 
 void AxisUnit::disableMotor() {
+    if (rangeMeasureState == RANGE_MEASURE_RUNNING) {
+        rangeMeasureState = RANGE_MEASURE_FAILED; // aborted
+    }
     if (state.motorPowered) {
         if (stepper != nullptr) {
             stepper->forceStop();
@@ -247,8 +250,38 @@ void AxisUnit::startSensorlessHoming() {
     state.homingStateStartTime = millis();
 }
 
+void AxisUnit::startRangeMeasurement() {
+    measuredRangeSteps = -1;
+    rangeMeasureState = RANGE_MEASURE_RUNNING;
+    log(F("Measuring working range (homing to both end stops)"));
+    startSensorlessHoming();
+}
+
+bool AxisUnit::takeRangeMeasurement(int32_t& rangeSteps, bool& ok) {
+    if (rangeMeasureState != RANGE_MEASURE_DONE && rangeMeasureState != RANGE_MEASURE_FAILED) {
+        return false;
+    }
+    ok = (rangeMeasureState == RANGE_MEASURE_DONE);
+    rangeSteps = measuredRangeSteps;
+    rangeMeasureState = RANGE_MEASURE_NONE;
+    return true;
+}
+
 void AxisUnit::updateHoming() {
     if (stepper == nullptr) return;
+    updateHomingStateMachine();
+
+    // A range measurement ends with the homing sequence (or its failure)
+    if (rangeMeasureState == RANGE_MEASURE_RUNNING) {
+        if (state.homingState == HOMING_FAILED) {
+            rangeMeasureState = RANGE_MEASURE_FAILED;
+        } else if (state.homingState == HOMING_DONE) {
+            rangeMeasureState = (measuredRangeSteps > 0) ? RANGE_MEASURE_DONE : RANGE_MEASURE_FAILED;
+        }
+    }
+}
+
+void AxisUnit::updateHomingStateMachine() {
 
     switch (state.homingState) {
         case HOMING_IDLE:
@@ -315,7 +348,7 @@ void AxisUnit::updateHoming() {
                 isv57.setZeroPos();
                 hardLimitMin = 0;
 
-                if (settings.measureMaxTravel) {
+                if (settings.measureMaxTravel || rangeMeasureState == RANGE_MEASURE_RUNNING) {
                     // Step 2: Move forward to find mechanical MAX hard stop
                     stepper->setSpeedInHz(settings.homingSpeed);
                     stepper->setAcceleration(settings.homingAccel);
@@ -345,8 +378,10 @@ void AxisUnit::updateHoming() {
 
             // Timeout failsafe (25s)
             if (millis() - state.homingStateStartTime > 25000) {
+                // No MAX end stop found: keep the configured range (a range measurement fails)
                 stepper->forceStop();
                 hardLimitMax = settings.totalWorkingRange;
+                measuredRangeSteps = -1;
                 state.homingState = HOMING_MEASURE_MAX_BACKOFF;
                 break;
             }
@@ -354,8 +389,10 @@ void AxisUnit::updateHoming() {
             if (stallDetected) {
                 int32_t measured = stepper->getCurrentPosition();
                 hardLimitMax = measured - settings.homingBackoffSteps;
+                measuredRangeSteps = hardLimitMax;
                 if (hardLimitMax < settings.homingMinTravelSteps) {
                     hardLimitMax = settings.totalWorkingRange;
+                    measuredRangeSteps = -1;
                 }
                 settings.totalWorkingRange = hardLimitMax;
 

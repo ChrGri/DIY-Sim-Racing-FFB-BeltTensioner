@@ -217,6 +217,7 @@ void loop() {
     if (hostGreetingDue()) {
         protocol.sendGreeting(&hostSerial);
     }
+    protocol.reportRangeMeasurements(&hostSerial);
 
     // 2. Update sensorless homing and idle parking watchdogs
     for (uint8_t i = 0; i < axisCount; i++) {

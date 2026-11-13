@@ -639,7 +639,7 @@ namespace DiyBeltTensioner.UI
         private void UpdateEnabledState()
         {
             bool canEdit = link.IsOpen && configRead;
-            foreach (var c in new UIElement[] { ComboPitch1, ComboPitch2, SliderRange1, SliderRange2, BtnSave, BtnDiscard, BtnResetConfig })
+            foreach (var c in new UIElement[] { ComboPitch1, ComboPitch2, SliderRange1, SliderRange2, BtnMeasureRange1, BtnMeasureRange2, BtnSave, BtnDiscard, BtnResetConfig })
             {
                 c.IsEnabled = canEdit;
             }
@@ -770,6 +770,95 @@ namespace DiyBeltTensioner.UI
         {
             text = (text ?? "").Trim().Replace(',', '.');
             return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= min && value <= max;
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex MeasuredRangeLine =
+            new System.Text.RegularExpressions.Regex(@"^Measured working range axis (\d): ([\d.]+) mm");
+
+        /// <summary>
+        /// MEASURE_RANGE: the firmware homes to both end stops and reports the distance between the
+        /// two back-off positions, which can be taken as working range.
+        /// </summary>
+        private async void BtnMeasureRange_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureConnected() || busy) return;
+            int axis = (string)((FrameworkElement)sender).Tag == "2" ? 2 : 1;
+
+            var answer = MessageBox.Show(
+                $"Measure the working range of axis {axis}?\n\n" +
+                "The carriage moves slowly to the MIN end stop, then to the MAX end stop (sensorless homing), and back to the park position.\n\n" +
+                "- Nobody in the harness, nothing pulling on the belt.\n" +
+                "- SimHub Motion must not use the controller.",
+                "Auto-detect working range", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.OK) return;
+
+            tester.Stop(park: false);
+            UpdateTestUi();
+            busy = true;
+            BtnMeasureRange1.IsEnabled = false;
+            BtnMeasureRange2.IsEnabled = false;
+            try
+            {
+                string cmd = "MEASURE_RANGE " + axis;
+                Log("> " + cmd);
+                string done = "Measured working range axis " + axis;
+                string failed = "Working range measurement axis " + axis;
+                var ack = await link.RequestAsync(cmd,
+                    l => l.StartsWith("Measuring working range") || l.StartsWith(done) || l.StartsWith(failed) || l.StartsWith("Usage") || l.Contains("is not enabled"),
+                    2500, 0);
+                if (ack.Count == 0)
+                {
+                    Status("No answer to MEASURE_RANGE. Flash the latest firmware to auto-detect the working range.");
+                    return;
+                }
+                if (ack.Any(l => l.StartsWith("Usage") || l.Contains("is not enabled")))
+                {
+                    Status(ack.Last());
+                    return;
+                }
+
+                Status("Measuring the working range of axis " + axis + "...");
+                var lines = ack.Any(l => l.StartsWith(done) || l.StartsWith(failed))
+                    ? ack
+                    : await link.CollectAsync(() => { }, l => l.StartsWith(done) || l.StartsWith(failed), 120000, 0);
+
+                string result = lines.FirstOrDefault(l => l.StartsWith(done));
+                var m = result != null ? MeasuredRangeLine.Match(result) : null;
+                double measured;
+                if (m == null || !m.Success || !double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out measured))
+                {
+                    string fail = lines.FirstOrDefault(l => l.StartsWith(failed));
+                    Status(fail ?? "No measurement result (timeout). Check the servo power and the homing load threshold.");
+                    return;
+                }
+
+                Status($"Measured working range of axis {axis}: {measured:0.0} mm.");
+                if (measured < 5 || measured > 500)
+                {
+                    Status("The measured range is outside 5 - 500 mm and was not taken.");
+                    return;
+                }
+
+                double current = AxisRange(axis - 1);
+                var take = MessageBox.Show(
+                    $"Measured working range of axis {axis}: {measured:0.0} mm\n(currently configured: {current:0.0} mm)\n\n" +
+                    "Use the measured value? It is saved with 'Save to controller'.",
+                    "Auto-detect working range", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (take != MessageBoxResult.Yes) return;
+
+                double value = Math.Floor(measured * 2) / 2; // 0.5 mm steps, never longer than measured
+                applying = true;
+                (axis == 2 ? SliderRange2 : SliderRange1).Value = value;
+                applying = false;
+                OnRangeEdited(axis - 1, value);
+                Status("Working range set to " + value.ToString("0.0", CultureInfo.InvariantCulture) + " mm. Click 'Save to controller'.");
+            }
+            finally
+            {
+                busy = false;
+                BtnMeasureRange1.IsEnabled = true;
+                BtnMeasureRange2.IsEnabled = true;
+            }
         }
 
         private void BtnDiscard_Click(object sender, RoutedEventArgs e)

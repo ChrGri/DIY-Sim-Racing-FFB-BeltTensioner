@@ -305,8 +305,16 @@
                                                             <ComboBox x:Name="ComboPitch1" Width="70" Height="22" FontSize="11" IsEditable="True"
                                                                       SelectionChanged="Pitch_Changed" LostFocus="Pitch_LostFocus" KeyUp="Pitch_KeyUp" />
                                                         </StackPanel>
-                                                        <ui:LabeledSlider x:Name="SliderRange1" Title="Working range" Unit="mm" Minimum="5" Maximum="500"
+                                                        <ui:LabeledSlider x:Name="SliderRange1" Title="Working range" Unit="mm" Minimum="5" Maximum="500" Step="0.5" Decimals="1"
                                                                           Hint="Usable stroke of the actuator between the end stops" />
+                                                        <Button x:Name="BtnMeasureRange1" Tag="1" Style="{StaticResource Pill}" Height="22" FontSize="10" HorizontalAlignment="Left" Margin="0,-2,0,0"
+                                                                Click="BtnMeasureRange_Click"
+                                                                ToolTip="Sensorless homing to both end stops; the measured distance can be taken as working range">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Image Width="12" Height="12" Source="{StaticResource Target}" Margin="0,0,5,0" />
+                                                                <TextBlock Text="Auto-detect range" />
+                                                            </StackPanel>
+                                                        </Button>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="2" x:Name="PanelAxis2">
                                                         <TextBlock Text="Axis 2" FontFamily="Arial Black" FontSize="10" Foreground="#FFABB4BE" Margin="0,0,0,4" />
@@ -315,7 +323,15 @@
                                                             <ComboBox x:Name="ComboPitch2" Width="70" Height="22" FontSize="11" IsEditable="True"
                                                                       SelectionChanged="Pitch_Changed" LostFocus="Pitch_LostFocus" KeyUp="Pitch_KeyUp" />
                                                         </StackPanel>
-                                                        <ui:LabeledSlider x:Name="SliderRange2" Title="Working range" Unit="mm" Minimum="5" Maximum="500" />
+                                                        <ui:LabeledSlider x:Name="SliderRange2" Title="Working range" Unit="mm" Minimum="5" Maximum="500" Step="0.5" Decimals="1" />
+                                                        <Button x:Name="BtnMeasureRange2" Tag="2" Style="{StaticResource Pill}" Height="22" FontSize="10" HorizontalAlignment="Left" Margin="0,-2,0,0"
+                                                                Click="BtnMeasureRange_Click"
+                                                                ToolTip="Sensorless homing to both end stops; the measured distance can be taken as working range">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Image Width="12" Height="12" Source="{StaticResource Target}" Margin="0,0,5,0" />
+                                                                <TextBlock Text="Auto-detect range" />
+                                                            </StackPanel>
+                                                        </Button>
                                                     </StackPanel>
                                                 </Grid>
                                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0" x:Name="PanelGeneralToggles">

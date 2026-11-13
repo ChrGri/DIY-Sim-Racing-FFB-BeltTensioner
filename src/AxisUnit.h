@@ -79,6 +79,15 @@ public:
     volatile bool isFlashing = false;
     volatile bool isReadingParams = false;
 
+    enum RangeMeasureState : uint8_t {
+        RANGE_MEASURE_NONE,
+        RANGE_MEASURE_RUNNING,
+        RANGE_MEASURE_DONE,
+        RANGE_MEASURE_FAILED
+    };
+    volatile uint8_t rangeMeasureState = RANGE_MEASURE_NONE;
+    int32_t measuredRangeSteps = -1;
+
     AxisUnit();
 
     bool begin(FastAccelStepperEngine* engine,
@@ -95,7 +104,13 @@ public:
     void setMaxAcceleration32Bits(uint32_t accel);
 
     void startSensorlessHoming();
+    // Homing to MIN and MAX end stop; the measured working range is reported via takeRangeMeasurement()
+    void startRangeMeasurement();
+    // true once a started measurement has finished (ok = an end stop was found on both sides)
+    bool takeRangeMeasurement(int32_t& rangeSteps, bool& ok);
+    bool isRangeMeasurementRunning() const { return rangeMeasureState == RANGE_MEASURE_RUNNING; }
     void updateHoming();
+    void updateHomingStateMachine();
     void updateIdleWatchdog(unsigned long idleTimeoutMs);
     void moveToIdle(bool blocking = false);
 
