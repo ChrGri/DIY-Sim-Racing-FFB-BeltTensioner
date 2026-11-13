@@ -182,6 +182,13 @@
                                                 <TextBlock Text="Serial Logs" Style="{StaticResource IconLabel}" />
                                             </StackPanel>
                                         </Button>
+                                        <Button Style="{StaticResource IconButton}" x:Name="BtnWebGraphs" Click="BtnWebGraphs_Click"
+                                                ToolTip="Live graphs of position, servo current and voltage in the browser (the controller starts WiFi)">
+                                            <StackPanel>
+                                                <Image Width="26" Height="26" Source="{StaticResource LivePlot}" />
+                                                <TextBlock Text="Web Graphs" Style="{StaticResource IconLabel}" />
+                                            </StackPanel>
+                                        </Button>
                                     </WrapPanel>
                                 </Border>
 
@@ -341,6 +348,9 @@
                                                     <styles:SHToggleButton x:Name="ToggleCenter" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="CENTER_AFTER_HOMING" />
                                                     <TextBlock Text="Center (50 %) after homing" Style="{StaticResource ToggleLabel}"
                                                                ToolTip="On: the carriage moves to 50 % after homing instead of the park position." />
+                                                    <styles:SHToggleButton x:Name="ToggleWebGraphs" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="WEBGRAPHS" />
+                                                    <TextBlock Text="WiFi web graphs at start" Style="{StaticResource ToggleLabel}"
+                                                               ToolTip="On: the controller starts WiFi and the live graph web page at every boot (access point 'diy_belt_tensioner' or your WiFi)." />
                                                 </StackPanel>
                                                 <TextBlock Style="{StaticResource HintText}" Margin="0,10,0,0"
                                                            Text="Pitch and range are stored per axis. Direction, positions, idle and homing apply to all axes of this controller. In a dual setup with one board per belt, every board drives its belt as axis 1." />

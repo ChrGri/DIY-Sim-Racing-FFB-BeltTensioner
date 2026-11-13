@@ -207,7 +207,9 @@ void setup() {
     // Runs silently: any extra text line on Serial would break the SimHub handshake
     // (SimHub parses the reply to CMD 10 as "Enabled motors:<N>"). Use WEBGRAPHS to print the address.
 #if ENABLE_WEBGRAPHS
-    webGraphs.activate();
+    if (ctrl.webGraphs) {
+        webGraphs.activate();
+    }
 #endif
 }
 

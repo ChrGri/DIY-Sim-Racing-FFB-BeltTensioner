@@ -50,6 +50,7 @@ private:
     uint8_t numAxes = 0;
 
     volatile bool active = false;
+    bool activationFailed = false;
     TaskHandle_t taskHandle = nullptr;
 
     WebGraphSample* buffer = nullptr;

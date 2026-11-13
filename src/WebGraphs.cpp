@@ -181,6 +181,7 @@ void WebGraphs::activate() {
         free(scratch);
         buffer = nullptr;
         scratch = nullptr;
+        activationFailed = true;
         return;
     }
 
@@ -191,7 +192,13 @@ void WebGraphs::activate() {
 void WebGraphs::printStatus(Stream* logStream) {
     if (logStream == nullptr) return;
     if (!active) {
-        logStream->println((taskHandle != nullptr) ? F("Web graphs: starting...") : F("Web graphs: not running (out of memory)"));
+        if (taskHandle != nullptr) {
+            logStream->println(F("Web graphs: starting..."));
+        } else if (activationFailed) {
+            logStream->println(F("Web graphs: not running (out of memory)"));
+        } else {
+            logStream->println(F("Web graphs: off (WEBGRAPHS ON starts them)"));
+        }
         return;
     }
     if (staConnected) {

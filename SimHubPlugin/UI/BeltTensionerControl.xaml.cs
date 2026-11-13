@@ -73,7 +73,7 @@ namespace DiyBeltTensioner.UI
             InitializeComponent();
 
             settingSliders = new[] { SliderIdle, SliderMin, SliderMax, SliderIdleDelay, SliderHomingThreshold, SliderBackoff };
-            settingToggles = new[] { ToggleInvert, ToggleCenter, ToggleHomeAtBoot };
+            settingToggles = new[] { ToggleInvert, ToggleCenter, ToggleHomeAtBoot, ToggleWebGraphs };
 
             logTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
             logTimer.Tick += (s, e) => FlushLog();
@@ -588,6 +588,7 @@ namespace DiyBeltTensioner.UI
                 case "HOME_AT_BOOT": return 0;
                 case "HOMING_THRESHOLD": return 15;
                 case "HOMING_BACKOFF": return 3.125;
+                case "WEBGRAPHS": return 1;
                 default: return 0;
             }
         }
@@ -1164,6 +1165,100 @@ namespace DiyBeltTensioner.UI
             tester.Stop(park: false);
             UpdateTestUi();
             if (SendBinary(() => link.ParkNow(), "Park (CMD 12)")) Status("Parking.");
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex UrlPattern =
+            new System.Text.RegularExpressions.Regex(@"http://[^\s""]+?/");
+
+        /// <summary>
+        /// Starts the web graphs of the controller if needed (WEBGRAPHS ON), waits for the WiFi
+        /// connection (WEBGRAPHS) and opens the page in the browser.
+        /// </summary>
+        private async void BtnWebGraphs_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureConnected() || busy) return;
+            busy = true;
+            BtnWebGraphs.IsEnabled = false;
+            try
+            {
+                var status = await QueryWebGraphsAsync();
+                if (status.Count == 0)
+                {
+                    Status("No answer to WEBGRAPHS.");
+                    return;
+                }
+                if (status.Any(l => l.Contains("disabled in this firmware")))
+                {
+                    Status("The web graphs are not compiled into this firmware (ENABLE_WEBGRAPHS false in Config.h).");
+                    return;
+                }
+
+                if (status.Any(l => l.Contains("off (")))
+                {
+                    var answer = MessageBox.Show(
+                        "Enable the web graphs?\n\nThe controller starts WiFi now and at every boot: it joins the WiFi saved on its web page or opens the access point 'diy_belt_tensioner'.",
+                        "Web graphs", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                    if (answer != MessageBoxResult.OK) return;
+                    Log("> WEBGRAPHS ON");
+                    var reply = await link.RequestAsync("WEBGRAPHS ON", l => l.StartsWith("Web graphs"), 2000, 0);
+                    if (reply.Count == 0)
+                    {
+                        Status("No answer to WEBGRAPHS ON. Flash the latest firmware to switch the web graphs from the plugin.");
+                        return;
+                    }
+                    Status(reply.Last());
+                    deviceSettings.Remove("WEBGRAPHS");
+                    var ignored = ReadAllAsync();
+                }
+
+                // WiFi bring-up takes a few seconds (joining a network up to 15 s, then access point)
+                Status("Waiting for the controller's WiFi...");
+                var sw = Stopwatch.StartNew();
+                while (sw.Elapsed.TotalSeconds < 25 && !status.Any(l => UrlPattern.IsMatch(l)))
+                {
+                    await Task.Delay(1500);
+                    if (!link.IsOpen) return;
+                    status = await QueryWebGraphsAsync();
+                }
+
+                string sta = status.FirstOrDefault(l => l.Contains("connected to WiFi") && UrlPattern.IsMatch(l));
+                string ap = status.FirstOrDefault(l => l.Contains("access point") && UrlPattern.IsMatch(l));
+                if (sta == null && ap == null)
+                {
+                    Status("The web graphs did not report an address yet. Try again in a few seconds (Serial Logs: WEBGRAPHS).");
+                    return;
+                }
+
+                string url = UrlPattern.Match(sta ?? ap).Value;
+                string text = sta != null
+                    ? "The controller is in your WiFi:\n" + sta.Replace("Web graphs: ", "") + "\n\nOpen " + url + " in the browser?"
+                    : "The controller opened its own access point:\n" + ap.Replace("Web graphs: ", "") +
+                      "\n\nConnect this PC (or a phone) to that WiFi, then open " + url + ".\nOpen it in the browser now?";
+                Status("Web graphs: " + url);
+                if (MessageBox.Show(text, "Web graphs", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        Process.Start(url);
+                    }
+                    catch (Exception ex)
+                    {
+                        Status("Could not open the browser: " + ex.Message);
+                    }
+                }
+            }
+            finally
+            {
+                busy = false;
+                BtnWebGraphs.IsEnabled = true;
+            }
+        }
+
+        private async Task<List<string>> QueryWebGraphsAsync()
+        {
+            Log("> WEBGRAPHS");
+            var lines = await link.RequestAsync("WEBGRAPHS", l => false, 1500, 300); // WiFi and access point may print one line each
+            return lines.Where(l => l.StartsWith("Web graphs")).ToList();
         }
 
         private void BtnStatus_Click(object sender, RoutedEventArgs e)

@@ -13,6 +13,7 @@ enum SettingId : uint8_t {
     SETTING_HOME_AT_BOOT,
     SETTING_HOMING_THRESHOLD,
     SETTING_HOMING_BACKOFF,
+    SETTING_WEBGRAPHS,
     SETTING_COUNT
 };
 
@@ -36,6 +37,7 @@ static const SettingDef settingDefs[SETTING_COUNT] = {
     {"HOME_AT_BOOT",        "homeAtBoot",  true,  0.0f,   1.0f,   ""},
     {"HOMING_THRESHOLD",    "homeThresh",  false, 5.0f,   100.0f, "%"},
     {"HOMING_BACKOFF",      "homeBackoff", false, 0.5f,   20.0f,  "mm"},
+    {"WEBGRAPHS",           "webGraphs",   true,  0.0f,   1.0f,   ""},
 };
 
 static ControllerSettings activeSettings;
@@ -51,6 +53,7 @@ static float getValue(const ControllerSettings& s, uint8_t id) {
         case SETTING_HOME_AT_BOOT:        return s.homeAtBoot ? 1.0f : 0.0f;
         case SETTING_HOMING_THRESHOLD:    return (float)s.homingThresholdPct;
         case SETTING_HOMING_BACKOFF:      return s.homingBackoffMm;
+        case SETTING_WEBGRAPHS:           return s.webGraphs ? 1.0f : 0.0f;
         default:                          return 0.0f;
     }
 }
@@ -66,6 +69,7 @@ static void setValue(ControllerSettings& s, uint8_t id, float v) {
         case SETTING_HOME_AT_BOOT:        s.homeAtBoot = (v >= 0.5f); break;
         case SETTING_HOMING_THRESHOLD:    s.homingThresholdPct = (uint8_t)(v + 0.5f); break;
         case SETTING_HOMING_BACKOFF:      s.homingBackoffMm = v; break;
+        case SETTING_WEBGRAPHS:           s.webGraphs = (v >= 0.5f); break;
         default: break;
     }
 }
@@ -220,6 +224,14 @@ void set(Stream* stream, const char* args) {
     stream->print(F(" = "));
     printNumber(stream, value, def.isBool);
     stream->println(F(" saved. Restart the controller to apply."));
+}
+
+bool saveWebGraphs(bool enabled) {
+    Preferences prefs;
+    bool ok = prefs.begin(CONTROLLER_CONFIG_NVS_NAMESPACE, false) &&
+              prefs.putFloat(settingDefs[SETTING_WEBGRAPHS].nvsKey, enabled ? 1.0f : 0.0f) == sizeof(float);
+    prefs.end();
+    return ok;
 }
 
 void reset() {

@@ -24,6 +24,7 @@ struct ControllerSettings {
     bool homeAtBoot = CALIBRATE_AT_BOOT;
     uint8_t homingThresholdPct = HOMING_CURRENT_THRESHOLD_PCT;
     float homingBackoffMm = HOMING_BACKOFF_MM;
+    bool webGraphs = ENABLE_WEBGRAPHS; // WiFi + live graphs at boot (needs ENABLE_WEBGRAPHS in the build)
 };
 
 namespace ControllerConfig {
@@ -37,6 +38,8 @@ namespace ControllerConfig {
     void set(Stream* stream, const char* args);
     // Prints all settings in the format above
     void print(Stream* stream);
+    // Saves the WEBGRAPHS setting (WEBGRAPHS ON / OFF)
+    bool saveWebGraphs(bool enabled);
     // Deletes all saved settings
     void reset();
 }

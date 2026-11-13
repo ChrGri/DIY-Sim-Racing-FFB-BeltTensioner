@@ -441,6 +441,18 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         }
         delay(200);
         ESP.restart();
+    } else if (strcasecmp(cmd, "WEBGRAPHS ON") == 0) {
+#if ENABLE_WEBGRAPHS
+        ControllerConfig::saveWebGraphs(true);
+        webGraphs.activate(); // starts now, no restart needed
+        stream->println(F("Web graphs enabled (WiFi starts, also at every boot). WEBGRAPHS prints the address."));
+#else
+        stream->println(F("Web graphs are disabled in this firmware (ENABLE_WEBGRAPHS false)"));
+#endif
+    } else if (strcasecmp(cmd, "WEBGRAPHS OFF") == 0) {
+        ControllerConfig::saveWebGraphs(false);
+        stream->println(webGraphs.isActive() ? F("Web graphs disabled, WiFi stays off after the next restart.")
+                                             : F("Web graphs disabled."));
     } else if (strcasecmp(cmd, "WEBGRAPHS") == 0) {
         webGraphs.printStatus(stream);
     } else if (strcasecmp(cmd, "HELP") == 0) {
@@ -463,6 +475,7 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));
         stream->println(F("  RESTART        - Restart the controller (applies saved pitch/range)"));
         stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));
+        stream->println(F("  WEBGRAPHS ON/OFF - Start the web graphs now and at boot / keep WiFi off after restart"));
     } else if (strcasecmp(cmd, "STATUS") == 0) {
         for (uint8_t i = 0; i < numAxes; i++) {
             dumpSensor(stream, i);

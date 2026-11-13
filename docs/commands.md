@@ -197,7 +197,8 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`SET <KEY> <value>`** | - | Saves one behaviour setting in flash (applied after a restart), e.g. `SET IDLE_POSITION 15`, `SET INVERT_TENSION 1`. Switches accept `0`/`1` or `ON`/`OFF`. |
 | **`RESET_CONFIG`** | - | Deletes all saved values (pitch, range and the behaviour settings); the `Config.h` defaults apply after a restart. |
 | **`RESTART`** | `REBOOT` | Disables the motors and restarts the controller, e.g. to apply values saved with `SET_PITCH` / `SET_RANGE`. On native USB boards the COM port disappears briefly. |
-| **`WEBGRAPHS`** | - | Prints the address of the live graph web page (see below). |
+| **`WEBGRAPHS`** | - | Prints the state and the address of the live graph web page (see below). |
+| **`WEBGRAPHS ON`** / **`OFF`** | - | `ON` starts WiFi and the web graphs immediately and at every boot, `OFF` keeps WiFi off after the next restart (saved as setting `WEBGRAPHS`). |
 | **`HELP`** | - | Prints an overview of all available serial commands. |
 
 ### Live graph web page (`ENABLE_WEBGRAPHS` in `Config.h`)
@@ -268,3 +269,4 @@ Saved in flash and applied after a restart (`RESTART`). Without a saved value th
 | `HOME_AT_BOOT` | `CALIBRATE_AT_BOOT` | 0 / 1 | 1 = sensorless homing directly after power on instead of on the first command. |
 | `HOMING_THRESHOLD` | `HOMING_CURRENT_THRESHOLD_PCT` | 5 - 100 % | Servo load that detects the mechanical end stop while homing. |
 | `HOMING_BACKOFF` | `HOMING_BACKOFF_MM` | 0.5 - 20 mm | Distance to back off from the end stop after homing. |
+| `WEBGRAPHS` | `ENABLE_WEBGRAPHS` | 0 / 1 | 1 = WiFi and the live graph web page start at boot (the build must have `ENABLE_WEBGRAPHS true`). `WEBGRAPHS ON` / `OFF` sets it too; `ON` starts them immediately. |
