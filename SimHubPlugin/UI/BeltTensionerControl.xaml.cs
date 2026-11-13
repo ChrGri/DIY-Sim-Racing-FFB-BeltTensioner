@@ -43,7 +43,7 @@ namespace DiyBeltTensioner.UI
         private bool applying;
         private bool busy;
         private volatile bool liveLoadActive;
-        private List<FirmwareRelease> releases;
+        private FirmwareRelease latestRelease;
         private FirmwareRelease pendingPluginUpdate;
         private bool loadingReleases;
 
@@ -141,8 +141,6 @@ namespace DiyBeltTensioner.UI
             ToggleAutoConnect.IsChecked = settings.AutoConnect;
             ToggleCheckUpdates.IsChecked = settings.CheckPluginUpdates;
 
-            ComboBoard.ItemsSource = BoardInfo.All;
-            ComboBoard.SelectedItem = BoardInfo.All.FirstOrDefault(b => b.Environment == settings.BoardEnvironment) ?? BoardInfo.All[2];
             TextRepository.Text = settings.GitHubRepository;
             TextLocalFirmware.Text = settings.LocalFirmwarePath;
             switch (settings.FirmwareSource)
@@ -1278,6 +1276,10 @@ namespace DiyBeltTensioner.UI
             settings.FirmwareSource = RadioSourceZip.IsChecked == true ? 1 : RadioSourceFolder.IsChecked == true ? 2 : 0;
             SaveSettings();
             UpdateFirmwareSourceUi();
+            if (settings.FirmwareSource == 0 && latestRelease == null)
+            {
+                var ignored = LoadReleasesAsync(userInitiated: true);
+            }
         }
 
         private void UpdateFirmwareSourceUi()
@@ -1285,8 +1287,8 @@ namespace DiyBeltTensioner.UI
             bool local = RadioSourceGitHub.IsChecked != true;
             TextLocalFirmware.IsEnabled = local;
             BtnBrowseFirmware.IsEnabled = local;
-            ComboRelease.IsEnabled = !local;
             BtnCheckRelease.IsEnabled = !local;
+            PopulateBoards();
         }
 
         private void TextRepository_LostFocus(object sender, RoutedEventArgs e)
@@ -1339,8 +1341,8 @@ namespace DiyBeltTensioner.UI
         }
 
         /// <summary>
-        /// Reads the releases of the repository: fills the firmware release list and checks for a
-        /// plugin update (at start only if enabled; userInitiated = the user asked for it).
+        /// Reads the latest release of the repository: shows it, fills the board variants and checks
+        /// for a plugin update (at start only if enabled; userInitiated = the user asked for it).
         /// </summary>
         private async Task LoadReleasesAsync(bool userInitiated)
         {
@@ -1350,14 +1352,10 @@ namespace DiyBeltTensioner.UI
             BtnCheckRelease.IsEnabled = false;
             try
             {
-                TextReleaseInfo.Text = "Reading releases from GitHub...";
-                var list = await FirmwareReleaseService.GetReleasesAsync(settings.GitHubRepository);
-                releases = list;
-
-                string selectedTag = (ComboRelease.SelectedItem as FirmwareRelease)?.Tag;
-                ComboRelease.ItemsSource = list;
-                ComboRelease.SelectedItem = list.FirstOrDefault(r => r.Tag == selectedTag) ?? list.FirstOrDefault(r => r.IsLatest) ?? list.FirstOrDefault();
-                ShowReleaseInfo();
+                TextLatestRelease.Text = "reading from GitHub...";
+                latestRelease = await FirmwareReleaseService.GetLatestAsync(settings.GitHubRepository);
+                TextLatestRelease.Text = latestRelease.DisplayName;
+                PopulateBoards();
 
                 if (userInitiated || settings.CheckPluginUpdates)
                 {
@@ -1366,25 +1364,45 @@ namespace DiyBeltTensioner.UI
             }
             catch (Exception ex)
             {
-                TextReleaseInfo.Text = "Could not read the releases: " + ex.Message;
-                if (userInitiated) Status("Could not read the releases: " + ex.Message);
+                TextLatestRelease.Text = "not available";
+                TextReleaseInfo.Text = "Could not read the latest release: " + ex.Message;
+                if (userInitiated) Status("Could not read the latest release: " + ex.Message);
             }
             finally
             {
                 loadingReleases = false;
-                BtnCheckRelease.IsEnabled = RadioSourceGitHub.IsChecked == true;
+                BtnCheckRelease.IsEnabled = true;
             }
         }
 
-        private void ComboRelease_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// Board list: the variants of the latest release for the GitHub source, all known boards
+        /// for local firmware (or while the release is not loaded).
+        /// </summary>
+        private void PopulateBoards()
         {
+            List<BoardInfo> boards = null;
+            if (settings.FirmwareSource == 0 && latestRelease != null)
+            {
+                boards = BoardInfo.FromRelease(latestRelease);
+            }
+            if (boards == null || boards.Count == 0)
+            {
+                boards = BoardInfo.All.ToList();
+            }
+
+            string selected = (ComboBoard.SelectedItem as BoardInfo)?.Environment ?? settings.BoardEnvironment;
+            bool wasLoading = loading;
+            loading = true; // keep the saved board while the list is replaced
+            ComboBoard.ItemsSource = boards;
+            ComboBoard.SelectedItem = boards.FirstOrDefault(b => string.Equals(b.Environment, selected, StringComparison.OrdinalIgnoreCase)) ?? boards.FirstOrDefault();
+            loading = wasLoading;
             ShowReleaseInfo();
         }
 
         private void BtnOpenRelease_Click(object sender, RoutedEventArgs e)
         {
-            var release = ComboRelease.SelectedItem as FirmwareRelease;
-            string url = release?.HtmlUrl ?? "https://github.com/" + settings.GitHubRepository + "/releases";
+            string url = latestRelease?.HtmlUrl ?? "https://github.com/" + settings.GitHubRepository + "/releases/latest";
             try
             {
                 Process.Start(url);
@@ -1397,17 +1415,21 @@ namespace DiyBeltTensioner.UI
 
         private void ShowReleaseInfo()
         {
-            var release = ComboRelease.SelectedItem as FirmwareRelease;
-            if (release == null)
+            var board = ComboBoard.SelectedItem as BoardInfo;
+            if (settings.FirmwareSource != 0)
             {
-                if (releases != null) TextReleaseInfo.Text = "No releases found in " + settings.GitHubRepository + ".";
+                TextReleaseInfo.Text = "Make sure the local firmware was built for this board.";
                 return;
             }
-            var board = ComboBoard.SelectedItem as BoardInfo;
-            var asset = board != null ? release.FindAsset(board.Environment) : null;
+            if (latestRelease == null || board == null)
+            {
+                TextReleaseInfo.Text = "";
+                return;
+            }
+            var asset = latestRelease.FindAsset(board.Environment);
             TextReleaseInfo.Text = asset != null
-                ? $"{release.Tag}: {asset.Name} ({asset.Size / 1024} kB)"
-                : $"{release.Tag} has no firmware for {board?.Environment}. Pick another release or board.";
+                ? $"Flashes {asset.Name} ({asset.Size / 1024} kB) of release {latestRelease.Tag}."
+                : $"Release {latestRelease.Tag} has no firmware for {board.Environment}.";
         }
 
         private async Task<FirmwareImage> ResolveFirmwareAsync(BoardInfo board)
@@ -1435,19 +1457,18 @@ namespace DiyBeltTensioner.UI
                     return FirmwareImage.FromPath(settings.LocalFirmwarePath);
                 default:
                     {
-                        var release = ComboRelease.SelectedItem as FirmwareRelease;
-                        if (release == null)
+                        if (latestRelease == null)
                         {
-                            FlashLog("Reading the releases of " + settings.GitHubRepository + "...");
+                            FlashLog("Reading the latest release of " + settings.GitHubRepository + "...");
                             await LoadReleasesAsync(userInitiated: true);
-                            release = ComboRelease.SelectedItem as FirmwareRelease;
-                            if (release == null)
+                            if (latestRelease == null)
                             {
                                 FlashLog("No release found.");
                                 return null;
                             }
                         }
-                        FlashLog("Release " + release.Tag + (release.IsLatest ? " (latest)" : ""));
+                        var release = latestRelease;
+                        FlashLog("Release " + release.Tag);
                         string folder = await FirmwareReleaseService.DownloadAndExtractAsync(release, board.Environment, FlashLog);
                         return FirmwareImage.FromPath(folder);
                     }
@@ -1528,8 +1549,8 @@ namespace DiyBeltTensioner.UI
 
         private void CheckPluginUpdate(bool userInitiated)
         {
-            if (releases == null) return;
-            var update = PluginUpdater.FindUpdate(releases, includeForDevBuild: userInitiated);
+            if (latestRelease == null) return;
+            var update = PluginUpdater.FindUpdate(new[] { latestRelease }, includeForDevBuild: userInitiated);
             if (update != null && (userInitiated || update.Tag != settings.SkippedPluginVersion))
             {
                 pendingPluginUpdate = update;
@@ -1541,8 +1562,9 @@ namespace DiyBeltTensioner.UI
             }
             else if (userInitiated)
             {
-                bool anyPlugin = releases.Any(r => r.PluginAsset != null);
-                Status(anyPlugin ? "The plugin is up to date (" + PluginUpdater.CurrentVersion + ")." : "No release contains the plugin yet.");
+                Status(latestRelease.PluginAsset != null
+                    ? "The plugin is up to date (" + PluginUpdater.CurrentVersion + ")."
+                    : "The latest release " + latestRelease.Tag + " does not contain the plugin yet.");
             }
         }
 

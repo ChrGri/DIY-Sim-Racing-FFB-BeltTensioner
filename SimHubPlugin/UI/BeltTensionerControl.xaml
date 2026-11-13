@@ -465,42 +465,41 @@
 
                         <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
                             <StackPanel>
-                                <TextBlock Text="Controller Board" Style="{StaticResource SectionTitle}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Board:" Style="{StaticResource SmallText}" Width="80" />
-                                    <ComboBox x:Name="ComboBoard" Width="430" Height="22" DisplayMemberPath="DisplayName" SelectionChanged="ComboBoard_SelectionChanged" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                    <TextBlock Text="COM port:" Style="{StaticResource SmallText}" Width="80" />
-                                    <TextBlock x:Name="TextFlashPort" Style="{StaticResource SmallText}" Text="-" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0" Text="The COM port is selected on the TENSIONER tab. The firmware archive of the selected board is flashed." />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
-                            <StackPanel>
                                 <TextBlock Text="Firmware Source" Style="{StaticResource SectionTitle}" />
                                 <RadioButton x:Name="RadioSourceGitHub" GroupName="FwSource" Content="Latest GitHub release (download automatically)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <StackPanel Orientation="Horizontal" Margin="22,4,0,4">
                                     <TextBlock Text="Release:" Style="{StaticResource SmallText}" Width="70" />
-                                    <ComboBox x:Name="ComboRelease" Width="300" Height="22" SelectionChanged="ComboRelease_SelectionChanged"
-                                              ToolTip="Firmware release to flash (newest first)" />
+                                    <TextBlock x:Name="TextLatestRelease" Style="{StaticResource SmallText}" FontWeight="Bold" Width="300" Text="-" />
                                     <Button x:Name="BtnCheckRelease" Content="Refresh" Style="{StaticResource Pill}" Margin="8,0,0,0" Click="BtnCheckRelease_Click" />
                                     <Button x:Name="BtnOpenRelease" Content="Release page" Style="{StaticResource Pill}" Click="BtnOpenRelease_Click" />
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="22,0,0,4">
+                                <StackPanel Orientation="Horizontal" Margin="22,0,0,8">
                                     <TextBlock Text="Repository:" Style="{StaticResource SmallText}" Width="70" />
                                     <TextBox x:Name="TextRepository" Width="300" Style="{StaticResource ValueBox}" LostFocus="TextRepository_LostFocus"
                                              ToolTip="GitHub repository the releases are read from (owner/name), e.g. for a fork" />
                                 </StackPanel>
-                                <TextBlock x:Name="TextReleaseInfo" Margin="22,0,0,8" Style="{StaticResource HintText}" Text="Releases not loaded yet." />
                                 <RadioButton x:Name="RadioSourceZip" GroupName="FwSource" Content="Local release archive (.zip)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <RadioButton x:Name="RadioSourceFolder" GroupName="FwSource" Content="Local folder / firmware.bin (e.g. .pio\build\&lt;env&gt;)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <DockPanel Margin="22,4,0,0">
                                     <Button DockPanel.Dock="Right" x:Name="BtnBrowseFirmware" Content="Browse..." Style="{StaticResource Pill}" Margin="8,0,0,0" Click="BtnBrowseFirmware_Click" />
                                     <TextBox x:Name="TextLocalFirmware" Style="{StaticResource ValueBox}" LostFocus="TextLocalFirmware_LostFocus" />
                                 </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
+                            <StackPanel>
+                                <TextBlock Text="Board Variant" Style="{StaticResource SectionTitle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Board:" Style="{StaticResource SmallText}" Width="80" />
+                                    <ComboBox x:Name="ComboBoard" Width="430" Height="22" DisplayMemberPath="DisplayName" SelectionChanged="ComboBoard_SelectionChanged" />
+                                </StackPanel>
+                                <TextBlock x:Name="TextReleaseInfo" Margin="80,4,0,0" Style="{StaticResource HintText}" Text="" />
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <TextBlock Text="COM port:" Style="{StaticResource SmallText}" Width="80" />
+                                    <TextBlock x:Name="TextFlashPort" Style="{StaticResource SmallText}" Text="-" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0" Text="With the GitHub source the list shows the board variants of the latest release. The COM port is selected on the TENSIONER tab." />
                             </StackPanel>
                         </Border>
 

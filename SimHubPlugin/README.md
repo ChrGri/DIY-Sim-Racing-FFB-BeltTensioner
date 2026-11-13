@@ -27,7 +27,7 @@ A SimHub plugin to set up the belt tensioner without a serial terminal. It shows
 ## Updates
 
 * **Plugin:** at start the plugin checks the releases (switch *Check for plugin updates*, button *Check now*). If a newer `DiyBeltTensioner.dll` is available, a banner offers **Update now**: the DLL is downloaded, SimHub closes, the plugin is replaced (admin prompt, the old DLL is kept as `DiyBeltTensioner.dll.bak`) and SimHub starts again.
-* **Firmware:** FIRMWARE tab → *Release* lists the releases (newest first). Pick a release and the board, then **Flash firmware**.
+* **Firmware:** FIRMWARE tab → the latest release is used; *Board* lists the board variants it contains. Pick your board, then **Flash firmware**.
 
 ## Typical first setup
 
