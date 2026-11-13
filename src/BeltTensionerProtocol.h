@@ -41,4 +41,6 @@ private:
     void dumpSensor(Stream* stream, uint8_t axis);
     void printAxisConfig(Stream* stream);
     void setAxisConfigValue(Stream* stream, const char* args, bool isPitch);
+    void servoWrite(Stream* stream, const char* args);
+    void servoSave(Stream* stream, const char* args);
 };

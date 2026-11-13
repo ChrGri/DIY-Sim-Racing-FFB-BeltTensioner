@@ -1018,6 +1018,32 @@ namespace DiyBeltTensioner.UI
             }
         }
 
+        private ServoRegisterWindow registerWindow;
+
+        private void BtnServoRegisters_Click(object sender, RoutedEventArgs e)
+        {
+            if (registerWindow != null)
+            {
+                if (registerWindow.WindowState == WindowState.Minimized) registerWindow.WindowState = WindowState.Normal;
+                registerWindow.Activate();
+                return;
+            }
+            if (!EnsureConnected()) return;
+            if (busy)
+            {
+                Status("Wait until the current action has finished.");
+                return;
+            }
+            tester.Stop(park: false);
+            UpdateTestUi();
+
+            registerWindow = new ServoRegisterWindow(link, SelectedServo, Log);
+            registerWindow.Owner = Window.GetWindow(this);
+            registerWindow.Closed += (s, args) => registerWindow = null;
+            registerWindow.Show();
+            var ignored = registerWindow.LoadAsync();
+        }
+
         private void BtnEnableServo_Click(object sender, RoutedEventArgs e)
         {
             SendAscii("ENABLE_SERVO " + SelectedServo);

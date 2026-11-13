@@ -61,6 +61,10 @@ public:
     void sendTunedServoParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32);
     bool flashTunedParameters(bool commandRotationDirection, uint32_t stepsPerMotorRev_u32, Stream* logStream = nullptr);
     uint16_t dumpParameters(uint32_t stepsPerMotorRev_u32, bool onlyDiff, Stream* logStream);
+    // Writes one parameter into the servo RAM and reads it back (true = servo holds the value)
+    bool writeParameter(uint16_t regIdx, int16_t value, int16_t* readBack = nullptr);
+    // Stores all current parameters permanently in the servo EEPROM (0x019A = 0x5555)
+    bool saveParametersToEeprom();
     void readServoStates();
     bool readMotorRatings();
     bool checkCommunication();

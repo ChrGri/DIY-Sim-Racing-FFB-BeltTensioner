@@ -190,6 +190,8 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`CONFIG`** | - | Shows spindle pitch and working range of each axis, whether the value is saved in flash or the `Config.h` default, and whether a restart is pending. |
 | **`SET_PITCH <axis> <mm>`** | `SET_PITCH <mm>` (axis 1) | Saves the spindle pitch of axis 1 or 2 in flash (NVS), e.g. `SET_PITCH 2 5`. Allowed 0.5 - 50 mm, `,` or `.` as decimal separator. Applied after a restart of the controller. |
 | **`SET_RANGE <axis> <mm>`** | `SET_RANGE <mm>` (axis 1) | Saves the usable working range of axis 1 or 2 in flash, e.g. `SET_RANGE 1 60`. Allowed 5 - 500 mm. Applied after a restart. |
+| **`SERVO_WRITE <s> <reg> <value>`** | - | Writes one iSV57 register of servo `s` (1/2) into the servo RAM and reads it back, e.g. `SERVO_WRITE 1 0x0008 3200`. Register decimal or `0x` hex. Replies `SERVO_WRITE 1 0x0008 = 3200 OK` or `... failed (read back <v>)`. Not permanent until `SERVO_SAVE`. |
+| **`SERVO_SAVE <s>`** | - | Stores all current registers of servo `s` permanently in its EEPROM. Power cycle the servo afterwards. |
 | **`SETTINGS`** | - | Lists the behaviour settings below with their saved value, unit, source (`saved` / `default` = `Config.h`) and allowed range. `-> restart to apply` marks values that are saved but not active yet. |
 | **`SET <KEY> <value>`** | - | Saves one behaviour setting in flash (applied after a restart), e.g. `SET IDLE_POSITION 15`, `SET INVERT_TENSION 1`. Switches accept `0`/`1` or `ON`/`OFF`. |
 | **`RESET_CONFIG`** | - | Deletes all saved values (pitch, range and the behaviour settings); the `Config.h` defaults apply after a restart. |

@@ -384,8 +384,18 @@
                                                     <Button x:Name="BtnEnableServo" Content="Enable" Style="{StaticResource Pill}" Click="BtnEnableServo_Click" />
                                                     <Button x:Name="BtnDisableServo" Content="Disable all" Style="{StaticResource Pill}" Click="BtnDisableServo_Click" />
                                                 </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                    <Button x:Name="BtnServoRegisters" Style="{StaticResource Pill}" Click="BtnServoRegisters_Click" MinWidth="180" Height="28">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Image Width="16" Height="16" Source="{StaticResource Settings}" Margin="0,0,6,0" />
+                                                            <TextBlock Text="Servo register editor..." />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <TextBlock Style="{StaticResource HintText}" Margin="6,0,0,0" Width="380"
+                                                               Text="Lists all 305 registers of the selected servo next to the tuned values of the firmware. Values can be edited, saved to the servo EEPROM, exported and imported." />
+                                                </StackPanel>
                                                 <TextBlock Style="{StaticResource HintText}"
-                                                           Text="'Flash servo parameters' writes the tuned registers (direction, microsteps, gains) into the servo EEPROM. Needed once per servo and after firmware releases that change the tuning. Power cycle the servo afterwards; 'Check' should then report 0 differ (output in Serial Logs)." />
+                                                           Text="'Flash servo parameters' writes the tuned registers (direction, microsteps, gains) into the servo EEPROM. Needed once per servo and after firmware releases that change the tuning. Power cycle the servo afterwards; 'Check' should then report 0 differ (details in the register editor or Serial Logs)." />
                                             </StackPanel>
                                         </Border>
                                     </TabItem>

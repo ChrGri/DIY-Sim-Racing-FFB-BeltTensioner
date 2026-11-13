@@ -506,6 +506,22 @@ bool AxisUnit::flashTunedParameters(Stream* logStream) {
     return ok;
 }
 
+bool AxisUnit::writeServoParameter(uint16_t regIdx, int16_t value, int16_t* readBack) {
+    isReadingParams = true;
+    delay(100); // Give background task time to finish any in-flight Modbus packet
+    bool ok = isv57.writeParameter(regIdx, value, readBack);
+    isReadingParams = false;
+    return ok;
+}
+
+bool AxisUnit::saveServoParameters() {
+    isFlashing = true;
+    delay(100);
+    bool ok = isv57.saveParametersToEeprom();
+    isFlashing = false;
+    return ok;
+}
+
 void AxisUnit::dumpServoParameters(bool onlyDiff, Stream* logStream) {
     isReadingParams = true;
     delay(100); // Give background task time to finish any in-flight Modbus packet

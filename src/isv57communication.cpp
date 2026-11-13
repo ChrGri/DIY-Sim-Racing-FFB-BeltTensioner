@@ -318,6 +318,26 @@ void Isv57Communication::setZeroPos() {
     zeroPos = dynamicStates.servo_pos_given_p;
 }
 
+bool Isv57Communication::writeParameter(uint16_t regIdx, int16_t value, int16_t* readBack) {
+    modbus.writeAndVerifyDeviceParameter(slaveId, regIdx, value);
+    delay(5);
+    int16_t actualVal = 0;
+    bool readOk = false;
+    for (uint8_t tryIndex_u8 = 0; tryIndex_u8 < 3 && !readOk; tryIndex_u8++) {
+        readOk = (readRegisters(regIdx, 1, &actualVal) == 1);
+    }
+    if (readBack != nullptr) {
+        *readBack = actualVal;
+    }
+    return readOk && actualVal == value;
+}
+
+bool Isv57Communication::saveParametersToEeprom() {
+    int32_t nvmRes = modbus.writeHoldingRegisterToDevice(slaveId, 0x019A, 0x5555);
+    delay(500);
+    return nvmRes > 0;
+}
+
 int Isv57Communication::readRegisters(uint16_t startAddr_u16, uint8_t count_u8, int16_t* out_pi16) {
     if (count_u8 == 0 || out_pi16 == nullptr) return -1;
     int bytes = modbus.sendRequestAndReceiveResponse(slaveId, 0x03, startAddr_u16, count_u8);

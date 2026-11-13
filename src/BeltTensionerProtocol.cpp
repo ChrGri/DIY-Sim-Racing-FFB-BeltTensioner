@@ -120,6 +120,73 @@ static bool parseAxisAndValue(const char* args, uint8_t& axisIndex, float& value
     return (*rest == '\0');
 }
 
+// Parses an optional servo number (1/2) at the start of args; returns the axis index or -1
+static int8_t parseServoIndex(const char*& args) {
+    while (*args == ' ') args++;
+    if (*args == '\0') return 0; // default: servo 1
+    if ((args[0] == '1' || args[0] == '2') && (args[1] == ' ' || args[1] == '\0')) {
+        int8_t index = (int8_t)(args[0] - '1');
+        args++;
+        while (*args == ' ') args++;
+        return index;
+    }
+    return -1;
+}
+
+// SERVO_WRITE <servo> <register> <value>: register decimal or 0x hex, value -32768..32767
+// Replies "SERVO_WRITE <servo> 0x<reg> = <value> OK" or "... failed (read back <v>)"
+void BeltTensionerProtocol::servoWrite(Stream* stream, const char* args) {
+    int8_t index = parseServoIndex(args);
+    char* end = nullptr;
+    long reg = strtol(args, &end, 0);
+    bool valid = (index >= 0) && (end != args);
+    long value = 0;
+    if (valid) {
+        const char* valueText = end;
+        value = strtol(valueText, &end, 0);
+        while (end != nullptr && *end == ' ') end++;
+        valid = (end != valueText) && (end != nullptr) && (*end == '\0') &&
+                reg >= 0 && reg < 0x0200 && value >= -32768 && value <= 32767;
+    }
+    if (!valid) {
+        stream->println(F("Usage: SERVO_WRITE <servo> <register> <value>   e.g. SERVO_WRITE 1 0x0008 3200"));
+        return;
+    }
+    if (index >= numAxes || axisUnits[index] == nullptr) {
+        stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        return;
+    }
+
+    int16_t readBack = 0;
+    bool ok = axisUnits[index]->writeServoParameter((uint16_t)reg, (int16_t)value, &readBack);
+    char line[64];
+    snprintf(line, sizeof(line), "SERVO_WRITE %d 0x%04X = %ld %s", index + 1, (unsigned)reg, value, ok ? "OK" : "failed");
+    stream->print(line);
+    if (!ok) {
+        stream->print(F(" (read back "));
+        stream->print(readBack);
+        stream->print(')');
+    }
+    stream->println();
+}
+
+// SERVO_SAVE [servo]: stores the servo RAM parameters permanently in its EEPROM
+void BeltTensionerProtocol::servoSave(Stream* stream, const char* args) {
+    int8_t index = parseServoIndex(args);
+    if (index < 0 || *args != '\0') {
+        stream->println(F("Usage: SERVO_SAVE <servo>"));
+        return;
+    }
+    if (index >= numAxes || axisUnits[index] == nullptr) {
+        stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        return;
+    }
+    bool ok = axisUnits[index]->saveServoParameters();
+    stream->print(F("SERVO_SAVE "));
+    stream->print(index + 1);
+    stream->println(ok ? F(" OK - power cycle the servo to activate all values") : F(" failed (no ACK from the servo)"));
+}
+
 void BeltTensionerProtocol::setAxisConfigValue(Stream* stream, const char* args, bool isPitch) {
     uint8_t axisIndex = 0;
     float value = 0.0f;
@@ -313,6 +380,10 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         setAxisConfigValue(stream, cmd + 10, true);
     } else if (strncasecmp(cmd, "SET_RANGE ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, false);
+    } else if (strncasecmp(cmd, "SERVO_WRITE ", 12) == 0) {
+        servoWrite(stream, cmd + 12);
+    } else if (strncasecmp(cmd, "SERVO_SAVE", 10) == 0) {
+        servoSave(stream, cmd + 10);
     } else if (strcasecmp(cmd, "SETTINGS") == 0) {
         ControllerConfig::print(stream);
     } else if (strncasecmp(cmd, "SET ", 4) == 0) {
@@ -346,6 +417,8 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  CONFIG         - Show spindle pitch & working range per axis"));
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
+        stream->println(F("  SERVO_WRITE s reg value - Write one servo register (RAM), e.g. SERVO_WRITE 1 0x0008 3200"));
+        stream->println(F("  SERVO_SAVE s   - Store the current servo registers in the servo EEPROM"));
         stream->println(F("  SETTINGS       - Show direction, position, idle & homing settings"));
         stream->println(F("  SET key value  - Save a setting in flash, e.g. SET IDLE_POSITION 15"));
         stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));

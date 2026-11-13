@@ -103,6 +103,8 @@ public:
     void disableMotor();
     bool flashTunedParameters(Stream* logStream = nullptr);
     void dumpServoParameters(bool onlyDiff, Stream* logStream);
+    bool writeServoParameter(uint16_t regIdx, int16_t value, int16_t* readBack);
+    bool saveServoParameters();
 
     void pollModbusTelemetry();
     void unwrapAndCalculateStepLoss();
