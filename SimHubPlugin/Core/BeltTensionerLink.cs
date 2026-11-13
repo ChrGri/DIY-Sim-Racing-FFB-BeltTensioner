@@ -347,6 +347,7 @@ namespace DiyBeltTensioner.Core
         public void QueryEnabledMotors() { SendFrame(10); }
         public void DumpSensor(byte axisIndex) { SendFrame(11, axisIndex); }
         public void ParkNow() { SendFrame(12); }
+        public void DumpAxisState(byte axisIndex) { SendFrame(16, axisIndex); }
         public void Recalibrate() { SendFrame(13); }
         public void QueryFirmwareVersion() { SendFrame(14); }
 

@@ -170,6 +170,19 @@ Flashes all **305 tuned registers** from `isv57_tunedParameters.h` (Pr0.00 to Pr
   [0xFF] [0xFF] [0x0F] [0x0A] [0x0D]
   ```
 
+### CMD 16 (`0x10`): Dump Axis State
+Prints one status line for the given axis (used by the SimHub plugin for its status display). Not sent by SimHub Motion.
+
+* **Packet Format (6 Bytes):**
+  ```text
+  [0xFF] [0xFF] [0x10] [Axis Index] [0x0A] [0x0D]
+  ```
+* **Reply:**
+  ```text
+  State #0:homing=DONE:powered=1:ready=1:parked=0:servo=1:load=12:voltage=24.1:pos=55.2:error=3
+  ```
+  `homing`: `IDLE`, `WAIT_SERVO`, `HOMING_MIN`, `HOMING_MAX`, `RETURN`, `DONE`, `FAILED` · `powered`: servo enabled · `ready`: homed and accepting positions · `parked`: at the park position after the idle delay · `servo`: Modbus telemetry received · `load`: servo current in % · `voltage`: DC bus in V · `pos`: carriage position in % of the working range · `error`: following error in steps.
+
 ---
 
 ## 4. Serial ASCII Commands (Serial Monitor)

@@ -20,6 +20,49 @@ namespace DiyBeltTensioner.Core
         public bool RestartPending { get; set; }
     }
 
+    /// <summary>Axis status as reported by CMD 16.</summary>
+    public class AxisStateInfo
+    {
+        public int AxisIndex { get; set; }
+        public string Homing { get; set; }     // IDLE, WAIT_SERVO, HOMING_MIN, HOMING_MAX, RETURN, DONE, FAILED
+        public bool Powered { get; set; }
+        public bool Ready { get; set; }
+        public bool Parked { get; set; }
+        public bool ServoOnline { get; set; }
+        public int LoadPercent { get; set; }
+        public double Voltage { get; set; }
+        public double PositionPercent { get; set; }
+        public int PositionError { get; set; }
+
+        public bool IsHoming => Homing == "WAIT_SERVO" || Homing == "HOMING_MIN" || Homing == "HOMING_MAX" || Homing == "RETURN";
+
+        /// <summary>Short text for the info card.</summary>
+        public string StatusText
+        {
+            get
+            {
+                if (Homing == "FAILED") return "homing failed";
+                if (IsHoming) return Homing == "WAIT_SERVO" ? "waiting for servo" : "homing...";
+                if (!ServoOnline) return "servo offline";
+                if (!Powered) return "disabled (idle)";
+                if (Parked) return "parked";
+                if (Ready) return "ready";
+                return "enabled";
+            }
+        }
+
+        /// <summary>0 = ok (green), 1 = attention (orange), 2 = error (red).</summary>
+        public int Severity
+        {
+            get
+            {
+                if (Homing == "FAILED" || !ServoOnline) return 2;
+                if (IsHoming || !Powered) return 1;
+                return 0;
+            }
+        }
+    }
+
     /// <summary>One behaviour setting as reported by the SETTINGS command.</summary>
     public class ControllerSetting
     {
@@ -113,6 +156,32 @@ namespace DiyBeltTensioner.Core
                 });
             }
             return result;
+        }
+
+        // State #0:homing=DONE:powered=1:ready=1:parked=0:servo=1:load=12:voltage=24.1:pos=55.2:error=3
+        private static readonly Regex StateLine = new Regex(
+            @"^State #(\d+):homing=(\w+):powered=([01]):ready=([01]):parked=([01]):servo=([01]):load=(-?\d+):voltage=(-?[\d.]+):pos=(-?[\d.]+):error=(-?\d+)",
+            RegexOptions.Compiled);
+
+        public static bool TryParseState(string line, out AxisStateInfo state)
+        {
+            state = null;
+            var m = StateLine.Match(line.Trim());
+            if (!m.Success) return false;
+            state = new AxisStateInfo
+            {
+                AxisIndex = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
+                Homing = m.Groups[2].Value,
+                Powered = m.Groups[3].Value == "1",
+                Ready = m.Groups[4].Value == "1",
+                Parked = m.Groups[5].Value == "1",
+                ServoOnline = m.Groups[6].Value == "1",
+                LoadPercent = int.Parse(m.Groups[7].Value, CultureInfo.InvariantCulture),
+                Voltage = double.Parse(m.Groups[8].Value, CultureInfo.InvariantCulture),
+                PositionPercent = double.Parse(m.Groups[9].Value, CultureInfo.InvariantCulture),
+                PositionError = int.Parse(m.Groups[10].Value, CultureInfo.InvariantCulture),
+            };
+            return true;
         }
 
         private static readonly Regex SensorLine = new Regex(@"^Sensor #(\d+):(-?\d+):Trigger level:(\d+):Triggered:([01])", RegexOptions.Compiled);

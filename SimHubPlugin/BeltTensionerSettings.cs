@@ -8,6 +8,7 @@ namespace DiyBeltTensioner
         // Connection
         public string ComPort { get; set; } = "";
         public bool AutoConnect { get; set; } = false;
+        public bool LiveStatus { get; set; } = true;
 
         // Plugin updates
         public bool CheckPluginUpdates { get; set; } = true;

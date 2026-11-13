@@ -51,6 +51,53 @@ void BeltTensionerProtocol::dumpSensor(Stream* stream, uint8_t axis) {
     stream->println();
 }
 
+static const char* homingStateName(HomingState s) {
+    switch (s) {
+        case HOMING_IDLE:                 return "IDLE";
+        case HOMING_START:
+        case HOMING_WAIT_SERVO:           return "WAIT_SERVO";
+        case HOMING_APPROACH_MIN:
+        case HOMING_BACKOFF_MIN:          return "HOMING_MIN";
+        case HOMING_MEASURE_MAX_APPROACH:
+        case HOMING_MEASURE_MAX_BACKOFF:  return "HOMING_MAX";
+        case HOMING_RETURN_HOME:          return "RETURN";
+        case HOMING_DONE:                 return "DONE";
+        case HOMING_FAILED:               return "FAILED";
+        default:                          return "?";
+    }
+}
+
+// CMD 16: one status line per axis for the SimHub plugin (keep the format stable)
+// State #0:homing=DONE:powered=1:ready=1:parked=0:servo=1:load=12:voltage=24.1:pos=55.2:error=3
+void BeltTensionerProtocol::dumpAxisState(Stream* stream, uint8_t axis) {
+    if (stream == nullptr || axis >= numAxes || axisUnits == nullptr || axisUnits[axis] == nullptr) return;
+    AxisUnit* unit = axisUnits[axis];
+    const AxisUnitState& st = unit->getState();
+    int32_t range = unit->getWorkingRange();
+    float posPct = (range > 0) ? (100.0f * (float)unit->getCurrentPosition() / (float)range) : 0.0f;
+
+    stream->print(F("State #"));
+    stream->print(axis);
+    stream->print(F(":homing="));
+    stream->print(homingStateName(st.homingState));
+    stream->print(F(":powered="));
+    stream->print(st.motorPowered ? 1 : 0);
+    stream->print(F(":ready="));
+    stream->print(st.motorReady ? 1 : 0);
+    stream->print(F(":parked="));
+    stream->print(st.isParked ? 1 : 0);
+    stream->print(F(":servo="));
+    stream->print(unit->isServoOnline() ? 1 : 0);
+    stream->print(F(":load="));
+    stream->print(unit->getCurrentLoadPercent());
+    stream->print(F(":voltage="));
+    stream->print(unit->getBusVoltage(), 1);
+    stream->print(F(":pos="));
+    stream->print(posPct, 1);
+    stream->print(F(":error="));
+    stream->println(unit->getPositionError());
+}
+
 // Prints spindle pitch & working range per axis (saved in NVS or Config.h default)
 void BeltTensionerProtocol::printAxisConfig(Stream* stream) {
     for (uint8_t i = 0; i < numAxes; i++) {
@@ -298,6 +345,11 @@ void BeltTensionerProtocol::handleCommand(Stream* stream) {
             break;
         }
 
+        case 16: { // CMD 16: Dump axis state (plugin status display)
+            dumpAxisState(stream, dataBuffer[0]);
+            break;
+        }
+
         case 12: { // CMD 12: Park Now (slack release)
             for (uint8_t i = 0; i < numAxes; i++) {
                 if (axisUnits[i] != nullptr) {
@@ -479,6 +531,7 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
     } else if (strcasecmp(cmd, "STATUS") == 0) {
         for (uint8_t i = 0; i < numAxes; i++) {
             dumpSensor(stream, i);
+            dumpAxisState(stream, i);
         }
     }
 }
@@ -539,7 +592,7 @@ void BeltTensionerProtocol::processIncomingStream(Stream* stream) {
                 } else if (currentCmd == 3) {
                     dataExpectedLen = 8; // 2x 32-bit uint
                     parserState = PARSE_DATA;
-                } else if (currentCmd == 11) {
+                } else if (currentCmd == 11 || currentCmd == 16) {
                     dataExpectedLen = 1; // 1 byte axis index
                     parserState = PARSE_DATA;
                 } else if (currentCmd == 10 || currentCmd == 12 || currentCmd == 13 || currentCmd == 14 || currentCmd == 15) {

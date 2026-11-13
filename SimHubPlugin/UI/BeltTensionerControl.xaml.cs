@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace DiyBeltTensioner.UI
@@ -59,6 +60,10 @@ namespace DiyBeltTensioner.UI
         private readonly Dictionary<string, double> pendingSettings = new Dictionary<string, double>();
 
         private readonly int[] lastLoad = { int.MinValue, int.MinValue };
+        private readonly AxisStateInfo[] axisStates = new AxisStateInfo[2];
+        private bool stateSupported = true;
+        private int stateRequestsWithoutReply;
+        private volatile bool blockingCommand; // controller busy with a long command: no status polling
 
         private readonly LabeledSlider[] settingSliders;
         private readonly SHToggleButton[] settingToggles;
@@ -79,7 +84,7 @@ namespace DiyBeltTensioner.UI
             logTimer.Tick += (s, e) => FlushLog();
             logTimer.Start();
 
-            loadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            loadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
             loadTimer.Tick += LoadTimer_Tick;
 
             liveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
@@ -140,6 +145,7 @@ namespace DiyBeltTensioner.UI
         {
             ToggleAutoConnect.IsChecked = settings.AutoConnect;
             ToggleCheckUpdates.IsChecked = settings.CheckPluginUpdates;
+            ToggleLiveLoad.IsChecked = settings.LiveStatus;
 
             TextRepository.Text = settings.GitHubRepository;
             TextLocalFirmware.Text = settings.LocalFirmwarePath;
@@ -217,6 +223,13 @@ namespace DiyBeltTensioner.UI
 
         private void Link_LineReceived(string line)
         {
+            AxisStateInfo stateInfo;
+            if (AxisConfigParser.TryParseState(line, out stateInfo))
+            {
+                Dispatcher.BeginInvoke(new Action(() => ShowState(stateInfo)));
+                if (liveLoadActive) return; // polled: not for the log
+            }
+
             int axis, load, level;
             bool triggered;
             if (AxisConfigParser.TryParseSensor(line, out axis, out load, out level, out triggered))
@@ -466,6 +479,9 @@ namespace DiyBeltTensioner.UI
                 }
                 UpdateConnectionUi();
                 await ReadAllAsync();
+                stateSupported = true;
+                stateRequestsWithoutReply = 0;
+                UpdateStatusPolling();
             }
             catch (Exception ex)
             {
@@ -478,10 +494,10 @@ namespace DiyBeltTensioner.UI
             if (!open)
             {
                 Status("Disconnected.");
-                ToggleLiveLoad.IsChecked = false;
                 liveLoadActive = false;
                 loadTimer.Stop();
                 configRead = false;
+                ClearStateDisplay();
             }
             UpdateConnectionUi();
             UpdateTestUi();
@@ -498,7 +514,7 @@ namespace DiyBeltTensioner.UI
             InfoProtocol.Text = open && link.FirmwareVersion.Length > 0 ? link.FirmwareVersion : "-";
             InfoActuators.Text = open && link.EnabledMotors > 0 ? link.EnabledMotors.ToString(CultureInfo.InvariantCulture) : "-";
             if (!open) InfoSettings.Text = "-";
-            if (!open) InfoLoad.Text = "-";
+            if (!open) ClearStateDisplay();
 
             bool twoAxes = link.EnabledMotors >= 2;
             PanelAxis2.Visibility = twoAxes ? Visibility.Visible : Visibility.Hidden;
@@ -1064,6 +1080,7 @@ namespace DiyBeltTensioner.UI
             if (answer != MessageBoxResult.OK) return;
 
             busy = true;
+            blockingCommand = true;
             BtnFlashServo.IsEnabled = false;
             try
             {
@@ -1089,6 +1106,7 @@ namespace DiyBeltTensioner.UI
             finally
             {
                 busy = false;
+                blockingCommand = false;
                 BtnFlashServo.IsEnabled = true;
             }
         }
@@ -1097,6 +1115,7 @@ namespace DiyBeltTensioner.UI
         {
             if (!EnsureConnected() || busy) return;
             busy = true;
+            blockingCommand = true;
             BtnDiffServo.IsEnabled = false;
             try
             {
@@ -1109,6 +1128,7 @@ namespace DiyBeltTensioner.UI
             finally
             {
                 busy = false;
+                blockingCommand = false;
                 BtnDiffServo.IsEnabled = true;
             }
         }
@@ -1268,7 +1288,14 @@ namespace DiyBeltTensioner.UI
 
         private void ToggleLiveLoad_Click(object sender, RoutedEventArgs e)
         {
-            if (ToggleLiveLoad.IsChecked == true && link.IsOpen)
+            settings.LiveStatus = ToggleLiveLoad.IsChecked == true;
+            SaveSettings();
+            UpdateStatusPolling();
+        }
+
+        private void UpdateStatusPolling()
+        {
+            if (settings.LiveStatus && link.IsOpen)
             {
                 liveLoadActive = true;
                 loadTimer.Start();
@@ -1277,31 +1304,86 @@ namespace DiyBeltTensioner.UI
             {
                 liveLoadActive = false;
                 loadTimer.Stop();
-                ToggleLiveLoad.IsChecked = false;
+                if (!link.IsOpen) ClearStateDisplay();
             }
         }
 
+        /// <summary>Polls the axis state (CMD 16), with old firmware only the servo load (CMD 11).</summary>
         private void LoadTimer_Tick(object sender, EventArgs e)
         {
             if (!link.IsOpen)
             {
-                ToggleLiveLoad.IsChecked = false;
-                liveLoadActive = false;
-                loadTimer.Stop();
+                UpdateStatusPolling();
                 return;
             }
+            if (blockingCommand || (registerWindow != null && registerWindow.IsBusy)) return;
             try
             {
-                link.DumpSensor(0);
-                if (link.EnabledMotors >= 2) link.DumpSensor(1);
+                int axes = link.EnabledMotors >= 2 ? 2 : 1;
+                for (byte i = 0; i < axes; i++)
+                {
+                    if (stateSupported) link.DumpAxisState(i);
+                    else link.DumpSensor(i);
+                }
+                if (stateSupported && ++stateRequestsWithoutReply > 8 && axisStates[0] == null)
+                {
+                    stateSupported = false;
+                    Status("This firmware has no status query (CMD 16): only the servo load is shown. Flash the latest firmware for the servo status.");
+                }
             }
             catch (Exception)
             {
             }
         }
 
+        private void ShowState(AxisStateInfo info)
+        {
+            if (info.AxisIndex < 0 || info.AxisIndex > 1) return;
+            axisStates[info.AxisIndex] = info;
+            stateRequestsWithoutReply = 0;
+            lastLoad[info.AxisIndex] = info.LoadPercent;
+
+            bool two = link.EnabledMotors >= 2 && axisStates[1] != null;
+            var a1 = axisStates[0];
+            var a2 = two ? axisStates[1] : null;
+            if (a1 == null) return;
+
+            Func<Func<AxisStateInfo, string>, string> both = f => a2 == null ? f(a1) : f(a1) + "  |  " + f(a2);
+            InfoServo.Text = both(x => x.StatusText);
+            InfoLoad.Text = both(x => x.LoadPercent + " %");
+            InfoVoltage.Text = both(x => x.Voltage.ToString("0.0", CultureInfo.InvariantCulture) + " V");
+            InfoPosition.Text = both(x => (x.Ready || x.IsHoming) ? x.PositionPercent.ToString("0.0", CultureInfo.InvariantCulture) + " %" : "-");
+            InfoServo.ToolTip = both(x => $"homing {x.Homing}, powered {x.Powered}, ready {x.Ready}, parked {x.Parked}, following error {x.PositionError} steps");
+
+            int severity = Math.Max(a1.Severity, a2 != null ? a2.Severity : 0);
+            InfoServoDot.Fill = new SolidColorBrush(severity == 0 ? Color.FromRgb(0x4C, 0xAF, 0x50) : severity == 1 ? Color.FromRgb(0xFB, 0xBF, 0x24) : Color.FromRgb(0xE5, 0x39, 0x35));
+
+            double actual = (a1.Ready || a1.IsHoming) ? a1.PositionPercent : double.NaN;
+            if (!Equals(Travel.ActualPct, actual))
+            {
+                Travel.ActualPct = actual;
+                Travel.Refresh();
+            }
+        }
+
+        private void ClearStateDisplay()
+        {
+            axisStates[0] = axisStates[1] = null;
+            lastLoad[0] = lastLoad[1] = int.MinValue;
+            InfoServo.Text = "-";
+            InfoServo.ToolTip = null;
+            InfoServoDot.Fill = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
+            InfoLoad.Text = "-";
+            InfoVoltage.Text = "-";
+            InfoPosition.Text = "-";
+            Travel.ActualPct = double.NaN;
+            Travel.Refresh();
+        }
+
+        /// <summary>Servo load from CMD 11 (firmware without CMD 16, or the STATUS command).</summary>
         private void ShowLoad(int axis, int load, int level, bool triggered)
         {
+            if (stateSupported && axisStates[0] != null) return; // CMD 16 shows more
             if (axis >= 0 && axis < 2) lastLoad[axis] = load;
             string text = lastLoad[0] == int.MinValue ? "-" : lastLoad[0] + " %";
             if (link.EnabledMotors >= 2 && lastLoad[1] != int.MinValue) text += "  |  " + lastLoad[1] + " %";

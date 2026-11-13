@@ -133,6 +133,13 @@ public:
     int16_t getCurrentLoadPercent() const { return isv57.dynamicStates.servo_current_percent; }
     float getBusVoltage() const { return ((float)isv57.dynamicStates.servoVoltage0p1V_i16) * 0.1f; }
     int32_t getWorkingRange() const { return hardLimitMax; }
+    const AxisUnitState& getState() const { return state; }
+    int16_t getPositionError() const { return isv57.dynamicStates.servo_pos_error_p; }
+    // Servo telemetry (Modbus) received recently and valid
+    bool isServoOnline() const {
+        return isv57.dynamicStates.servo_receivedPacketIsValid_b &&
+               (millis() - isv57.dynamicStates.lastUpdateTimeInMS_u32) < 1000;
+    }
 
     int32_t convertPosition16Bits(uint16_t inputPosition) const {
         int32_t minPos = (int32_t)((settings.minSafetyPct / 100.0f) * (float)hardLimitMax);

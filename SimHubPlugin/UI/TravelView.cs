@@ -19,6 +19,9 @@ namespace DiyBeltTensioner.UI
         public bool Inverted { get; set; }
         public bool CenterAfterHoming { get; set; }
 
+        /// <summary>Measured carriage position in percent of the working range (NaN = unknown).</summary>
+        public double ActualPct { get; set; } = double.NaN;
+
         /// <summary>Commanded position in percent of the game input (NaN = none).</summary>
         public double LivePct { get; set; } = double.NaN;
 
@@ -135,6 +138,24 @@ namespace DiyBeltTensioner.UI
             dc.DrawGeometry(accent, null, head);
             var dirText = Text("0 % game input  →  100 % (braking pulls)", 9, TextBrush);
             dc.DrawText(dirText, new Point((x0 + x1) / 2 - dirText.Width / 2, arrowY - 15));
+
+            // Carriage position reported by the controller
+            if (!double.IsNaN(ActualPct))
+            {
+                double ax = X(ActualPct);
+                var tri = new StreamGeometry();
+                using (var g = tri.Open())
+                {
+                    g.BeginFigure(new Point(ax, barTop - 1), true, true);
+                    g.LineTo(new Point(ax - 6, barTop - 11), true, false);
+                    g.LineTo(new Point(ax + 6, barTop - 11), true, false);
+                }
+                tri.Freeze();
+                dc.DrawGeometry(Brushes.White, null, tri);
+                dc.DrawLine(new Pen(Brushes.White, 1.5), new Point(ax, barTop), new Point(ax, barTop + barHeight));
+                var at = Text(string.Format(CultureInfo.InvariantCulture, "{0:0.#}%", ActualPct), 9, Brushes.White);
+                dc.DrawText(at, new Point(Math.Min(x1 - at.Width, Math.Max(x0, ax - at.Width / 2)), barTop - 13 - at.Height));
+            }
 
             // Live position of a running test (game input 0..100 % mapped into the window)
             if (!double.IsNaN(LivePct))

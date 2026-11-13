@@ -89,7 +89,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
-                                                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                                                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                                             </Grid.RowDefinitions>
                                             <TextBlock Grid.Row="0" Text="Connection:" Style="{StaticResource InfoKey}" />
                                             <TextBlock Grid.Row="0" Grid.Column="1" x:Name="InfoConnection" Text="Disconnected" Style="{StaticResource InfoValue}" />
@@ -99,8 +99,17 @@
                                             <TextBlock Grid.Row="2" Grid.Column="1" x:Name="InfoActuators" Text="-" Style="{StaticResource InfoValue}" />
                                             <TextBlock Grid.Row="3" Text="Settings:" Style="{StaticResource InfoKey}" />
                                             <TextBlock Grid.Row="3" Grid.Column="1" x:Name="InfoSettings" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="4" Text="Servo load:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="InfoLoad" Text="-" Style="{StaticResource InfoValue}" />
+                                            <TextBlock Grid.Row="4" Text="Servo:" Style="{StaticResource InfoKey}" />
+                                            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                                                <Ellipse x:Name="InfoServoDot" Width="8" Height="8" Fill="#FF666666" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="InfoServo" Text="-" Style="{StaticResource InfoValue}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Row="5" Text="Servo load:" Style="{StaticResource InfoKey}" />
+                                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="InfoLoad" Text="-" Style="{StaticResource InfoValue}" />
+                                            <TextBlock Grid.Row="6" Text="Voltage:" Style="{StaticResource InfoKey}" />
+                                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="InfoVoltage" Text="-" Style="{StaticResource InfoValue}" />
+                                            <TextBlock Grid.Row="7" Text="Position:" Style="{StaticResource InfoKey}" />
+                                            <TextBlock Grid.Row="7" Grid.Column="1" x:Name="InfoPosition" Text="-" Style="{StaticResource InfoValue}" />
                                         </Grid>
                                         <DockPanel Margin="0,8,0,0">
                                             <Button DockPanel.Dock="Right" x:Name="BtnConnect" Content="Connect" Style="{StaticResource ConnectPillButton}"
@@ -129,7 +138,7 @@
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,3">
                                             <styles:SHToggleButton x:Name="ToggleLiveLoad" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleLiveLoad_Click" />
-                                            <TextBlock Text="Live servo load" Style="{StaticResource ToggleLabel}" />
+                                            <TextBlock Text="Live status" Style="{StaticResource ToggleLabel}" ToolTip="Polls servo state, load, voltage and position several times per second while connected" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,3">
                                             <styles:SHToggleButton x:Name="ToggleCheckUpdates" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleCheckUpdates_Click" />

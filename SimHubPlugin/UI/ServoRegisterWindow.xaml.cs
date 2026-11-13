@@ -28,6 +28,9 @@ namespace DiyBeltTensioner.UI
         private readonly ICollectionView view;
 
         private bool busy;
+
+        /// <summary>A command is running that blocks the controller (status polling pauses).</summary>
+        public bool IsBusy => busy;
         private volatile bool loadActive;
         private int loadedCount;
 
