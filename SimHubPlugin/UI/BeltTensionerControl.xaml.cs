@@ -43,7 +43,9 @@ namespace DiyBeltTensioner.UI
         private bool applying;
         private bool busy;
         private volatile bool liveLoadActive;
-        private FirmwareRelease latestRelease;
+        private List<FirmwareRelease> releases;
+        private FirmwareRelease pendingPluginUpdate;
+        private bool loadingReleases;
 
         // Values read from the controller
         private List<AxisConfigInfo> deviceAxes = new List<AxisConfigInfo>();
@@ -121,6 +123,9 @@ namespace DiyBeltTensioner.UI
             UpdateTestUi();
             UpdateEnabledState();
 
+            TextPluginVersion.Text = "Plugin version: " + PluginUpdater.CurrentVersion;
+            var ignoredReleases = LoadReleasesAsync(userInitiated: false);
+
             if (link.IsOpen)
             {
                 var ignored = AfterConnectAsync(waitForGreeting: false);
@@ -134,6 +139,7 @@ namespace DiyBeltTensioner.UI
         private void LoadSettingsIntoUi()
         {
             ToggleAutoConnect.IsChecked = settings.AutoConnect;
+            ToggleCheckUpdates.IsChecked = settings.CheckPluginUpdates;
 
             ComboBoard.ItemsSource = BoardInfo.All;
             ComboBoard.SelectedItem = BoardInfo.All.FirstOrDefault(b => b.Environment == settings.BoardEnvironment) ?? BoardInfo.All[2];
@@ -1279,7 +1285,7 @@ namespace DiyBeltTensioner.UI
             bool local = RadioSourceGitHub.IsChecked != true;
             TextLocalFirmware.IsEnabled = local;
             BtnBrowseFirmware.IsEnabled = local;
-            TextRepository.IsEnabled = !local;
+            ComboRelease.IsEnabled = !local;
             BtnCheckRelease.IsEnabled = !local;
         }
 
@@ -1287,13 +1293,13 @@ namespace DiyBeltTensioner.UI
         {
             string repo = TextRepository.Text.Trim();
             if (repo.Length == 0) repo = new BeltTensionerSettings().GitHubRepository;
+            TextRepository.Text = repo;
             if (repo != settings.GitHubRepository)
             {
                 settings.GitHubRepository = repo;
-                latestRelease = null;
                 SaveSettings();
+                var ignored = LoadReleasesAsync(userInitiated: true);
             }
-            TextRepository.Text = repo;
         }
 
         private void TextLocalFirmware_LostFocus(object sender, RoutedEventArgs e)
@@ -1329,33 +1335,79 @@ namespace DiyBeltTensioner.UI
 
         private async void BtnCheckRelease_Click(object sender, RoutedEventArgs e)
         {
-            TextRepository_LostFocus(null, null);
+            await LoadReleasesAsync(userInitiated: true);
+        }
+
+        /// <summary>
+        /// Reads the releases of the repository: fills the firmware release list and checks for a
+        /// plugin update (at start only if enabled; userInitiated = the user asked for it).
+        /// </summary>
+        private async Task LoadReleasesAsync(bool userInitiated)
+        {
+            if (loadingReleases) return;
+            if (!userInitiated && !settings.CheckPluginUpdates && settings.FirmwareSource != 0) return;
+            loadingReleases = true;
             BtnCheckRelease.IsEnabled = false;
             try
             {
-                TextReleaseInfo.Text = "Checking GitHub...";
-                latestRelease = await FirmwareReleaseService.GetLatestAsync(settings.GitHubRepository);
+                TextReleaseInfo.Text = "Reading releases from GitHub...";
+                var list = await FirmwareReleaseService.GetReleasesAsync(settings.GitHubRepository);
+                releases = list;
+
+                string selectedTag = (ComboRelease.SelectedItem as FirmwareRelease)?.Tag;
+                ComboRelease.ItemsSource = list;
+                ComboRelease.SelectedItem = list.FirstOrDefault(r => r.Tag == selectedTag) ?? list.FirstOrDefault(r => r.IsLatest) ?? list.FirstOrDefault();
                 ShowReleaseInfo();
+
+                if (userInitiated || settings.CheckPluginUpdates)
+                {
+                    CheckPluginUpdate(userInitiated);
+                }
             }
             catch (Exception ex)
             {
-                TextReleaseInfo.Text = "Could not read the latest release: " + ex.Message;
+                TextReleaseInfo.Text = "Could not read the releases: " + ex.Message;
+                if (userInitiated) Status("Could not read the releases: " + ex.Message);
             }
             finally
             {
+                loadingReleases = false;
                 BtnCheckRelease.IsEnabled = RadioSourceGitHub.IsChecked == true;
+            }
+        }
+
+        private void ComboRelease_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ShowReleaseInfo();
+        }
+
+        private void BtnOpenRelease_Click(object sender, RoutedEventArgs e)
+        {
+            var release = ComboRelease.SelectedItem as FirmwareRelease;
+            string url = release?.HtmlUrl ?? "https://github.com/" + settings.GitHubRepository + "/releases";
+            try
+            {
+                Process.Start(url);
+            }
+            catch (Exception ex)
+            {
+                Status("Could not open the browser: " + ex.Message);
             }
         }
 
         private void ShowReleaseInfo()
         {
-            if (latestRelease == null) return;
+            var release = ComboRelease.SelectedItem as FirmwareRelease;
+            if (release == null)
+            {
+                if (releases != null) TextReleaseInfo.Text = "No releases found in " + settings.GitHubRepository + ".";
+                return;
+            }
             var board = ComboBoard.SelectedItem as BoardInfo;
-            var asset = board != null ? latestRelease.FindAsset(board.Environment) : null;
-            string date = latestRelease.PublishedAt == default(DateTime) ? "" : " (" + latestRelease.PublishedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture) + ")";
+            var asset = board != null ? release.FindAsset(board.Environment) : null;
             TextReleaseInfo.Text = asset != null
-                ? $"Latest release: {latestRelease.Tag}{date}  -  {asset.Name}"
-                : $"Latest release: {latestRelease.Tag}{date}  -  no archive for {board?.Environment}!";
+                ? $"{release.Tag}: {asset.Name} ({asset.Size / 1024} kB)"
+                : $"{release.Tag} has no firmware for {board?.Environment}. Pick another release or board.";
         }
 
         private async Task<FirmwareImage> ResolveFirmwareAsync(BoardInfo board)
@@ -1383,13 +1435,20 @@ namespace DiyBeltTensioner.UI
                     return FirmwareImage.FromPath(settings.LocalFirmwarePath);
                 default:
                     {
-                        if (latestRelease == null)
+                        var release = ComboRelease.SelectedItem as FirmwareRelease;
+                        if (release == null)
                         {
-                            FlashLog("Reading the latest release of " + settings.GitHubRepository + "...");
-                            latestRelease = await FirmwareReleaseService.GetLatestAsync(settings.GitHubRepository);
-                            ShowReleaseInfo();
+                            FlashLog("Reading the releases of " + settings.GitHubRepository + "...");
+                            await LoadReleasesAsync(userInitiated: true);
+                            release = ComboRelease.SelectedItem as FirmwareRelease;
+                            if (release == null)
+                            {
+                                FlashLog("No release found.");
+                                return null;
+                            }
                         }
-                        string folder = await FirmwareReleaseService.DownloadAndExtractAsync(latestRelease, board.Environment, FlashLog);
+                        FlashLog("Release " + release.Tag + (release.IsLatest ? " (latest)" : ""));
+                        string folder = await FirmwareReleaseService.DownloadAndExtractAsync(release, board.Environment, FlashLog);
                         return FirmwareImage.FromPath(folder);
                     }
             }
@@ -1460,6 +1519,112 @@ namespace DiyBeltTensioner.UI
             {
                 busy = false;
                 BtnFlash.IsEnabled = true;
+            }
+        }
+
+        // ==================================================================
+        // Plugin update
+        // ==================================================================
+
+        private void CheckPluginUpdate(bool userInitiated)
+        {
+            if (releases == null) return;
+            var update = PluginUpdater.FindUpdate(releases, includeForDevBuild: userInitiated);
+            if (update != null && (userInitiated || update.Tag != settings.SkippedPluginVersion))
+            {
+                pendingPluginUpdate = update;
+                TextUpdate.Text = PluginUpdater.IsDevBuild
+                    ? $"Plugin release {update.Tag} is available (you are running a local dev build)."
+                    : $"Plugin update available: {update.Tag} (installed: {PluginUpdater.CurrentVersion}).";
+                BannerUpdate.Visibility = Visibility.Visible;
+                if (userInitiated) Status("Plugin update " + update.Tag + " available.");
+            }
+            else if (userInitiated)
+            {
+                bool anyPlugin = releases.Any(r => r.PluginAsset != null);
+                Status(anyPlugin ? "The plugin is up to date (" + PluginUpdater.CurrentVersion + ")." : "No release contains the plugin yet.");
+            }
+        }
+
+        private async void BtnCheckPluginUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadReleasesAsync(userInitiated: true);
+        }
+
+        private void ToggleCheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            settings.CheckPluginUpdates = ToggleCheckUpdates.IsChecked == true;
+            SaveSettings();
+        }
+
+        private void BtnReleaseNotes_Click(object sender, RoutedEventArgs e)
+        {
+            if (pendingPluginUpdate == null) return;
+            try
+            {
+                Process.Start(pendingPluginUpdate.HtmlUrl);
+            }
+            catch (Exception ex)
+            {
+                Status("Could not open the browser: " + ex.Message);
+            }
+        }
+
+        private void BtnSkipUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            if (pendingPluginUpdate != null)
+            {
+                settings.SkippedPluginVersion = pendingPluginUpdate.Tag;
+                SaveSettings();
+            }
+            BannerUpdate.Visibility = Visibility.Collapsed;
+        }
+
+        private async void BtnInstallUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            var update = pendingPluginUpdate;
+            if (update == null || busy) return;
+
+            var answer = MessageBox.Show(
+                $"Update the DIY FFB Belt Tensioner plugin to {update.Tag}?\n\n" +
+                "The new plugin is downloaded now. Then SimHub closes, the plugin is replaced (admin rights are needed for the SimHub folder) and SimHub starts again.",
+                "Plugin update", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.OK) return;
+
+            busy = true;
+            BtnInstallUpdate.IsEnabled = false;
+            Mouse.OverrideCursor = Cursors.Wait;
+            try
+            {
+                Status("Downloading plugin " + update.Tag + "...");
+                await PluginUpdater.DownloadAsync(update);
+            }
+            catch (Exception ex)
+            {
+                Status("Plugin download failed: " + ex.Message);
+                MessageBox.Show("The update could not be downloaded:\n" + ex.Message, "Plugin update", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            finally
+            {
+                Mouse.OverrideCursor = null;
+                busy = false;
+                BtnInstallUpdate.IsEnabled = true;
+            }
+
+            // Release the controller before SimHub closes
+            tester.Stop(park: true);
+            link.Close();
+            SaveSettings();
+
+            try
+            {
+                PluginUpdater.InstallAndRestart();
+            }
+            catch (Exception ex)
+            {
+                Status("Plugin update not started: " + ex.Message);
+                MessageBox.Show("The update could not be started:\n" + ex.Message + "\n\nThe installed plugin was not changed.", "Plugin update", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 

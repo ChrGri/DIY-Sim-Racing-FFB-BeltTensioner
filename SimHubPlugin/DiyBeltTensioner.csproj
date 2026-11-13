@@ -21,7 +21,14 @@
     <RootNamespace>DiyBeltTensioner</RootNamespace>
     <LangVersion>7.3</LangVersion>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Version: set by the release workflow from the release tag, e.g.
+         -p:Version=26.45.5.2 -p:InformationalVersion=26.45.05.2 (0.0.0 = local dev build) -->
+    <Version Condition="'$(Version)' == ''">0.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyTitle>DiyBeltTensioner</AssemblyTitle>
+    <Product>DiyBeltTensioner</Product>
+    <Description>SimHub plugin for the DIY Sim Racing FFB Belt Tensioner: flash, configure and test the controller</Description>
+    <Copyright>CC BY-NC-SA 4.0</Copyright>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <SimHubPath Condition="'$(SimHubPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubPath>
     <CopyToSimHub Condition="'$(CopyToSimHub)' == ''">true</CopyToSimHub>

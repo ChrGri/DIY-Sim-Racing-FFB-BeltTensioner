@@ -36,8 +36,26 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
         <Grid Width="940" HorizontalAlignment="Left" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <TabControl x:Name="MainTabs" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource MainTabItem}">
+            <!-- Plugin update banner -->
+            <Border Grid.Row="0" x:Name="BannerUpdate" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,8" CornerRadius="5"
+                    Background="#33F59E0B" BorderBrush="#FFF59E0B" BorderThickness="1">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="BtnInstallUpdate" Content="Update now" Style="{StaticResource Pill}" Click="BtnInstallUpdate_Click" />
+                        <Button x:Name="BtnReleaseNotes" Content="Release notes" Style="{StaticResource Pill}" Click="BtnReleaseNotes_Click" />
+                        <Button x:Name="BtnSkipUpdate" Content="Skip this version" Style="{StaticResource Pill}" Margin="0" Click="BtnSkipUpdate_Click" />
+                    </StackPanel>
+                    <Image Width="20" Height="20" Source="{StaticResource Upload}" Margin="0,0,10,0" />
+                    <TextBlock x:Name="TextUpdate" Style="{StaticResource SmallText}" FontWeight="Bold" Text="Plugin update available" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+
+            <TabControl Grid.Row="1" x:Name="MainTabs" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource MainTabItem}">
 
                 <!-- ================================================================== -->
                 <!-- TENSIONER                                                          -->
@@ -113,6 +131,15 @@
                                             <styles:SHToggleButton x:Name="ToggleLiveLoad" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleLiveLoad_Click" />
                                             <TextBlock Text="Live servo load" Style="{StaticResource ToggleLabel}" />
                                         </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                                            <styles:SHToggleButton x:Name="ToggleCheckUpdates" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleCheckUpdates_Click" />
+                                            <TextBlock Text="Check for plugin updates" Style="{StaticResource ToggleLabel}" />
+                                        </StackPanel>
+                                        <DockPanel Margin="0,5,0,0">
+                                            <Button DockPanel.Dock="Right" x:Name="BtnCheckPluginUpdate" Content="Check now" Style="{StaticResource Pill}" MinWidth="0" Height="20" FontSize="10" Margin="0"
+                                                    Click="BtnCheckPluginUpdate_Click" />
+                                            <TextBlock x:Name="TextPluginVersion" Style="{StaticResource HintText}" Text="Plugin version: -" />
+                                        </DockPanel>
                                     </StackPanel>
                                 </Border>
 
@@ -456,11 +483,18 @@
                                 <TextBlock Text="Firmware Source" Style="{StaticResource SectionTitle}" />
                                 <RadioButton x:Name="RadioSourceGitHub" GroupName="FwSource" Content="Latest GitHub release (download automatically)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <StackPanel Orientation="Horizontal" Margin="22,4,0,4">
-                                    <TextBlock Text="Repository:" Style="{StaticResource SmallText}" Width="70" />
-                                    <TextBox x:Name="TextRepository" Width="300" Style="{StaticResource ValueBox}" LostFocus="TextRepository_LostFocus" />
-                                    <Button x:Name="BtnCheckRelease" Content="Check latest release" Style="{StaticResource Pill}" Margin="8,0,0,0" Click="BtnCheckRelease_Click" />
+                                    <TextBlock Text="Release:" Style="{StaticResource SmallText}" Width="70" />
+                                    <ComboBox x:Name="ComboRelease" Width="300" Height="22" SelectionChanged="ComboRelease_SelectionChanged"
+                                              ToolTip="Firmware release to flash (newest first)" />
+                                    <Button x:Name="BtnCheckRelease" Content="Refresh" Style="{StaticResource Pill}" Margin="8,0,0,0" Click="BtnCheckRelease_Click" />
+                                    <Button x:Name="BtnOpenRelease" Content="Release page" Style="{StaticResource Pill}" Click="BtnOpenRelease_Click" />
                                 </StackPanel>
-                                <TextBlock x:Name="TextReleaseInfo" Margin="22,0,0,8" Style="{StaticResource HintText}" Text="Release not checked yet." />
+                                <StackPanel Orientation="Horizontal" Margin="22,0,0,4">
+                                    <TextBlock Text="Repository:" Style="{StaticResource SmallText}" Width="70" />
+                                    <TextBox x:Name="TextRepository" Width="300" Style="{StaticResource ValueBox}" LostFocus="TextRepository_LostFocus"
+                                             ToolTip="GitHub repository the releases are read from (owner/name), e.g. for a fork" />
+                                </StackPanel>
+                                <TextBlock x:Name="TextReleaseInfo" Margin="22,0,0,8" Style="{StaticResource HintText}" Text="Releases not loaded yet." />
                                 <RadioButton x:Name="RadioSourceZip" GroupName="FwSource" Content="Local release archive (.zip)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <RadioButton x:Name="RadioSourceFolder" GroupName="FwSource" Content="Local folder / firmware.bin (e.g. .pio\build\&lt;env&gt;)" Checked="FirmwareSource_Changed" Margin="0,2" />
                                 <DockPanel Margin="22,4,0,0">

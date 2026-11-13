@@ -20,9 +20,14 @@ A SimHub plugin to set up the belt tensioner without a serial terminal. It shows
 
 ## Installation
 
-1. Close SimHub.
-2. Copy `DiyBeltTensioner.dll` into the SimHub installation folder (usually `C:\Program Files (x86)\SimHub\`).
+1. Download `DiyBeltTensioner.dll` from the latest [release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases) (the release workflow builds it together with the firmware).
+2. Close SimHub and copy the DLL into the SimHub installation folder (usually `C:\Program Files (x86)\SimHub\`).
 3. Start SimHub. On the first start SimHub asks whether to enable the new plugin: confirm. The plugin appears as **FFB Belt Tensioner** in the left menu (if not: *Settings → Plugins*, enable *DIY FFB Belt Tensioner* and *Show in left menu*).
+
+## Updates
+
+* **Plugin:** at start the plugin checks the releases (switch *Check for plugin updates*, button *Check now*). If a newer `DiyBeltTensioner.dll` is available, a banner offers **Update now**: the DLL is downloaded, SimHub closes, the plugin is replaced (admin prompt, the old DLL is kept as `DiyBeltTensioner.dll.bak`) and SimHub starts again.
+* **Firmware:** FIRMWARE tab → *Release* lists the releases (newest first). Pick a release and the board, then **Flash firmware**.
 
 ## Typical first setup
 

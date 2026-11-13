@@ -23,7 +23,27 @@ namespace DiyBeltTensioner.Core
         public string Name { get; set; }
         public DateTime PublishedAt { get; set; }
         public string HtmlUrl { get; set; }
+        public bool Prerelease { get; set; }
+        public bool IsLatest { get; set; }
         public List<ReleaseAsset> Assets { get; set; } = new List<ReleaseAsset>();
+
+        /// <summary>"26.45.05.2  (latest, 11/6/2026)"</summary>
+        public string DisplayName
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (IsLatest) parts.Add("latest");
+                if (Prerelease) parts.Add("pre-release");
+                if (PublishedAt != default(DateTime)) parts.Add(PublishedAt.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture));
+                return Tag + (parts.Count > 0 ? "  (" + string.Join(", ", parts) + ")" : "");
+            }
+        }
+
+        public override string ToString() => DisplayName;
+
+        /// <summary>The SimHub plugin attached to the release, if any.</summary>
+        public ReleaseAsset PluginAsset => Assets.FirstOrDefault(a => string.Equals(a.Name, "DiyBeltTensioner.dll", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Release archive of a board: DIY-Sim-Racing-FFB-BeltTensioner_&lt;environment&gt;.zip</summary>
         public ReleaseAsset FindAsset(string environment)
@@ -54,9 +74,8 @@ namespace DiyBeltTensioner.Core
             }
         }
 
-        public static async Task<FirmwareRelease> GetLatestAsync(string repository)
+        private static async Task<string> GetJsonAsync(string url)
         {
-            string url = "https://api.github.com/repos/" + repository.Trim().Trim('/') + "/releases/latest";
             using (var request = new HttpRequestMessage(HttpMethod.Get, url))
             {
                 request.Headers.Accept.ParseAdd("application/vnd.github+json");
@@ -67,33 +86,60 @@ namespace DiyBeltTensioner.Core
                     {
                         throw new InvalidOperationException($"GitHub answered {(int)response.StatusCode} {response.ReasonPhrase} for {url}");
                     }
-
-                    var json = JObject.Parse(body);
-                    var release = new FirmwareRelease
-                    {
-                        Tag = (string)json["tag_name"],
-                        Name = (string)json["name"],
-                        HtmlUrl = (string)json["html_url"],
-                    };
-                    DateTime published;
-                    if (DateTime.TryParse((string)json["published_at"], out published)) release.PublishedAt = published;
-
-                    var assets = json["assets"] as JArray;
-                    if (assets != null)
-                    {
-                        foreach (var a in assets)
-                        {
-                            release.Assets.Add(new ReleaseAsset
-                            {
-                                Name = (string)a["name"],
-                                DownloadUrl = (string)a["browser_download_url"],
-                                Size = (long?)a["size"] ?? 0,
-                            });
-                        }
-                    }
-                    return release;
+                    return body;
                 }
             }
+        }
+
+        private static FirmwareRelease ParseRelease(JToken json)
+        {
+            var release = new FirmwareRelease
+            {
+                Tag = (string)json["tag_name"],
+                Name = (string)json["name"],
+                HtmlUrl = (string)json["html_url"],
+                Prerelease = (bool?)json["prerelease"] ?? false,
+            };
+            DateTime published;
+            if (DateTime.TryParse((string)json["published_at"], out published)) release.PublishedAt = published;
+
+            var assets = json["assets"] as JArray;
+            if (assets != null)
+            {
+                foreach (var a in assets)
+                {
+                    release.Assets.Add(new ReleaseAsset
+                    {
+                        Name = (string)a["name"],
+                        DownloadUrl = (string)a["browser_download_url"],
+                        Size = (long?)a["size"] ?? 0,
+                    });
+                }
+            }
+            return release;
+        }
+
+        public static async Task<FirmwareRelease> GetLatestAsync(string repository)
+        {
+            string url = "https://api.github.com/repos/" + repository.Trim().Trim('/') + "/releases/latest";
+            var release = ParseRelease(JObject.Parse(await GetJsonAsync(url).ConfigureAwait(false)));
+            release.IsLatest = true;
+            return release;
+        }
+
+        /// <summary>The newest releases (newest first, drafts excluded); the first full release is marked as latest.</summary>
+        public static async Task<List<FirmwareRelease>> GetReleasesAsync(string repository, int count = 30)
+        {
+            string url = "https://api.github.com/repos/" + repository.Trim().Trim('/') + "/releases?per_page=" + count;
+            var array = JArray.Parse(await GetJsonAsync(url).ConfigureAwait(false));
+            var releases = array
+                .Where(r => !((bool?)r["draft"] ?? false))
+                .Select(ParseRelease)
+                .OrderByDescending(r => r.PublishedAt)
+                .ToList();
+            var latest = releases.FirstOrDefault(r => !r.Prerelease);
+            if (latest != null) latest.IsLatest = true;
+            return releases;
         }
 
         /// <summary>Downloads (or reuses a cached copy of) the board archive and extracts it. Returns the extract folder.</summary>

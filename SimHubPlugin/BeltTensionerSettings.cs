@@ -9,6 +9,10 @@ namespace DiyBeltTensioner
         public string ComPort { get; set; } = "";
         public bool AutoConnect { get; set; } = false;
 
+        // Plugin updates
+        public bool CheckPluginUpdates { get; set; } = true;
+        public string SkippedPluginVersion { get; set; } = "";
+
         // Firmware
         public string GitHubRepository { get; set; } = "ChrGri/DIY-Sim-Racing-FFB-BeltTensioner";
         public string BoardEnvironment { get; set; } = "ControlBoard_V6";
