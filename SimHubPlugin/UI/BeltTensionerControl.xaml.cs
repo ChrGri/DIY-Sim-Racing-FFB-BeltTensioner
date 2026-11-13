@@ -502,7 +502,8 @@ namespace DiyBeltTensioner.UI
 
             bool twoAxes = link.EnabledMotors >= 2;
             PanelAxis2.Visibility = twoAxes ? Visibility.Visible : Visibility.Hidden;
-            ToggleTestAxis2.IsEnabled = twoAxes;
+            // Axis selection of the motion test only for controllers with two actuators
+            PanelTestAxes.Visibility = twoAxes ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void ToggleAutoConnect_Click(object sender, RoutedEventArgs e)
@@ -1161,8 +1162,9 @@ namespace DiyBeltTensioner.UI
             tester.PulsePeak = SliderPulsePeak.Value;
             tester.PulseDurationMs = (int)SliderPulseDuration.Value;
             tester.PulseIntervalMs = (int)SliderPulseInterval.Value;
-            tester.Axis1 = ToggleTestAxis1.IsChecked == true;
-            tester.Axis2 = ToggleTestAxis2.IsChecked == true && link.EnabledMotors >= 2;
+            bool twoAxes = link.EnabledMotors >= 2;
+            tester.Axis1 = !twoAxes || ToggleTestAxis1.IsChecked == true; // single actuator: always axis 1
+            tester.Axis2 = twoAxes && ToggleTestAxis2.IsChecked == true;
 
             settings.TestMode = mode;
             settings.TestPositionPct = tester.HoldPercent;

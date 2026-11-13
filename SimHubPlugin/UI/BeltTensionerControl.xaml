@@ -216,7 +216,7 @@
                                             <StackPanel>
                                                 <DockPanel>
                                                     <TextBlock Text="Motion Test" Style="{StaticResource SectionTitle}" />
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                    <StackPanel x:Name="PanelTestAxes" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
                                                         <styles:SHToggleButton x:Name="ToggleTestAxis1" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="TestParam_Changed" />
                                                         <TextBlock Text="Axis 1" Style="{StaticResource ToggleLabel}" />
                                                         <styles:SHToggleButton x:Name="ToggleTestAxis2" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="TestParam_Changed" />
