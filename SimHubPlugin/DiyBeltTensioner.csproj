@@ -71,6 +71,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\icon.png" LogicalName="DiyBeltTensioner.icon.png" />
+    <!-- Renderings of the setup tab (from cad/ and docs/media/build) -->
+    <Resource Include="Resources\setup_dual.png" />
+    <Resource Include="Resources\setup_single.png" />
     <!-- esptool (https://github.com/espressif/esptool, GPL-2.0), extracted to %TEMP% for flashing -->
     <EmbeddedResource Include="Resources\esptool.exe" LogicalName="DiyBeltTensioner.esptool.exe" Condition="Exists('Resources\esptool.exe')" />
     <!-- SimHub Motion presets from docs/motionPluginSetup, used as templates for the preset generator -->

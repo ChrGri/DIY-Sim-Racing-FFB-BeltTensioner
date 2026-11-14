@@ -20,22 +20,73 @@
                 <Setter Property="Padding" Value="10,2" />
             </Style>
             <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource IconGridButtonStyle}">
-                <Setter Property="Width" Value="58" />
+                <Setter Property="Width" Value="62" />
                 <Setter Property="Height" Value="54" />
-                <Setter Property="Margin" Value="0,0,5,5" />
+                <Setter Property="Margin" Value="0,0,5,0" />
             </Style>
-            <Style x:Key="InfoKey" TargetType="TextBlock" BasedOn="{StaticResource SmallText}">
-                <Setter Property="Margin" Value="0,1,6,1" />
+
+            <!-- Rig layout choice: picture cards -->
+            <Style x:Key="LayoutCard" TargetType="RadioButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,10,0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="Border" Background="#FF262626" BorderBrush="#FF444444" BorderThickness="2" CornerRadius="6" Padding="10,8">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#FF333333" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource AccentColorBrush}" />
+                                    <Setter TargetName="Border" Property="Background" Value="#FF303030" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
-            <Style x:Key="InfoValue" TargetType="TextBlock" BasedOn="{StaticResource SmallText}">
-                <Setter Property="Margin" Value="0,1,0,1" />
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+
+            <!-- Vertical channel tabs like Throttle / Brake / Clutch in the pedal plugin -->
+            <Style x:Key="ChannelTab" TargetType="RadioButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+                <Setter Property="Height" Value="200" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="Border" Background="#2A2A2A" BorderBrush="#444444" BorderThickness="1" CornerRadius="3">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="#666666" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#4E4E4E" />
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="#666666" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="ChannelTabText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Arial Black" />
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="LayoutTransform">
+                    <Setter.Value>
+                        <RotateTransform Angle="-90" />
+                    </Setter.Value>
+                </Setter>
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Width="940" HorizontalAlignment="Left" Margin="0,0,0,10">
+        <Grid Width="980" HorizontalAlignment="Left" Margin="0,0,0,10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -47,8 +98,8 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <Button x:Name="BtnInstallUpdate" Content="Update now" Style="{StaticResource Pill}" Click="BtnInstallUpdate_Click" />
-                        <Button x:Name="BtnReleaseNotes" Content="Release notes" Style="{StaticResource Pill}" Click="BtnReleaseNotes_Click" />
-                        <Button x:Name="BtnSkipUpdate" Content="Skip this version" Style="{StaticResource Pill}" Margin="0" Click="BtnSkipUpdate_Click" />
+                        <Button Content="Release notes" Style="{StaticResource Pill}" Click="BtnReleaseNotes_Click" />
+                        <Button Content="Skip this version" Style="{StaticResource Pill}" Margin="0" Click="BtnSkipUpdate_Click" />
                     </StackPanel>
                     <Image Width="20" Height="20" Source="{StaticResource Upload}" Margin="0,0,10,0" />
                     <TextBlock x:Name="TextUpdate" Style="{StaticResource SmallText}" FontWeight="Bold" Text="Plugin update available" TextWrapping="Wrap" />
@@ -58,187 +109,273 @@
             <TabControl Grid.Row="1" x:Name="MainTabs" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource MainTabItem}">
 
                 <!-- ================================================================== -->
-                <!-- TENSIONER                                                          -->
+                <!-- SETUP                                                              -->
                 <!-- ================================================================== -->
-                <TabItem Width="232">
+                <TabItem Width="242">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <Image Width="26" Height="26" Source="{StaticResource Belt}" />
-                            <TextBlock Text="TENSIONER" Style="{StaticResource MainTabHeaderText}" />
+                            <TextBlock Text="SETUP" Style="{StaticResource MainTabHeaderText}" />
                         </StackPanel>
                     </TabItem.Header>
-
                     <StackPanel>
-                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,6" RadiusX="1" RadiusY="1" />
+                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,8" RadiusX="1" RadiusY="1" />
+
+                        <!-- Layout choice -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton x:Name="RadioSingle" GroupName="Layout" Style="{StaticResource LayoutCard}" Checked="Layout_Changed" Width="310">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="/DiyBeltTensioner;component/Resources/setup_single.png" Height="70" Margin="0,0,12,0" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="SINGLE CHANNEL" FontFamily="Arial Black" FontSize="13" />
+                                        <TextBlock Text="One actuator pulls both shoulder belts. One controller, one COM port." Style="{StaticResource HintText}" Width="210" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="RadioDual" GroupName="Layout" Style="{StaticResource LayoutCard}" Checked="Layout_Changed" Width="310">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="/DiyBeltTensioner;component/Resources/setup_dual.png" Height="70" Margin="0,0,12,0" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="DUAL CHANNEL" FontFamily="Arial Black" FontSize="13" />
+                                        <TextBlock Text="One actuator per shoulder belt (left / right), one controller and COM port each." Style="{StaticResource HintText}" Width="210" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </RadioButton>
+                            <StackPanel VerticalAlignment="Center" Margin="6,0,0,0">
+                                <Button x:Name="BtnConnectAll" Style="{StaticResource Pill}" Click="BtnConnectAll_Click" Width="170" Margin="0,0,0,6">
+                                    <TextBlock x:Name="TextConnectAll" Text="Connect all" />
+                                </Button>
+                                <Button Content="Refresh COM ports" Style="{StaticResource Pill}" Click="BtnRefreshPorts_Click" Width="170" Margin="0" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Picture with the channel cards -->
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="216" />
+                                <ColumnDefinition Width="310" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition x:Name="ColumnRightCard" Width="310" />
+                            </Grid.ColumnDefinitions>
+                            <ui:ChannelCard Grid.Column="0" x:Name="CardA" VerticalAlignment="Top" />
+                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,8,0" Padding="6" Background="#FF2E3440">
+                                <Grid>
+                                    <Image x:Name="SetupImage" Height="470" Stretch="Uniform" Source="/DiyBeltTensioner;component/Resources/setup_dual.png" />
+                                    <TextBlock x:Name="LabelPictureLeft" Text="LEFT" FontFamily="Arial Black" FontSize="16" Foreground="#CCFFFFFF"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,8,0,0" />
+                                    <TextBlock x:Name="LabelPictureRight" Text="RIGHT" FontFamily="Arial Black" FontSize="16" Foreground="#CCFFFFFF"
+                                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,10,0" />
+                                </Grid>
+                            </Border>
+                            <ui:ChannelCard Grid.Column="2" x:Name="CardB" VerticalAlignment="Top" />
+                        </Grid>
+
+                        <!-- Save bar -->
+                        <Border Style="{StaticResource Card}" Margin="0,8,0,0" Padding="10,6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Content="Discard" Style="{StaticResource Pill}" Click="BtnDiscard_Click" Tag="all" />
+                                    <Button Style="{StaticResource Pill}" Click="BtnSave_Click" Tag="all" MinWidth="170" Margin="0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Width="14" Height="14" Source="{StaticResource Save}" Margin="0,0,6,0" />
+                                            <TextBlock Text="Save to controller" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock x:Name="TextSetupSaveState" Style="{StaticResource SmallText}" Text="" TextWrapping="Wrap" />
+                            </DockPanel>
+                        </Border>
+
+                        <!-- SimHub Motion -->
+                        <Border Style="{StaticResource Card}" Margin="0,8,0,0" Padding="14,10">
+                            <StackPanel>
+                                <TextBlock Text="SimHub Motion" Style="{StaticResource SectionTitle}" />
+                                <WrapPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                                        <TextBlock Text="Max. pulse frequency:" Style="{StaticResource SmallText}" Margin="0,0,6,0" />
+                                        <TextBox x:Name="TextMotionFrequency" Width="60" Style="{StaticResource ValueBox}" ToolTip="36000 = 0.30 m/s, the maximum" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                                        <TextBlock Text="Max. acceleration:" Style="{StaticResource SmallText}" Margin="0,0,6,0" />
+                                        <TextBox x:Name="TextMotionAcceleration" Width="70" Style="{StaticResource ValueBox}" ToolTip="100000 = 9.4 m/s², the maximum" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
+                                        <styles:SHToggleButton x:Name="ToggleReverseA" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleReverse_Click" />
+                                        <TextBlock x:Name="LabelReverseA" Text="Reverse direction" Style="{StaticResource ToggleLabel}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,10,6" x:Name="PanelReverseB">
+                                        <styles:SHToggleButton x:Name="ToggleReverseB" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleReverse_Click" />
+                                        <TextBlock Text="Reverse right" Style="{StaticResource ToggleLabel}" />
+                                    </StackPanel>
+                                </WrapPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource Pill}" Click="BtnSavePreset_Click" MinWidth="220" Height="28">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Width="16" Height="16" Source="{StaticResource Save}" Margin="0,0,6,0" />
+                                            <TextBlock Text="Create SimHub Motion preset..." />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="Release ports for SimHub Motion" Style="{StaticResource Pill}" Height="28" Click="BtnReleasePorts_Click" />
+                                    <Button Content="Setup guide" Style="{StaticResource Pill}" Height="28" Click="BtnOpenMotionDocs_Click" />
+                                </StackPanel>
+                                <Expander Header="How to import the preset" Margin="0,8,0,0" Foreground="#FFB0B0B0">
+                                    <TextBlock Style="{StaticResource SmallText}" Margin="18,6,0,0" TextWrapping="Wrap" LineHeight="18">
+                                        <Run Text="1. Arduino → My Hardware → Arduino scan settings: SimHub must not scan the belt tensioner port(s), Apply changes." /><LineBreak />
+                                        <Run Text="2. Motion → Platform Config. → Settings Import and export → Import all platform settings → select the saved file." /><LineBreak />
+                                        <Run Text="3. Release the ports here, then click Enable Motion. The carriage homes and parks." /><LineBreak />
+                                        <Run Text="4. Dual: 'Test belt pull' in Edit axis assignments shows whether each controller moves the correct belt." />
+                                    </TextBlock>
+                                </Expander>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </TabItem>
+
+                <!-- ================================================================== -->
+                <!-- CONFIG                                                             -->
+                <!-- ================================================================== -->
+                <TabItem Width="242">
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Image Width="24" Height="24" Source="{StaticResource Settings}" />
+                            <TextBlock Text="CONFIG" Style="{StaticResource MainTabHeaderText}" />
+                        </StackPanel>
+                    </TabItem.Header>
+                    <StackPanel>
+                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,8" RadiusX="1" RadiusY="1" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="62" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- ============ Left column ============ -->
+                            <!-- Channel switcher -->
                             <StackPanel Grid.Column="0" Margin="0,0,6,0">
-
-                                <!-- Info + connection -->
-                                <Border Style="{StaticResource Card}" Padding="8" Margin="0,0,0,6">
-                                    <StackPanel>
-                                        <TextBlock Text="Tensioner Info" Style="{StaticResource CardTitle}" />
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
-                                            </Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0" Text="Connection:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="InfoConnection" Text="Disconnected" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="1" Text="Protocol:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="InfoProtocol" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="2" Text="Actuators:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="InfoActuators" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="3" Text="Settings:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="InfoSettings" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="4" Text="Servo:" Style="{StaticResource InfoKey}" />
-                                            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
-                                                <Ellipse x:Name="InfoServoDot" Width="8" Height="8" Fill="#FF666666" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                                <TextBlock x:Name="InfoServo" Text="-" Style="{StaticResource InfoValue}" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Row="5" Text="Servo load:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="InfoLoad" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="6" Text="Voltage:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="6" Grid.Column="1" x:Name="InfoVoltage" Text="-" Style="{StaticResource InfoValue}" />
-                                            <TextBlock Grid.Row="7" Text="Position:" Style="{StaticResource InfoKey}" />
-                                            <TextBlock Grid.Row="7" Grid.Column="1" x:Name="InfoPosition" Text="-" Style="{StaticResource InfoValue}" />
-                                        </Grid>
-                                        <DockPanel Margin="0,8,0,0">
-                                            <Button DockPanel.Dock="Right" x:Name="BtnConnect" Content="Connect" Style="{StaticResource ConnectPillButton}"
-                                                    Width="70" Height="22" Margin="6,0,0,0" Click="BtnConnect_Click" />
-                                            <ComboBox x:Name="ComboPort" Height="22" FontSize="10" DisplayMemberPath="DisplayName" DropDownOpened="ComboPort_DropDownOpened">
-                                                <ComboBox.ItemContainerStyle>
-                                                    <Style TargetType="ComboBoxItem">
-                                                        <Setter Property="ToolTip" Value="{Binding ToolTip}" />
-                                                    </Style>
-                                                </ComboBox.ItemContainerStyle>
-                                            </ComboBox>
-                                        </DockPanel>
-                                        <Button x:Name="BtnScanPorts" Content="Identify USB-UART boards" Style="{StaticResource Pill}" Margin="0,6,0,0" Height="20" FontSize="10"
-                                                Click="BtnScanPorts_Click"
-                                                ToolTip="Native USB boards are recognized by their USB name. CP2102 boards are opened briefly to look for the belt tensioner firmware (this resets an ESP32 behind the port)." />
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- Plugin settings -->
-                                <Border Style="{StaticResource Card}" Padding="8" Margin="0,0,0,6">
-                                    <StackPanel>
-                                        <TextBlock Text="Plugin Setting" Style="{StaticResource CardTitle}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,3">
-                                            <styles:SHToggleButton x:Name="ToggleAutoConnect" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleAutoConnect_Click" />
-                                            <TextBlock Text="Auto-connect at start" Style="{StaticResource ToggleLabel}" />
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="0,3">
-                                            <styles:SHToggleButton x:Name="ToggleLiveLoad" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleLiveLoad_Click" />
-                                            <TextBlock Text="Live status" Style="{StaticResource ToggleLabel}" ToolTip="Polls servo state, load, voltage and position several times per second while connected" />
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="0,3">
-                                            <styles:SHToggleButton x:Name="ToggleCheckUpdates" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleCheckUpdates_Click" />
-                                            <TextBlock Text="Check for plugin updates" Style="{StaticResource ToggleLabel}" />
-                                        </StackPanel>
-                                        <DockPanel Margin="0,5,0,0">
-                                            <Button DockPanel.Dock="Right" x:Name="BtnCheckPluginUpdate" Content="Check now" Style="{StaticResource Pill}" MinWidth="0" Height="20" FontSize="10" Margin="0"
-                                                    Click="BtnCheckPluginUpdate_Click" />
-                                            <TextBlock x:Name="TextPluginVersion" Style="{StaticResource HintText}" Text="Plugin version: -" />
-                                        </DockPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- Actions -->
-                                <Border Style="{StaticResource Card}" Padding="8,8,3,3" Margin="0,0,0,6">
-                                    <WrapPanel>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnRestart" Click="BtnRestart_Click" ToolTip="Restart the controller (applies saved values)">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource Restart}" />
-                                                <TextBlock Text="Restart" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnHome" Click="BtnHome_Click" ToolTip="Sensorless homing (CMD 13)">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource Target}" />
-                                                <TextBlock Text="Home" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnPark" Click="BtnPark_Click" ToolTip="Move to the park position (CMD 12)">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource Park}" />
-                                                <TextBlock Text="Park" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnStatus" Click="BtnStatus_Click" ToolTip="Print servo load and voltage (STATUS)">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource Info}" />
-                                                <TextBlock Text="Status" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnReadConfig" Click="BtnReadConfig_Click" ToolTip="Read the configuration from the controller">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource FirmwareDownload}" />
-                                                <TextBlock Text="Read" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnShowLog" Click="BtnShowLog_Click" ToolTip="Serial log and console">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource Monitor}" />
-                                                <TextBlock Text="Serial Logs" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource IconButton}" x:Name="BtnWebGraphs" Click="BtnWebGraphs_Click"
-                                                ToolTip="Live graphs of position, servo current and voltage in the browser (the controller starts WiFi)">
-                                            <StackPanel>
-                                                <Image Width="26" Height="26" Source="{StaticResource LivePlot}" />
-                                                <TextBlock Text="Web Graphs" Style="{StaticResource IconLabel}" />
-                                            </StackPanel>
-                                        </Button>
-                                    </WrapPanel>
-                                </Border>
-
-                                <!-- Status -->
-                                <Border Style="{StaticResource Card}" Padding="8" Margin="0">
-                                    <StackPanel>
-                                        <TextBlock Text="Status" FontFamily="Arial Black" FontSize="9" Foreground="#FFABB4BE" />
-                                        <TextBox x:Name="TextStatus" Height="92" FontSize="9" Background="#141414" Foreground="White" BorderThickness="0"
-                                                 IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,3,0,0" />
-                                    </StackPanel>
-                                </Border>
+                                <RadioButton x:Name="RadioCfgA" GroupName="CfgChannel" Style="{StaticResource ChannelTab}" Checked="CfgChannel_Changed" IsChecked="True">
+                                    <TextBlock x:Name="TextCfgA" Text="LEFT" Style="{StaticResource ChannelTabText}" />
+                                </RadioButton>
+                                <RadioButton x:Name="RadioCfgB" GroupName="CfgChannel" Style="{StaticResource ChannelTab}" Checked="CfgChannel_Changed">
+                                    <TextBlock Text="RIGHT" Style="{StaticResource ChannelTabText}" />
+                                </RadioButton>
                             </StackPanel>
 
-                            <!-- ============ Right column ============ -->
                             <StackPanel Grid.Column="1">
+                                <!-- Channel header with actions -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="10,6">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Style="{StaticResource IconButton}" Click="BtnCfgHome_Click" ToolTip="Sensorless homing">
+                                                <StackPanel>
+                                                    <Image Width="22" Height="22" Source="{StaticResource Target}" />
+                                                    <TextBlock Text="Home" Style="{StaticResource IconLabel}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" Click="BtnCfgPark_Click" ToolTip="Move to the park position">
+                                                <StackPanel>
+                                                    <Image Width="22" Height="22" Source="{StaticResource Park}" />
+                                                    <TextBlock Text="Park" Style="{StaticResource IconLabel}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" Click="BtnCfgRestart_Click" ToolTip="Restart the controller (applies saved values)">
+                                                <StackPanel>
+                                                    <Image Width="22" Height="22" Source="{StaticResource Restart}" />
+                                                    <TextBlock Text="Restart" Style="{StaticResource IconLabel}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" Click="BtnCfgRead_Click" ToolTip="Read the configuration from the controller">
+                                                <StackPanel>
+                                                    <Image Width="22" Height="22" Source="{StaticResource FirmwareDownload}" />
+                                                    <TextBlock Text="Read" Style="{StaticResource IconLabel}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" x:Name="BtnWebGraphs" Click="BtnWebGraphs_Click"
+                                                    ToolTip="Live graphs of position, servo current and voltage in the browser (the controller starts WiFi)">
+                                                <StackPanel>
+                                                    <Image Width="22" Height="22" Source="{StaticResource LivePlot}" />
+                                                    <TextBlock Text="Web Graphs" Style="{StaticResource IconLabel}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse x:Name="CfgDot" Width="10" Height="10" Fill="#FF666666" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="TextCfgTitle" Text="BELT" FontFamily="Arial Black" FontSize="15" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="TextCfgStatus" Style="{StaticResource SmallText}" Foreground="#FFB0B0B0" Margin="12,0,0,0" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="TextCfgTelemetry" Style="{StaticResource HintText}" Margin="18,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
 
-                                <!-- Upper area: stroke view / test -->
-                                <TabControl x:Name="TabsUpper" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource SubTabItem}" Height="300">
-                                    <TabItem Width="235">
+                                <!-- Stroke view -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="0">
+                                    <ui:TravelView x:Name="Travel" Height="230" />
+                                </Border>
+
+                                <!-- Settings -->
+                                <TabControl x:Name="TabsCfg" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource SubTabItem}" Height="290">
+                                    <TabItem Width="224">
                                         <TabItem.Header>
-                                            <TextBlock Text="STROKE" Style="{StaticResource TabHeaderText}" />
+                                            <TextBlock Text="Positions &amp; Direction" Style="{StaticResource TabHeaderText}" />
                                         </TabItem.Header>
-                                        <Border Style="{StaticResource Card}" Margin="0" Padding="0">
-                                            <ui:TravelView x:Name="Travel" Height="258" />
+                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                    <styles:SHToggleButton x:Name="ToggleInvert" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="INVERT_TENSION" />
+                                                    <TextBlock Text="Invert tension direction" Style="{StaticResource ToggleLabel}"
+                                                               ToolTip="Off: 0 % game input (idle) at the MIN stop, braking pulls towards MAX.&#x0a;On: idle at the MAX stop, braking pulls towards MIN." />
+                                                    <styles:SHToggleButton x:Name="ToggleCenter" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="CENTER_AFTER_HOMING" />
+                                                    <TextBlock Text="Center (50 %) after homing" Style="{StaticResource ToggleLabel}" />
+                                                </StackPanel>
+                                                <ui:LabeledSlider x:Name="SliderIdle" Tag="IDLE_POSITION" Title="Park position" Unit="% of the range" Minimum="0" Maximum="50" Step="0.5" Decimals="1"
+                                                                  Hint="Position after homing and after the idle delay (mirrored when the direction is inverted)" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition /><ColumnDefinition Width="30" /><ColumnDefinition />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ui:LabeledSlider Grid.Column="0" x:Name="SliderMin" Tag="MIN_LIMIT" Title="Min. limit" Unit="%" Minimum="0" Maximum="45" Step="0.5" Decimals="1"
+                                                                      Hint="The carriage never travels below this position; 0 % game input maps here" />
+                                                    <ui:LabeledSlider Grid.Column="2" x:Name="SliderMax" Tag="MAX_LIMIT" Title="Max. limit" Unit="%" Minimum="55" Maximum="100" Step="0.5" Decimals="1"
+                                                                      Hint="The carriage never travels above this position; 100 % game input maps here" />
+                                                </Grid>
+                                            </StackPanel>
                                         </Border>
                                     </TabItem>
-                                    <TabItem Width="235">
+                                    <TabItem Width="224">
                                         <TabItem.Header>
-                                            <TextBlock Text="MOTION TEST" Style="{StaticResource TabHeaderText}" />
+                                            <TextBlock Text="Idle &amp; Homing" Style="{StaticResource TabHeaderText}" />
                                         </TabItem.Header>
-                                        <Border Style="{StaticResource Card}" Margin="0" Padding="14,10">
+                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
                                             <StackPanel>
-                                                <DockPanel>
-                                                    <TextBlock Text="Motion Test" Style="{StaticResource SectionTitle}" />
-                                                    <StackPanel x:Name="PanelTestAxes" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
-                                                        <styles:SHToggleButton x:Name="ToggleTestAxis1" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="TestParam_Changed" />
-                                                        <TextBlock Text="Axis 1" Style="{StaticResource ToggleLabel}" />
-                                                        <styles:SHToggleButton x:Name="ToggleTestAxis2" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="TestParam_Changed" />
-                                                        <TextBlock Text="Axis 2" Style="{StaticResource ToggleLabel}" Margin="6,0,0,0" />
-                                                    </StackPanel>
-                                                </DockPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition /><ColumnDefinition Width="30" /><ColumnDefinition />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition /><RowDefinition />
+                                                    </Grid.RowDefinitions>
+                                                    <ui:LabeledSlider Grid.Column="0" x:Name="SliderIdleDelay" Tag="IDLE_DELAY" Title="Idle delay" Unit="s" Minimum="1" Maximum="600"
+                                                                      Hint="Time without SimHub commands until the actuator parks and the servo is disabled" />
+                                                    <ui:LabeledSlider Grid.Column="2" x:Name="SliderHomingThreshold" Tag="HOMING_THRESHOLD" Title="Homing load threshold" Unit="%" Minimum="5" Maximum="100"
+                                                                      Hint="Servo load that detects the mechanical end stop. Too low: homing stops early. Too high: hard hit on the end stop." />
+                                                    <ui:LabeledSlider Grid.Row="1" Grid.Column="0" x:Name="SliderBackoff" Tag="HOMING_BACKOFF" Title="Homing back-off" Unit="mm" Minimum="0.5" Maximum="20" Step="0.1" Decimals="1"
+                                                                      Hint="Distance the carriage moves away from the end stop after homing (= 0 % of the stroke)" />
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <styles:SHToggleButton x:Name="ToggleHomeAtBoot" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="HOME_AT_BOOT" />
+                                                    <TextBlock Text="Home directly after power on" Style="{StaticResource ToggleLabel}" ToolTip="Off: homing runs on the first command from SimHub." />
+                                                    <styles:SHToggleButton x:Name="ToggleWebGraphs" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="WEBGRAPHS" />
+                                                    <TextBlock Text="WiFi web graphs at start" Style="{StaticResource ToggleLabel}"
+                                                               ToolTip="On: the controller starts WiFi and the live graph web page at every boot." />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </TabItem>
+                                    <TabItem Width="224">
+                                        <TabItem.Header>
+                                            <TextBlock Text="Motion Test" Style="{StaticResource TabHeaderText}" />
+                                        </TabItem.Header>
+                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
+                                            <StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                     <TextBlock Text="Waveform:" Style="{StaticResource SmallText}" Margin="0,0,8,0" />
                                                     <ComboBox x:Name="ComboTestMode" Width="140" Height="22" FontSize="11" SelectionChanged="ComboTestMode_SelectionChanged">
@@ -246,10 +383,7 @@
                                                         <ComboBoxItem Content="Sine" />
                                                         <ComboBoxItem Content="Brake pulse" />
                                                     </ComboBox>
-                                                    <TextBlock Text="Max. frequency:" Style="{StaticResource SmallText}" Margin="18,0,6,0" />
-                                                    <TextBox x:Name="TextTestFrequency" Width="55" Style="{StaticResource ValueBox}" ToolTip="SimHub 'max. steppers pulse frequency': 36000 = 0.30 m/s" />
-                                                    <TextBlock Text="Max. accel.:" Style="{StaticResource SmallText}" Margin="12,0,6,0" />
-                                                    <TextBox x:Name="TextTestAcceleration" Width="60" Style="{StaticResource ValueBox}" ToolTip="SimHub 'max. steppers acceleration': 100000 = 9.4 m/s²" />
+                                                    <TextBlock Text="Uses the SimHub Motion limits of the SETUP tab." Style="{StaticResource HintText}" Margin="16,0,0,0" />
                                                 </StackPanel>
 
                                                 <Grid x:Name="PanelTestHold">
@@ -295,143 +429,19 @@
                                                     <TextBlock x:Name="TextTestState" Style="{StaticResource SmallText}" Margin="8,0,0,0" />
                                                 </StackPanel>
                                                 <TextBlock Style="{StaticResource WarnText}" FontSize="10" Margin="0,8,0,0"
-                                                           Text="Start with low values and without the harness on. The live position is shown on the STROKE tab." />
+                                                           Text="Start with low values and without the harness on. The green marker in the stroke view shows the commanded position." />
                                             </StackPanel>
                                         </Border>
                                     </TabItem>
-                                </TabControl>
-
-                                <!-- Lower area: settings -->
-                                <TabControl x:Name="TabsSettings" Style="{StaticResource PlainTabControl}" ItemContainerStyle="{StaticResource SubTabItem}" Margin="0,6,0,0" Height="300">
-                                    <TabItem Width="176">
-                                        <TabItem.Header>
-                                            <TextBlock Text="General" Style="{StaticResource TabHeaderText}" />
-                                        </TabItem.Header>
-                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
-                                            <StackPanel>
-                                                <TextBlock Text="General Settings" Style="{StaticResource SectionTitle}" />
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition /><ColumnDefinition Width="30" /><ColumnDefinition />
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0">
-                                                        <TextBlock x:Name="LabelAxis1" Text="Axis 1" FontFamily="Arial Black" FontSize="10" Foreground="#FFABB4BE" Margin="0,0,0,4" />
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                            <TextBlock Text="Spindle pitch (mm/rev):" Style="{StaticResource SmallText}" Width="140" />
-                                                            <ComboBox x:Name="ComboPitch1" Width="70" Height="22" FontSize="11" IsEditable="True"
-                                                                      SelectionChanged="Pitch_Changed" LostFocus="Pitch_LostFocus" KeyUp="Pitch_KeyUp" />
-                                                        </StackPanel>
-                                                        <ui:LabeledSlider x:Name="SliderRange1" Title="Working range" Unit="mm" Minimum="5" Maximum="500" Step="0.5" Decimals="1"
-                                                                          Hint="Usable stroke of the actuator between the end stops" />
-                                                        <Button x:Name="BtnMeasureRange1" Tag="1" Style="{StaticResource Pill}" Height="22" FontSize="10" HorizontalAlignment="Left" Margin="0,-2,0,0"
-                                                                Click="BtnMeasureRange_Click"
-                                                                ToolTip="Sensorless homing to both end stops; the measured distance can be taken as working range">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <Image Width="12" Height="12" Source="{StaticResource Target}" Margin="0,0,5,0" />
-                                                                <TextBlock Text="Auto-detect range" />
-                                                            </StackPanel>
-                                                        </Button>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Column="2" x:Name="PanelAxis2">
-                                                        <TextBlock Text="Axis 2" FontFamily="Arial Black" FontSize="10" Foreground="#FFABB4BE" Margin="0,0,0,4" />
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                            <TextBlock Text="Spindle pitch (mm/rev):" Style="{StaticResource SmallText}" Width="140" />
-                                                            <ComboBox x:Name="ComboPitch2" Width="70" Height="22" FontSize="11" IsEditable="True"
-                                                                      SelectionChanged="Pitch_Changed" LostFocus="Pitch_LostFocus" KeyUp="Pitch_KeyUp" />
-                                                        </StackPanel>
-                                                        <ui:LabeledSlider x:Name="SliderRange2" Title="Working range" Unit="mm" Minimum="5" Maximum="500" Step="0.5" Decimals="1" />
-                                                        <Button x:Name="BtnMeasureRange2" Tag="2" Style="{StaticResource Pill}" Height="22" FontSize="10" HorizontalAlignment="Left" Margin="0,-2,0,0"
-                                                                Click="BtnMeasureRange_Click"
-                                                                ToolTip="Sensorless homing to both end stops; the measured distance can be taken as working range">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <Image Width="12" Height="12" Source="{StaticResource Target}" Margin="0,0,5,0" />
-                                                                <TextBlock Text="Auto-detect range" />
-                                                            </StackPanel>
-                                                        </Button>
-                                                    </StackPanel>
-                                                </Grid>
-                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0" x:Name="PanelGeneralToggles">
-                                                    <styles:SHToggleButton x:Name="ToggleInvert" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="INVERT_TENSION" />
-                                                    <TextBlock Text="Invert tension direction" Style="{StaticResource ToggleLabel}"
-                                                               ToolTip="Off: 0 % game input (idle) at the MIN stop, braking pulls towards MAX.&#x0a;On: idle at the MAX stop, braking pulls towards MIN." />
-                                                    <styles:SHToggleButton x:Name="ToggleCenter" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="CENTER_AFTER_HOMING" />
-                                                    <TextBlock Text="Center (50 %) after homing" Style="{StaticResource ToggleLabel}"
-                                                               ToolTip="On: the carriage moves to 50 % after homing instead of the park position." />
-                                                    <styles:SHToggleButton x:Name="ToggleWebGraphs" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="WEBGRAPHS" />
-                                                    <TextBlock Text="WiFi web graphs at start" Style="{StaticResource ToggleLabel}"
-                                                               ToolTip="On: the controller starts WiFi and the live graph web page at every boot (access point 'diy_belt_tensioner' or your WiFi)." />
-                                                </StackPanel>
-                                                <TextBlock Style="{StaticResource HintText}" Margin="0,10,0,0"
-                                                           Text="Pitch and range are stored per axis. Direction, positions, idle and homing apply to all axes of this controller. In a dual setup with one board per belt, every board drives its belt as axis 1." />
-                                            </StackPanel>
-                                        </Border>
-                                    </TabItem>
-                                    <TabItem Width="176">
-                                        <TabItem.Header>
-                                            <TextBlock Text="Positions" Style="{StaticResource TabHeaderText}" />
-                                        </TabItem.Header>
-                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
-                                            <StackPanel x:Name="PanelPositions">
-                                                <TextBlock Text="Positions &amp; Safety Limits" Style="{StaticResource SectionTitle}" />
-                                                <ui:LabeledSlider x:Name="SliderIdle" Tag="IDLE_POSITION" Title="Park position" Unit="% of the range" Minimum="0" Maximum="50" Step="0.5" Decimals="1"
-                                                                  Hint="Position after homing and after the idle delay (mirrored when the direction is inverted)" />
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition /><ColumnDefinition Width="30" /><ColumnDefinition />
-                                                    </Grid.ColumnDefinitions>
-                                                    <ui:LabeledSlider Grid.Column="0" x:Name="SliderMin" Tag="MIN_LIMIT" Title="Min. limit" Unit="%" Minimum="0" Maximum="45" Step="0.5" Decimals="1"
-                                                                      Hint="The carriage never travels below this position; 0 % game input maps here" />
-                                                    <ui:LabeledSlider Grid.Column="2" x:Name="SliderMax" Tag="MAX_LIMIT" Title="Max. limit" Unit="%" Minimum="55" Maximum="100" Step="0.5" Decimals="1"
-                                                                      Hint="The carriage never travels above this position; 100 % game input maps here" />
-                                                </Grid>
-                                                <TextBlock Style="{StaticResource HintText}"
-                                                           Text="0 - 100 % game input is mapped into the window between min. and max. limit (see STROKE). Keep a few percent away from the mechanical end stops." />
-                                            </StackPanel>
-                                        </Border>
-                                    </TabItem>
-                                    <TabItem Width="176">
-                                        <TabItem.Header>
-                                            <TextBlock Text="Idle &amp; Homing" Style="{StaticResource TabHeaderText}" />
-                                        </TabItem.Header>
-                                        <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
-                                            <StackPanel x:Name="PanelHoming">
-                                                <TextBlock Text="Idle &amp; Homing" Style="{StaticResource SectionTitle}" />
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition /><ColumnDefinition Width="30" /><ColumnDefinition />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition /><RowDefinition />
-                                                    </Grid.RowDefinitions>
-                                                    <ui:LabeledSlider Grid.Column="0" x:Name="SliderIdleDelay" Tag="IDLE_DELAY" Title="Idle delay" Unit="s" Minimum="1" Maximum="600"
-                                                                      Hint="Time without SimHub commands until the actuator parks and the servo is disabled" />
-                                                    <ui:LabeledSlider Grid.Column="2" x:Name="SliderHomingThreshold" Tag="HOMING_THRESHOLD" Title="Homing load threshold" Unit="%" Minimum="5" Maximum="100"
-                                                                      Hint="Servo load that detects the mechanical end stop. Too low: homing stops early. Too high: hard hit on the end stop." />
-                                                    <ui:LabeledSlider Grid.Row="1" Grid.Column="0" x:Name="SliderBackoff" Tag="HOMING_BACKOFF" Title="Homing back-off" Unit="mm" Minimum="0.5" Maximum="20" Step="0.1" Decimals="1"
-                                                                      Hint="Distance the carriage moves away from the end stop after homing (= 0 % of the stroke)" />
-                                                </Grid>
-                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                    <styles:SHToggleButton x:Name="ToggleHomeAtBoot" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="SettingToggle_Click" Tag="HOME_AT_BOOT" />
-                                                    <TextBlock Text="Home directly after power on" Style="{StaticResource ToggleLabel}"
-                                                               ToolTip="Off: homing runs on the first command from SimHub." />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                    </TabItem>
-                                    <TabItem Width="176">
+                                    <TabItem Width="224">
                                         <TabItem.Header>
                                             <TextBlock Text="Servo" Style="{StaticResource TabHeaderText}" />
                                         </TabItem.Header>
                                         <Border Style="{StaticResource Card}" Margin="0" Padding="18,10">
                                             <StackPanel>
                                                 <TextBlock Text="iSV57 Servo" Style="{StaticResource SectionTitle}" />
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                                    <TextBlock Text="Servo:" Style="{StaticResource SmallText}" Margin="0,0,8,0" />
-                                                    <ComboBox x:Name="ComboServo" Width="60" Height="22" SelectedIndex="0" Margin="0,0,14,0">
-                                                        <ComboBoxItem Content="1" />
-                                                        <ComboBoxItem Content="2" />
-                                                    </ComboBox>
-                                                    <Button x:Name="BtnFlashServo" Style="{StaticResource Pill}" Click="BtnFlashServo_Click" MinWidth="150">
+                                                <WrapPanel Margin="0,0,0,10">
+                                                    <Button x:Name="BtnFlashServo" Style="{StaticResource Pill}" Click="BtnFlashServo_Click" MinWidth="170">
                                                         <StackPanel Orientation="Horizontal">
                                                             <Image Width="14" Height="14" Source="{StaticResource Chip}" Margin="0,0,6,0" />
                                                             <TextBlock Text="Flash servo parameters" />
@@ -443,21 +453,17 @@
                                                             <TextBlock Text="Check" />
                                                         </StackPanel>
                                                     </Button>
-                                                    <Button x:Name="BtnEnableServo" Content="Enable" Style="{StaticResource Pill}" Click="BtnEnableServo_Click" />
-                                                    <Button x:Name="BtnDisableServo" Content="Disable all" Style="{StaticResource Pill}" Click="BtnDisableServo_Click" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                                    <Button x:Name="BtnServoRegisters" Style="{StaticResource Pill}" Click="BtnServoRegisters_Click" MinWidth="180" Height="28">
+                                                    <Button Style="{StaticResource Pill}" Click="BtnServoRegisters_Click" MinWidth="150">
                                                         <StackPanel Orientation="Horizontal">
-                                                            <Image Width="16" Height="16" Source="{StaticResource Settings}" Margin="0,0,6,0" />
-                                                            <TextBlock Text="Servo register editor..." />
+                                                            <Image Width="14" Height="14" Source="{StaticResource Settings}" Margin="0,0,6,0" />
+                                                            <TextBlock Text="Register editor..." />
                                                         </StackPanel>
                                                     </Button>
-                                                    <TextBlock Style="{StaticResource HintText}" Margin="6,0,0,0" Width="380"
-                                                               Text="Lists all 305 registers of the selected servo next to the tuned values of the firmware. Values can be edited, saved to the servo EEPROM, exported and imported." />
-                                                </StackPanel>
+                                                    <Button Content="Enable" Style="{StaticResource Pill}" Click="BtnEnableServo_Click" />
+                                                    <Button Content="Disable" Style="{StaticResource Pill}" Click="BtnDisableServo_Click" />
+                                                </WrapPanel>
                                                 <TextBlock Style="{StaticResource HintText}"
-                                                           Text="'Flash servo parameters' writes the tuned registers (direction, microsteps, gains) into the servo EEPROM. Needed once per servo and after firmware releases that change the tuning. Power cycle the servo afterwards; 'Check' should then report 0 differ (details in the register editor or Serial Logs)." />
+                                                           Text="'Flash servo parameters' writes the tuned registers (direction, microsteps, gains) into the servo EEPROM: once per servo and after firmware releases that change the tuning. Power cycle the servo afterwards; 'Check' should then report 0 differ. The register editor lists all 305 registers." />
                                             </StackPanel>
                                         </Border>
                                     </TabItem>
@@ -467,17 +473,17 @@
                                 <Border Style="{StaticResource Card}" Margin="0,6,0,0" Padding="10,6">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                            <Button x:Name="BtnResetConfig" Content="Defaults" Style="{StaticResource Pill}" Click="BtnResetConfig_Click"
-                                                    ToolTip="Delete all saved values in the controller (Config.h defaults apply after a restart)" />
-                                            <Button x:Name="BtnDiscard" Content="Discard" Style="{StaticResource Pill}" Click="BtnDiscard_Click" />
-                                            <Button x:Name="BtnSave" Style="{StaticResource Pill}" Click="BtnSave_Click" MinWidth="150" Margin="0">
+                                            <Button Content="Defaults" Style="{StaticResource Pill}" Click="BtnResetConfig_Click"
+                                                    ToolTip="Delete all saved values of this controller (Config.h defaults apply after a restart)" />
+                                            <Button Content="Discard" Style="{StaticResource Pill}" Click="BtnDiscard_Click" Tag="cfg" />
+                                            <Button Style="{StaticResource Pill}" Click="BtnSave_Click" Tag="cfg" MinWidth="170" Margin="0">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Image Width="14" Height="14" Source="{StaticResource Save}" Margin="0,0,6,0" />
                                                     <TextBlock Text="Save to controller" />
                                                 </StackPanel>
                                             </Button>
                                         </StackPanel>
-                                        <TextBlock x:Name="TextSaveState" Style="{StaticResource SmallText}" Text="Connect to read the configuration." TextWrapping="Wrap" />
+                                        <TextBlock x:Name="TextCfgSaveState" Style="{StaticResource SmallText}" Text="" TextWrapping="Wrap" />
                                     </DockPanel>
                                 </Border>
                             </StackPanel>
@@ -488,7 +494,7 @@
                 <!-- ================================================================== -->
                 <!-- FIRMWARE                                                           -->
                 <!-- ================================================================== -->
-                <TabItem Width="232">
+                <TabItem Width="242">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <Image Width="26" Height="26" Source="{StaticResource FirmwareDownload}" />
@@ -496,7 +502,7 @@
                         </StackPanel>
                     </TabItem.Header>
                     <StackPanel>
-                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,6" RadiusX="1" RadiusY="1" />
+                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,8" RadiusX="1" RadiusY="1" />
 
                         <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
                             <StackPanel>
@@ -506,7 +512,7 @@
                                     <TextBlock Text="Release:" Style="{StaticResource SmallText}" Width="70" />
                                     <TextBlock x:Name="TextLatestRelease" Style="{StaticResource SmallText}" FontWeight="Bold" Width="300" Text="-" />
                                     <Button x:Name="BtnCheckRelease" Content="Refresh" Style="{StaticResource Pill}" Margin="8,0,0,0" Click="BtnCheckRelease_Click" />
-                                    <Button x:Name="BtnOpenRelease" Content="Release page" Style="{StaticResource Pill}" Click="BtnOpenRelease_Click" />
+                                    <Button Content="Release page" Style="{StaticResource Pill}" Click="BtnOpenRelease_Click" />
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="22,0,0,8">
                                     <TextBlock Text="Repository:" Style="{StaticResource SmallText}" Width="70" />
@@ -522,38 +528,53 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
-                            <StackPanel>
-                                <TextBlock Text="Board Variant" Style="{StaticResource SectionTitle}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Board:" Style="{StaticResource SmallText}" Width="80" />
-                                    <ComboBox x:Name="ComboBoard" Width="430" Height="22" DisplayMemberPath="DisplayName" SelectionChanged="ComboBoard_SelectionChanged" />
-                                </StackPanel>
-                                <TextBlock x:Name="TextReleaseInfo" Margin="80,4,0,0" Style="{StaticResource HintText}" Text="" />
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                    <TextBlock Text="COM port:" Style="{StaticResource SmallText}" Width="80" />
-                                    <TextBlock x:Name="TextFlashPort" Style="{StaticResource SmallText}" Text="-" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0" Text="With the GitHub source the list shows the board variants of the latest release. The COM port is selected on the TENSIONER tab." />
-                            </StackPanel>
-                        </Border>
-
                         <Border Style="{StaticResource Card}" Margin="0" Padding="14,10">
                             <StackPanel>
-                                <TextBlock Text="Flash" Style="{StaticResource SectionTitle}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnFlash" Style="{StaticResource Pill}" Click="BtnFlash_Click" MinWidth="160" Height="28">
+                                <TextBlock Text="Controllers" Style="{StaticResource SectionTitle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="230" />
+                                        <ColumnDefinition Width="370" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="34" />
+                                        <RowDefinition Height="34" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Channel" Style="{StaticResource SmallText}" Foreground="#FFABB4BE" Margin="0,0,0,4" />
+                                    <TextBlock Grid.Column="1" Text="COM port (SETUP tab)" Style="{StaticResource SmallText}" Foreground="#FFABB4BE" />
+                                    <TextBlock Grid.Column="2" Text="Board variant" Style="{StaticResource SmallText}" Foreground="#FFABB4BE" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" x:Name="TextFlashTitleA" Text="Belt" Style="{StaticResource SmallText}" FontWeight="Bold" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TextFlashPortA" Text="-" Style="{StaticResource SmallText}" TextTrimming="CharacterEllipsis" />
+                                    <ComboBox Grid.Row="1" Grid.Column="2" x:Name="ComboBoardA" Height="24" Margin="0,0,10,0" DisplayMemberPath="DisplayName" SelectionChanged="ComboBoard_SelectionChanged" />
+                                    <Button Grid.Row="1" Grid.Column="3" x:Name="BtnFlashA" Style="{StaticResource Pill}" Click="BtnFlash_Click" Tag="A" HorizontalAlignment="Left" MinWidth="130">
                                         <StackPanel Orientation="Horizontal">
-                                            <Image Width="16" Height="16" Source="{StaticResource Upload}" Margin="0,0,6,0" />
-                                            <TextBlock Text="Flash firmware" />
+                                            <Image Width="14" Height="14" Source="{StaticResource Upload}" Margin="0,0,6,0" />
+                                            <TextBlock Text="Flash" />
                                         </StackPanel>
                                     </Button>
-                                    <styles:SHToggleButton x:Name="ToggleReconnectAfterFlash" Content="" Width="35" Height="15" VerticalAlignment="Center" IsChecked="True" Margin="10,0,0,0" />
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" x:Name="TextFlashTitleB" Text="Right belt" Style="{StaticResource SmallText}" FontWeight="Bold" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TextFlashPortB" Text="-" Style="{StaticResource SmallText}" TextTrimming="CharacterEllipsis" />
+                                    <ComboBox Grid.Row="2" Grid.Column="2" x:Name="ComboBoardB" Height="24" Margin="0,0,10,0" DisplayMemberPath="DisplayName" SelectionChanged="ComboBoard_SelectionChanged" />
+                                    <Button Grid.Row="2" Grid.Column="3" x:Name="BtnFlashB" Style="{StaticResource Pill}" Click="BtnFlash_Click" Tag="B" HorizontalAlignment="Left" MinWidth="130">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Width="14" Height="14" Source="{StaticResource Upload}" Margin="0,0,6,0" />
+                                            <TextBlock Text="Flash" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <TextBlock x:Name="TextReleaseInfo" Style="{StaticResource HintText}" Margin="0,6,0,0" Text="" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <styles:SHToggleButton x:Name="ToggleReconnectAfterFlash" Content="" Width="35" Height="15" VerticalAlignment="Center" IsChecked="True" />
                                     <TextBlock Text="Reconnect after flashing" Style="{StaticResource ToggleLabel}" />
                                 </StackPanel>
-                                <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
-                                           Text="An open connection is closed while flashing. Saved settings (pitch, range, positions, ...) are kept. If esptool cannot connect: hold BOOT, press and release RST, release BOOT and flash again. After the first flash: power the servo and run 'Flash servo parameters' (TENSIONER → Servo)." />
-                                <TextBox x:Name="TextFlashLog" Height="250" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10" Background="#141414" Foreground="White"
+                                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0"
+                                           Text="Saved settings (pitch, range, positions, ...) are kept. If esptool cannot connect: hold BOOT, press and release RST, release BOOT and flash again. After the first flash: CONFIG → Servo → Flash servo parameters." />
+                                <TextBox x:Name="TextFlashLog" Height="260" Margin="0,10,0,0" FontFamily="Consolas" FontSize="10" Background="#141414" Foreground="White"
                                          BorderThickness="0" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
                             </StackPanel>
                         </Border>
@@ -561,113 +582,84 @@
                 </TabItem>
 
                 <!-- ================================================================== -->
-                <!-- SIMHUB MOTION                                                      -->
+                <!-- SYSTEM                                                             -->
                 <!-- ================================================================== -->
-                <TabItem Width="232">
-                    <TabItem.Header>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <Image Width="26" Height="26" Source="{StaticResource Motion}" />
-                            <TextBlock Text="MOTION" Style="{StaticResource MainTabHeaderText}" />
-                        </StackPanel>
-                    </TabItem.Header>
-                    <StackPanel>
-                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,6" RadiusX="1" RadiusY="1" />
-
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="14,10">
-                            <StackPanel>
-                                <TextBlock Text="Rig Layout" Style="{StaticResource SectionTitle}" />
-                                <RadioButton x:Name="RadioMotionSingle" GroupName="MotionLayout" Content="Single belt tensioner (one actuator)" Checked="MotionLayout_Changed" Margin="0,2" />
-                                <RadioButton x:Name="RadioMotionDual" GroupName="MotionLayout" Content="Dual belt tensioner (two actuators, one controller board each)" Checked="MotionLayout_Changed" Margin="0,2" />
-
-                                <Grid Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="140" />
-                                        <ColumnDefinition Width="300" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="30" />
-                                        <RowDefinition Height="30" />
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" x:Name="LabelMotionPort1" Text="COM port:" Style="{StaticResource SmallText}" />
-                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ComboMotionPort1" IsEditable="True" Height="22" />
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="14,0,0,0">
-                                        <styles:SHToggleButton x:Name="ToggleMotionReverse1" Content="" Width="35" Height="15" VerticalAlignment="Center" />
-                                        <TextBlock Text="Reverse direction" Style="{StaticResource ToggleLabel}" />
-                                    </StackPanel>
-
-                                    <TextBlock Grid.Row="1" x:Name="LabelMotionPort2" Text="Right belt COM port:" Style="{StaticResource SmallText}" />
-                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="ComboMotionPort2" IsEditable="True" Height="22" />
-                                    <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="14,0,0,0" x:Name="PanelMotionReverse2">
-                                        <styles:SHToggleButton x:Name="ToggleMotionReverse2" Content="" Width="35" Height="15" VerticalAlignment="Center" />
-                                        <TextBlock Text="Reverse direction" Style="{StaticResource ToggleLabel}" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <TextBlock Text="Max. steppers pulse frequency:" Style="{StaticResource SmallText}" Margin="0,0,6,0" />
-                                    <TextBox x:Name="TextMotionFrequency" Width="60" Style="{StaticResource ValueBox}" ToolTip="36000 = 0.30 m/s, the maximum" />
-                                    <TextBlock Text="Max. steppers acceleration:" Style="{StaticResource SmallText}" Margin="20,0,6,0" />
-                                    <TextBox x:Name="TextMotionAcceleration" Width="70" Style="{StaticResource ValueBox}" ToolTip="100000 = 9.4 m/s², the maximum" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0"
-                                           Text="Recommended: 36000 and 100000 (the maximum of the SimHub sliders, scaled to the full servo speed by the firmware). Rotary lever compensation is always off. Ports detected as belt tensioner are filled in automatically." />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}" Margin="0" Padding="14,10">
-                            <StackPanel>
-                                <TextBlock Text="SimHub Motion Preset" Style="{StaticResource SectionTitle}" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnSavePreset" Style="{StaticResource Pill}" Click="BtnSavePreset_Click" MinWidth="200" Height="28">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Image Width="16" Height="16" Source="{StaticResource Save}" Margin="0,0,6,0" />
-                                            <TextBlock Text="Save SimHub Motion preset..." />
-                                        </StackPanel>
-                                    </Button>
-                                    <Button x:Name="BtnReleasePort" Content="Release port for SimHub Motion" Style="{StaticResource Pill}" Height="28" Click="BtnReleasePort_Click" />
-                                    <Button x:Name="BtnOpenMotionDocs" Content="Setup guide" Style="{StaticResource Pill}" Height="28" Click="BtnOpenMotionDocs_Click" />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource SmallText}" Margin="0,12,0,0" TextWrapping="Wrap" LineHeight="18">
-                                    <Run Text="Import the saved file in SimHub:" FontWeight="Bold" /><LineBreak />
-                                    <Run Text="1. Arduino → My Hardware → Arduino scan settings: make sure SimHub does not scan the belt tensioner port(s), Apply changes." /><LineBreak />
-                                    <Run Text="2. Motion → Platform Config. → Settings Import and export → Import all platform settings → select the saved file." /><LineBreak />
-                                    <Run Text="3. Release the port here, then click Enable Motion. The carriage homes, backs off into the park position and is ready." /><LineBreak />
-                                    <Run Text="4. Dual: use 'Test belt pull' in Edit axis assignments to check that each controller moves the correct belt." />
-                                </TextBlock>
-                                <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
-                                           Text="Importing replaces the current rig and controller configuration of SimHub Motion. Only one program can use a COM port: the plugin and SimHub Motion never talk to the controller at the same time." />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </TabItem>
-
-                <!-- ================================================================== -->
-                <!-- SERIAL LOGS                                                        -->
-                <!-- ================================================================== -->
-                <TabItem Width="232" x:Name="TabLog">
+                <TabItem Width="242" x:Name="TabSystem">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <Image Width="26" Height="26" Source="{StaticResource Monitor}" />
-                            <TextBlock Text="SERIAL LOGS" Style="{StaticResource MainTabHeaderText}" FontSize="19" />
+                            <TextBlock Text="SYSTEM" Style="{StaticResource MainTabHeaderText}" />
                         </StackPanel>
                     </TabItem.Header>
                     <StackPanel>
-                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,6" RadiusX="1" RadiusY="1" />
-                        <Border Style="{StaticResource Card}" Margin="0" Padding="10">
-                            <DockPanel Height="620">
-                                <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                                    <Button DockPanel.Dock="Right" x:Name="BtnClearLog" Content="Clear" Style="{StaticResource Pill}" Margin="6,0,0,0" Click="BtnClearLog_Click" />
-                                    <Button DockPanel.Dock="Right" x:Name="BtnSend" Content="Send" Style="{StaticResource Pill}" Margin="6,0,0,0" Click="BtnSend_Click" />
-                                    <Button DockPanel.Dock="Right" x:Name="BtnHelp" Content="HELP" Style="{StaticResource Pill}" Margin="6,0,0,0" Click="BtnHelp_Click" />
-                                    <Button DockPanel.Dock="Right" x:Name="BtnSettingsCmd" Content="SETTINGS" Style="{StaticResource Pill}" Margin="6,0,0,0" Click="BtnSettingsCmd_Click" />
-                                    <TextBox x:Name="TextCommand" Style="{StaticResource ValueBox}" Height="24" KeyDown="TextCommand_KeyDown"
-                                             ToolTip="ASCII command, e.g. CONFIG, SETTINGS, STATUS, DIFF_SERVO, SET IDLE_POSITION 15 (Enter to send)" />
+                        <Rectangle Height="2" Fill="{DynamicResource AccentColorBrush}" Margin="0,1,0,8" RadiusX="1" RadiusY="1" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="300" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="12,10">
+                                    <StackPanel>
+                                        <TextBlock Text="Plugin" Style="{StaticResource CardTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                                            <styles:SHToggleButton x:Name="ToggleAutoConnect" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleAutoConnect_Click" />
+                                            <TextBlock Text="Connect when SimHub starts" Style="{StaticResource ToggleLabel}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                                            <styles:SHToggleButton x:Name="ToggleLiveStatus" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleLiveStatus_Click" />
+                                            <TextBlock Text="Live status" Style="{StaticResource ToggleLabel}" ToolTip="Polls servo state, load, voltage and position while connected" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                                            <styles:SHToggleButton x:Name="ToggleCheckUpdates" Content="" Width="35" Height="15" VerticalAlignment="Center" Click="ToggleCheckUpdates_Click" />
+                                            <TextBlock Text="Check for plugin updates" Style="{StaticResource ToggleLabel}" />
+                                        </StackPanel>
+                                        <DockPanel Margin="0,8,0,0">
+                                            <Button DockPanel.Dock="Right" Content="Check now" Style="{StaticResource Pill}" MinWidth="0" Margin="0" Click="BtnCheckPluginUpdate_Click" />
+                                            <TextBlock x:Name="TextPluginVersion" Style="{StaticResource HintText}" Text="Plugin version: -" />
+                                        </DockPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="12,10">
+                                    <StackPanel>
+                                        <TextBlock Text="COM ports" Style="{StaticResource CardTitle}" />
+                                        <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8"
+                                                   Text="Native USB boards are recognized by their USB name, pedals by their USB IDs. CP2102 boards all look the same; identify them by opening them briefly (this resets an ESP32 behind the port)." />
+                                        <Button x:Name="BtnScanPorts" Content="Identify USB-UART boards" Style="{StaticResource Pill}" Click="BtnScanPorts_Click" Margin="0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource Card}" Margin="0" Padding="12,10">
+                                    <StackPanel>
+                                        <TextBlock Text="Status" Style="{StaticResource CardTitle}" />
+                                        <TextBox x:Name="TextStatus" Height="240" FontSize="10" Background="#141414" Foreground="White" BorderThickness="0"
+                                                 IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="0" Padding="10">
+                                <DockPanel Height="560">
+                                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="Serial Logs" Style="{StaticResource CardTitle}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <TextBlock Text="Send to:" Style="{StaticResource SmallText}" Margin="0,0,6,0" />
+                                        <ComboBox x:Name="ComboLogChannel" Width="130" Height="22" />
+                                    </StackPanel>
+                                    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                        <Button DockPanel.Dock="Right" Content="Clear" Style="{StaticResource Pill}" Margin="6,0,0,0" MinWidth="0" Click="BtnClearLog_Click" />
+                                        <Button DockPanel.Dock="Right" Content="Send" Style="{StaticResource Pill}" Margin="6,0,0,0" MinWidth="0" Click="BtnSend_Click" />
+                                        <Button DockPanel.Dock="Right" Content="HELP" Style="{StaticResource Pill}" Margin="6,0,0,0" MinWidth="0" Click="BtnHelp_Click" />
+                                        <Button DockPanel.Dock="Right" Content="SETTINGS" Style="{StaticResource Pill}" Margin="6,0,0,0" MinWidth="0" Click="BtnSettingsCmd_Click" />
+                                        <TextBox x:Name="TextCommand" Style="{StaticResource ValueBox}" Height="24" KeyDown="TextCommand_KeyDown"
+                                                 ToolTip="ASCII command, e.g. CONFIG, SETTINGS, STATUS, DIFF_SERVO, SET IDLE_POSITION 15 (Enter to send)" />
+                                    </DockPanel>
+                                    <TextBox x:Name="TextLog" IsReadOnly="True" FontFamily="Consolas" FontSize="11" Background="#141414" Foreground="White" BorderThickness="0"
+                                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
                                 </DockPanel>
-                                <TextBox x:Name="TextLog" IsReadOnly="True" FontFamily="Consolas" FontSize="11" Background="#141414" Foreground="White" BorderThickness="0"
-                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
-                            </DockPanel>
-                        </Border>
+                            </Border>
+                        </Grid>
                     </StackPanel>
                 </TabItem>
             </TabControl>

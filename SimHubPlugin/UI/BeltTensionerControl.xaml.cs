@@ -9,71 +9,62 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace DiyBeltTensioner.UI
 {
+    /// <summary>
+    /// Main view of the plugin:
+    ///  SETUP    - rig layout (single / dual) with the renderings, one card per belt channel
+    ///             (COM port, status, pitch, working range) and the SimHub Motion preset
+    ///  CONFIG   - per channel: stroke view, positions, idle &amp; homing, motion test, servo
+    ///  FIRMWARE - flash the controllers
+    ///  SYSTEM   - plugin settings, COM port identification, status and serial logs
+    /// Every channel has its own connection (TensionerChannel), so both belts of a dual
+    /// setup are connected at the same time.
+    /// </summary>
     public partial class BeltTensionerControl : UserControl
     {
         private const int MaxLogChars = 200000;
-        private const int MaxStatusLines = 30;
-
-        // Defaults of Config.h, shown until the controller has been read
-        private const double DefaultPitchMm = 10;
-        private const double DefaultRangeMm = 60;
-
-        private static readonly string[] CommonPitches = { "4", "5", "8", "10", "16", "20", "25" };
+        private const int MaxStatusLines = 60;
 
         private readonly BeltTensionerPlugin plugin;
         private readonly BeltTensionerSettings settings;
-        private readonly BeltTensionerLink link;
-        private readonly TestRunner tester;
 
         private readonly ConcurrentQueue<string> logQueue = new ConcurrentQueue<string>();
         private readonly DispatcherTimer logTimer;
-        private readonly DispatcherTimer loadTimer;
+        private readonly DispatcherTimer pollTimer;
         private readonly DispatcherTimer liveTimer;
         private readonly List<string> statusLines = new List<string>();
+
+        private readonly LabeledSlider[] settingSliders;
+        private readonly SHToggleButton[] settingToggles;
 
         private bool loading = true;
         private bool applying;
         private bool busy;
-        private volatile bool liveLoadActive;
+        private List<ComPortInfo> currentPorts = new List<ComPortInfo>();
+        private bool refreshingPorts;
         private FirmwareRelease latestRelease;
         private FirmwareRelease pendingPluginUpdate;
         private bool loadingReleases;
+        private ServoRegisterWindow registerWindow;
+        private TensionerChannel registerWindowChannel;
 
-        // Values read from the controller
-        private List<AxisConfigInfo> deviceAxes = new List<AxisConfigInfo>();
-        private Dictionary<string, ControllerSetting> deviceSettings = new Dictionary<string, ControllerSetting>();
-        private bool configRead;
-        private bool settingsSupported;
-
-        // Edits not saved to the controller yet
-        private readonly double?[] pendingPitch = new double?[2];
-        private readonly double?[] pendingRange = new double?[2];
-        private readonly Dictionary<string, double> pendingSettings = new Dictionary<string, double>();
-
-        private readonly int[] lastLoad = { int.MinValue, int.MinValue };
-        private readonly AxisStateInfo[] axisStates = new AxisStateInfo[2];
-        private bool stateSupported = true;
-        private int stateRequestsWithoutReply;
-        private volatile bool blockingCommand; // controller busy with a long command: no status polling
-
-        private readonly LabeledSlider[] settingSliders;
-        private readonly SHToggleButton[] settingToggles;
+        // Channel shown on the CONFIG tab
+        private TensionerChannel cfgChannel;
 
         public BeltTensionerControl(BeltTensionerPlugin plugin)
         {
             this.plugin = plugin;
             settings = plugin.Settings;
-            link = plugin.Link;
-            tester = plugin.Tester;
 
             InitializeComponent();
 
@@ -84,13 +75,14 @@ namespace DiyBeltTensioner.UI
             logTimer.Tick += (s, e) => FlushLog();
             logTimer.Start();
 
-            loadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            loadTimer.Tick += LoadTimer_Tick;
+            pollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            pollTimer.Tick += PollTimer_Tick;
+            pollTimer.Start();
 
             liveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
             liveTimer.Tick += (s, e) =>
             {
-                Travel.LivePct = tester.IsRunning ? tester.CurrentPercent : double.NaN;
+                Travel.LivePct = cfgChannel != null && cfgChannel.Tester.IsRunning ? cfgChannel.Tester.CurrentPercent : double.NaN;
                 Travel.Refresh();
             };
 
@@ -98,54 +90,63 @@ namespace DiyBeltTensioner.UI
             {
                 slider.ValueCommitted += SettingSlider_ValueCommitted;
             }
-            SliderRange1.ValueCommitted += (s, v) => OnRangeEdited(0, v);
-            SliderRange2.ValueCommitted += (s, v) => OnRangeEdited(1, v);
             foreach (var slider in new[] { SliderHold, SliderSineCenter, SliderSineAmplitude, SliderSineFrequency, SliderPulseBase, SliderPulsePeak, SliderPulseDuration, SliderPulseInterval })
             {
                 slider.ValueCommitted += (s, v) => ApplyTestParameters();
             }
-            ComboPitch1.ItemsSource = CommonPitches;
-            ComboPitch2.ItemsSource = CommonPitches;
-            ComboPort.SelectionChanged += (s, e) => UpdateFlashPortText();
+
+            foreach (var channel in plugin.AllChannels)
+            {
+                var c = channel;
+                string prefix = "[" + (c.Key == "Single" ? "B" : c.Key.Substring(0, 1)) + "] ";
+                c.Changed += () => Dispatcher.BeginInvoke(new Action(() => OnChannelChanged(c)));
+                c.StateUpdated += () => Dispatcher.BeginInvoke(new Action(() => OnChannelState(c)), DispatcherPriority.Background);
+                c.Message += text => Dispatcher.BeginInvoke(new Action(() => Status(text)));
+                c.LogLine += line => Log(prefix + line);
+                c.Tester.Failed += msg => Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Status(c.Title + ": test stopped: " + msg);
+                    UpdateTestUi();
+                }));
+            }
+
+            CardA.PortChanged += OnCardPortChanged;
+            CardB.PortChanged += OnCardPortChanged;
+            CardA.RefreshPortsRequested += () => { var ignored = RefreshPortsAsync(); };
+            CardB.RefreshPortsRequested += () => { var ignored = RefreshPortsAsync(); };
 
             LoadSettingsIntoUi();
-            ShowDeviceValues();
             loading = false;
 
-            link.LineReceived += Link_LineReceived;
-            link.ConnectionChanged += open => Dispatcher.BeginInvoke(new Action(() => OnConnectionChanged(open)));
-            tester.Failed += msg => Dispatcher.BeginInvoke(new Action(() =>
-            {
-                Status("Test stopped: " + msg);
-                UpdateTestUi();
-            }));
-
-            var ignoredRefresh = RefreshPortsAsync();
-            UpdateConnectionUi();
-            UpdateMotionLayoutUi();
+            UpdateLayoutUi();
             UpdateFirmwareSourceUi();
             UpdateTestModeUi();
-            UpdateTestUi();
-            UpdateEnabledState();
-
             TextPluginVersion.Text = "Plugin version: " + PluginUpdater.CurrentVersion;
+
+            var ignoredPorts = RefreshPortsAsync();
             var ignoredReleases = LoadReleasesAsync(userInitiated: false);
 
-            if (link.IsOpen)
+            // Channels connected at SimHub start (auto-connect) still need their configuration
+            foreach (var channel in plugin.ActiveChannels.Where(c => c.IsOpen && !c.ConfigRead))
             {
-                var ignored = AfterConnectAsync(waitForGreeting: false);
+                var ignored = channel.AfterConnectAsync(waitForGreeting: true);
             }
         }
 
+        private TensionerChannel ChannelA => settings.Dual ? plugin.LeftChannel : plugin.SingleChannel;
+        private TensionerChannel ChannelB => settings.Dual ? plugin.RightChannel : null;
+
         // ==================================================================
-        // Plugin settings <-> UI
+        // Settings <-> UI
         // ==================================================================
 
         private void LoadSettingsIntoUi()
         {
+            if (settings.Dual) RadioDual.IsChecked = true; else RadioSingle.IsChecked = true;
+
             ToggleAutoConnect.IsChecked = settings.AutoConnect;
+            ToggleLiveStatus.IsChecked = settings.LiveStatus;
             ToggleCheckUpdates.IsChecked = settings.CheckPluginUpdates;
-            ToggleLiveLoad.IsChecked = settings.LiveStatus;
 
             TextRepository.Text = settings.GitHubRepository;
             TextLocalFirmware.Text = settings.LocalFirmwarePath;
@@ -165,18 +166,9 @@ namespace DiyBeltTensioner.UI
             SliderPulsePeak.Value = settings.TestPulsePeakPct;
             SliderPulseDuration.Value = settings.TestPulseDurationMs;
             SliderPulseInterval.Value = settings.TestPulseIntervalMs;
-            ToggleTestAxis1.IsChecked = settings.TestAxis1;
-            ToggleTestAxis2.IsChecked = settings.TestAxis2;
-            TextTestFrequency.Text = settings.StepperFrequency.ToString(CultureInfo.InvariantCulture);
-            TextTestAcceleration.Text = settings.StepperAcceleration.ToString(CultureInfo.InvariantCulture);
+
             TextMotionFrequency.Text = settings.StepperFrequency.ToString(CultureInfo.InvariantCulture);
             TextMotionAcceleration.Text = settings.StepperAcceleration.ToString(CultureInfo.InvariantCulture);
-
-            if (settings.MotionDual) RadioMotionDual.IsChecked = true; else RadioMotionSingle.IsChecked = true;
-            ComboMotionPort1.Text = settings.MotionDual ? settings.MotionPortLeft : settings.MotionPortSingle;
-            ComboMotionPort2.Text = settings.MotionPortRight;
-            ToggleMotionReverse1.IsChecked = settings.MotionDual ? settings.MotionReverseLeft : settings.MotionReverseSingle;
-            ToggleMotionReverse2.IsChecked = settings.MotionReverseRight;
         }
 
         private void SaveSettings()
@@ -194,7 +186,7 @@ namespace DiyBeltTensioner.UI
             logQueue.Enqueue(text);
         }
 
-        /// <summary>Message for the status card (and the log).</summary>
+        /// <summary>Message for the status list (SYSTEM tab) and the log.</summary>
         private void Status(string text)
         {
             Log("[plugin] " + text);
@@ -221,29 +213,12 @@ namespace DiyBeltTensioner.UI
             TextLog.ScrollToEnd();
         }
 
-        private void Link_LineReceived(string line)
-        {
-            AxisStateInfo stateInfo;
-            if (AxisConfigParser.TryParseState(line, out stateInfo))
-            {
-                Dispatcher.BeginInvoke(new Action(() => ShowState(stateInfo)));
-                if (liveLoadActive) return; // polled: not for the log
-            }
-
-            int axis, load, level;
-            bool triggered;
-            if (AxisConfigParser.TryParseSensor(line, out axis, out load, out level, out triggered))
-            {
-                Dispatcher.BeginInvoke(new Action(() => ShowLoad(axis, load, level, triggered)));
-                if (liveLoadActive) return; // don't flood the log while polling
-            }
-            Log(line);
-        }
-
         private void BtnClearLog_Click(object sender, RoutedEventArgs e)
         {
             TextLog.Clear();
         }
+
+        private TensionerChannel LogChannel => ComboLogChannel.SelectedItem as TensionerChannel ?? ChannelA;
 
         private void BtnSend_Click(object sender, RoutedEventArgs e)
         {
@@ -252,17 +227,12 @@ namespace DiyBeltTensioner.UI
 
         private void BtnHelp_Click(object sender, RoutedEventArgs e)
         {
-            SendAscii("HELP");
+            LogChannel.Send("HELP");
         }
 
         private void BtnSettingsCmd_Click(object sender, RoutedEventArgs e)
         {
-            SendAscii("SETTINGS");
-        }
-
-        private void BtnShowLog_Click(object sender, RoutedEventArgs e)
-        {
-            MainTabs.SelectedItem = TabLog;
+            LogChannel.Send("SETTINGS");
         }
 
         private void TextCommand_KeyDown(object sender, KeyEventArgs e)
@@ -278,54 +248,127 @@ namespace DiyBeltTensioner.UI
         {
             string cmd = TextCommand.Text.Trim();
             if (cmd.Length == 0) return;
-            if (SendAscii(cmd)) TextCommand.Clear();
+            if (LogChannel.Send(cmd)) TextCommand.Clear();
         }
 
-        private bool SendAscii(string cmd)
+        // ==================================================================
+        // Layout (single / dual)
+        // ==================================================================
+
+        private void Layout_Changed(object sender, RoutedEventArgs e)
         {
-            if (!EnsureConnected()) return false;
-            try
+            if (loading) return;
+            bool dual = RadioDual.IsChecked == true;
+            if (dual == settings.Dual) return;
+
+            // Close the channels of the other layout
+            foreach (var channel in plugin.ActiveChannels)
             {
-                Log("> " + cmd);
-                link.SendLine(cmd);
-                return true;
+                if (channel.IsOpen) channel.Disconnect();
             }
-            catch (Exception ex)
-            {
-                Status("Send failed: " + ex.Message);
-                return false;
-            }
+            settings.Dual = dual;
+            SaveSettings();
+            UpdateLayoutUi();
+            var ignored = RefreshPortsAsync();
         }
 
-        private bool SendBinary(Action action, string description)
+        private void UpdateLayoutUi()
         {
-            if (!EnsureConnected()) return false;
-            try
+            bool dual = settings.Dual;
+            CardA.Channel = ChannelA;
+            CardB.Channel = plugin.RightChannel;
+            CardB.Visibility = dual ? Visibility.Visible : Visibility.Collapsed;
+            ColumnRightCard.Width = new GridLength(dual ? 310 : 0);
+
+            string image = dual ? "setup_dual.png" : "setup_single.png";
+            SetupImage.Source = new BitmapImage(new Uri("pack://application:,,,/DiyBeltTensioner;component/Resources/" + image));
+            LabelPictureLeft.Visibility = dual ? Visibility.Visible : Visibility.Collapsed;
+            LabelPictureRight.Visibility = dual ? Visibility.Visible : Visibility.Collapsed;
+
+            // CONFIG channel switcher
+            TextCfgA.Text = dual ? "LEFT" : "BELT";
+            RadioCfgB.Visibility = dual ? Visibility.Visible : Visibility.Collapsed;
+            if (!dual || RadioCfgA.IsChecked == true || cfgChannel == null)
             {
-                Log("> " + description);
-                action();
-                return true;
+                RadioCfgA.IsChecked = true;
+                SelectCfgChannel(ChannelA);
             }
-            catch (Exception ex)
+            else
             {
-                Status("Send failed: " + ex.Message);
-                return false;
+                SelectCfgChannel(plugin.RightChannel);
             }
+
+            // FIRMWARE rows
+            TextFlashTitleA.Text = ChannelA.Title;
+            var rowB = dual ? Visibility.Visible : Visibility.Collapsed;
+            TextFlashTitleB.Visibility = rowB;
+            TextFlashPortB.Visibility = rowB;
+            ComboBoardB.Visibility = rowB;
+            BtnFlashB.Visibility = rowB;
+            PopulateBoards();
+
+            // SimHub Motion
+            LabelReverseA.Text = dual ? "Reverse left" : "Reverse direction";
+            PanelReverseB.Visibility = rowB;
+            ToggleReverseA.IsChecked = ChannelA.Settings.MotionReverse;
+            ToggleReverseB.IsChecked = plugin.RightChannel.Settings.MotionReverse;
+
+            // Console target
+            ComboLogChannel.ItemsSource = plugin.ActiveChannels.ToList();
+            ComboLogChannel.DisplayMemberPath = "Title";
+            ComboLogChannel.SelectedIndex = 0;
+
+            RefreshAll();
         }
 
-        private bool EnsureConnected()
+        private void RefreshAll()
         {
-            if (link.IsOpen) return true;
-            Status("Not connected. Select the COM port and click Connect.");
-            return false;
+            CardA.Refresh();
+            if (settings.Dual) CardB.Refresh();
+            UpdateConnectAllButton();
+            UpdateSaveStates();
+            UpdateFlashPortTexts();
+            ShowCfgChannel();
+            UpdateTestUi();
+        }
+
+        // ==================================================================
+        // Channel events
+        // ==================================================================
+
+        private void OnChannelChanged(TensionerChannel channel)
+        {
+            if (!plugin.ActiveChannels.Contains(channel)) return;
+            if (channel == ChannelA) CardA.Refresh();
+            if (channel == ChannelB) CardB.Refresh();
+            if (channel == cfgChannel) ShowCfgChannel();
+            if (!channel.IsOpen && channel.Tester.IsRunning == false) UpdateTestUi();
+            UpdateConnectAllButton();
+            UpdateSaveStates();
+            UpdateFlashPortTexts();
+        }
+
+        private void OnChannelState(TensionerChannel channel)
+        {
+            if (channel == ChannelA) CardA.RefreshStatus();
+            if (channel == ChannelB) CardB.RefreshStatus();
+            if (channel == cfgChannel) ShowCfgStatus();
+        }
+
+        private void PollTimer_Tick(object sender, EventArgs e)
+        {
+            if (!settings.LiveStatus) return;
+            foreach (var channel in plugin.ActiveChannels)
+            {
+                if (!channel.IsOpen) continue;
+                if (registerWindow != null && registerWindowChannel == channel && registerWindow.IsBusy) continue;
+                channel.PollStatus();
+            }
         }
 
         // ==================================================================
         // Ports & connection
         // ==================================================================
-
-        private List<ComPortInfo> currentPorts = new List<ComPortInfo>();
-        private bool refreshingPorts;
 
         private async Task RefreshPortsAsync()
         {
@@ -333,28 +376,24 @@ namespace DiyBeltTensioner.UI
             refreshingPorts = true;
             try
             {
-                var ports = await Task.Run(() => ComPortInfo.GetPresentPorts(true));
-                currentPorts = ports;
+                currentPorts = await Task.Run(() => ComPortInfo.GetPresentPorts(true));
 
-                string selected = (ComboPort.SelectedItem as ComPortInfo)?.PortName;
-                if (string.IsNullOrEmpty(selected)) selected = link.IsOpen ? link.PortName : settings.ComPort;
+                // Assign detected belt tensioners to channels without a port
+                var used = new HashSet<string>(plugin.ActiveChannels.Select(c => c.Settings.ComPort).Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+                bool assigned = false;
+                foreach (var channel in plugin.ActiveChannels.Where(c => string.IsNullOrEmpty(c.Settings.ComPort)))
+                {
+                    var free = currentPorts.FirstOrDefault(p => p.Kind == DeviceKind.BeltTensioner && !used.Contains(p.PortName));
+                    if (free == null) break;
+                    channel.Settings.ComPort = free.PortName;
+                    used.Add(free.PortName);
+                    assigned = true;
+                }
+                if (assigned) SaveSettings();
 
-                ComboPort.ItemsSource = ports;
-                ComboPort.SelectedItem = ports.FirstOrDefault(p => string.Equals(p.PortName, selected, StringComparison.OrdinalIgnoreCase))
-                                         ?? ports.FirstOrDefault(p => p.Kind == DeviceKind.BeltTensioner)
-                                         ?? ports.FirstOrDefault();
-
-                // Motion tab: belt tensioner ports first
-                var names = ports.OrderBy(p => p.Kind == DeviceKind.BeltTensioner ? 0 : 1).Select(p => p.PortName).ToList();
-                string m1 = ComboMotionPort1.Text;
-                string m2 = ComboMotionPort2.Text;
-                ComboMotionPort1.ItemsSource = names;
-                ComboMotionPort2.ItemsSource = names;
-                var belts = ports.Where(p => p.Kind == DeviceKind.BeltTensioner).Select(p => p.PortName).ToList();
-                ComboMotionPort1.Text = !string.IsNullOrEmpty(m1) ? m1 : (belts.FirstOrDefault() ?? selected ?? "");
-                ComboMotionPort2.Text = !string.IsNullOrEmpty(m2) ? m2 : (belts.Skip(1).FirstOrDefault() ?? "");
-
-                UpdateFlashPortText();
+                CardA.SetPorts(currentPorts);
+                CardB.SetPorts(currentPorts);
+                RefreshAll();
             }
             catch (Exception ex)
             {
@@ -366,26 +405,63 @@ namespace DiyBeltTensioner.UI
             }
         }
 
-        private void ComboPort_DropDownOpened(object sender, EventArgs e)
+        private void BtnRefreshPorts_Click(object sender, RoutedEventArgs e)
         {
-            if (!link.IsOpen)
-            {
-                var ignored = RefreshPortsAsync();
-            }
+            var ignored = RefreshPortsAsync();
         }
 
-        private void UpdateFlashPortText()
+        private void OnCardPortChanged()
         {
-            var port = ComboPort.SelectedItem as ComPortInfo;
-            TextFlashPort.Text = port != null ? port.DisplayName : "- (select it on the TENSIONER tab)";
+            if (settings.Dual && !string.IsNullOrEmpty(plugin.LeftChannel.Settings.ComPort) &&
+                string.Equals(plugin.LeftChannel.Settings.ComPort, plugin.RightChannel.Settings.ComPort, StringComparison.OrdinalIgnoreCase))
+            {
+                Status("Left and right belt use the same COM port. Every belt needs its own controller board.");
+            }
+            SaveSettings();
+            UpdateFlashPortTexts();
+        }
+
+        private void UpdateConnectAllButton()
+        {
+            var channels = plugin.ActiveChannels;
+            bool allOpen = channels.All(c => c.IsOpen);
+            TextConnectAll.Text = allOpen ? (channels.Count > 1 ? "Disconnect all" : "Disconnect") : (channels.Count > 1 ? "Connect all" : "Connect");
+        }
+
+        private async void BtnConnectAll_Click(object sender, RoutedEventArgs e)
+        {
+            var channels = plugin.ActiveChannels;
+            if (channels.All(c => c.IsOpen))
+            {
+                foreach (var c in channels) c.Disconnect();
+                return;
+            }
+            BtnConnectAll.IsEnabled = false;
+            try
+            {
+                foreach (var c in channels.Where(c => !c.IsOpen))
+                {
+                    if (string.IsNullOrEmpty(c.Settings.ComPort))
+                    {
+                        Status(c.Title + ": select a COM port first.");
+                        continue;
+                    }
+                    await c.ConnectAsync();
+                }
+            }
+            finally
+            {
+                BtnConnectAll.IsEnabled = true;
+                RefreshAll();
+            }
         }
 
         private async void BtnScanPorts_Click(object sender, RoutedEventArgs e)
         {
             if (busy) return;
+            var openPorts = new HashSet<string>(plugin.AllChannels.Where(c => c.IsOpen).Select(c => c.Link.PortName), StringComparer.OrdinalIgnoreCase);
             var candidates = currentPorts.Where(p =>
-                    (p.Kind == DeviceKind.UsbUart || p.Kind == DeviceKind.Unknown || p.Kind == DeviceKind.EspNativeUsb) &&
-                    !(link.IsOpen && string.Equals(link.PortName, p.PortName, StringComparison.OrdinalIgnoreCase)))
+                    (p.Kind == DeviceKind.UsbUart || p.Kind == DeviceKind.Unknown || p.Kind == DeviceKind.EspNativeUsb) && !openPorts.Contains(p.PortName))
                 .ToList();
             if (candidates.Count == 0)
             {
@@ -395,7 +471,7 @@ namespace DiyBeltTensioner.UI
 
             var answer = MessageBox.Show(
                 "Open " + string.Join(", ", candidates.Select(p => p.PortName)) + " briefly to look for the belt tensioner firmware?\n\n" +
-                "Opening a CP2102 port resets the ESP32 behind it (e.g. a pedal restarts). Ports used by SimHub or other programs are skipped.",
+                "Opening a CP2102 port resets the ESP32 behind it. Ports used by SimHub or other programs are skipped.",
                 "Identify USB-UART boards", MessageBoxButton.OKCancel, MessageBoxImage.Question);
             if (answer != MessageBoxResult.OK) return;
 
@@ -407,8 +483,8 @@ namespace DiyBeltTensioner.UI
                 {
                     Status("Probing " + port.PortName + "...");
                     var kind = await DeviceScanner.ProbeAsync(port.PortName);
-                    ComPortInfo.RememberKind(port.PortName, kind == DeviceKind.Unknown ? DeviceKind.Unknown : kind);
-                    Status(port.PortName + ": " + (kind == DeviceKind.BeltTensioner ? "belt tensioner firmware found" : kind == DeviceKind.FfbPedal ? "FFB pedal" : "no belt tensioner firmware"));
+                    ComPortInfo.RememberKind(port.PortName, kind);
+                    Status(port.PortName + ": " + (kind == DeviceKind.BeltTensioner ? "belt tensioner firmware found" : "no belt tensioner firmware"));
                 }
                 await RefreshPortsAsync();
             }
@@ -419,946 +495,205 @@ namespace DiyBeltTensioner.UI
             }
         }
 
-        private async void BtnConnect_Click(object sender, RoutedEventArgs e)
-        {
-            if (link.IsOpen)
-            {
-                tester.Stop(park: true);
-                link.Close();
-                return;
-            }
-            await ConnectAsync();
-        }
-
-        private async Task<bool> ConnectAsync()
-        {
-            var port = ComboPort.SelectedItem as ComPortInfo;
-            if (port == null)
-            {
-                Status("No COM port selected.");
-                return false;
-            }
-            if (port.IsPedalDevice)
-            {
-                var answer = MessageBox.Show(port.PortName + " is a DIY FFB Pedal device (" + port.KindText + "). Connect anyway?", "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (answer != MessageBoxResult.Yes) return false;
-            }
-
-            try
-            {
-                link.Open(port.PortName);
-            }
-            catch (Exception ex)
-            {
-                Status("Connect failed: " + ex.Message);
-                return false;
-            }
-
-            settings.ComPort = port.PortName;
-            SaveSettings();
-            Status("Connected to " + port.PortName);
-            await AfterConnectAsync(true);
-            return true;
-        }
-
-        private async Task AfterConnectAsync(bool waitForGreeting)
-        {
-            try
-            {
-                if (waitForGreeting && !link.GreetingReceived)
-                {
-                    // CP2102 boards reset when the port opens, native USB boards repeat their greeting.
-                    await link.CollectAsync(() => { }, l => l.EndsWith("steppers enabled"), 3000, 0);
-                }
-                if (!link.IsOpen) return;
-                await link.CollectAsync(() => link.QueryFirmwareVersion(), l => link.FirmwareVersion.Length > 0, 800, 0);
-                await link.CollectAsync(() => link.QueryEnabledMotors(), l => l.StartsWith("Enabled motors:"), 800, 0);
-                if (!string.IsNullOrEmpty(link.PortName) && link.FirmwareVersion.Length > 0)
-                {
-                    ComPortInfo.RememberKind(link.PortName, DeviceKind.BeltTensioner);
-                }
-                UpdateConnectionUi();
-                await ReadAllAsync();
-                stateSupported = true;
-                stateRequestsWithoutReply = 0;
-                UpdateStatusPolling();
-            }
-            catch (Exception ex)
-            {
-                Status("Query failed: " + ex.Message);
-            }
-        }
-
-        private void OnConnectionChanged(bool open)
-        {
-            if (!open)
-            {
-                Status("Disconnected.");
-                liveLoadActive = false;
-                loadTimer.Stop();
-                configRead = false;
-                ClearStateDisplay();
-            }
-            UpdateConnectionUi();
-            UpdateTestUi();
-            UpdateEnabledState();
-        }
-
-        private void UpdateConnectionUi()
-        {
-            bool open = link.IsOpen;
-            BtnConnect.Content = open ? "Disconnect" : "Connect";
-            ComboPort.IsEnabled = !open;
-            BtnScanPorts.IsEnabled = !busy;
-            InfoConnection.Text = open ? "Connected (" + link.PortName + ")" : "Disconnected";
-            InfoProtocol.Text = open && link.FirmwareVersion.Length > 0 ? link.FirmwareVersion : "-";
-            InfoActuators.Text = open && link.EnabledMotors > 0 ? link.EnabledMotors.ToString(CultureInfo.InvariantCulture) : "-";
-            if (!open) InfoSettings.Text = "-";
-            if (!open) ClearStateDisplay();
-
-            bool twoAxes = link.EnabledMotors >= 2;
-            PanelAxis2.Visibility = twoAxes ? Visibility.Visible : Visibility.Hidden;
-            // Axis selection of the motion test only for controllers with two actuators
-            PanelTestAxes.Visibility = twoAxes ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private void ToggleAutoConnect_Click(object sender, RoutedEventArgs e)
-        {
-            settings.AutoConnect = ToggleAutoConnect.IsChecked == true;
-            SaveSettings();
-        }
-
         // ==================================================================
-        // Read configuration
+        // Save / discard (SETUP: all channels, CONFIG: shown channel)
         // ==================================================================
 
-        private async void BtnReadConfig_Click(object sender, RoutedEventArgs e)
+        private IEnumerable<TensionerChannel> ChannelsFor(object sender)
         {
-            if (!EnsureConnected()) return;
-            await ReadAllAsync();
+            string scope = (sender as FrameworkElement)?.Tag as string;
+            if (scope == "cfg") return cfgChannel != null ? new[] { cfgChannel } : new TensionerChannel[0];
+            return plugin.ActiveChannels;
         }
 
-        /// <summary>Reads pitch / range (CONFIG) and the behaviour settings (SETTINGS).</summary>
-        private async Task ReadAllAsync()
+        private static string SaveStateText(TensionerChannel c)
         {
-            if (!link.IsOpen) return;
-
-            Log("> CONFIG");
-            var lines = await link.RequestAsync("CONFIG", l => l.Contains("RESET_CONFIG"), 2500, 600);
-            var axes = AxisConfigParser.Parse(lines);
-            if (axes.Count == 0)
-            {
-                Status("No configuration received. Is this the belt tensioner firmware?");
-                return;
-            }
-            deviceAxes = axes;
-
-            Log("> SETTINGS");
-            var settingLines = await link.RequestAsync("SETTINGS", l => l.StartsWith("End of settings"), 1500, 500);
-            var parsed = AxisConfigParser.ParseSettings(settingLines);
-            settingsSupported = parsed.Count > 0;
-            deviceSettings = parsed.ToDictionary(s => s.Key, s => s, StringComparer.OrdinalIgnoreCase);
-            InfoSettings.Text = settingsSupported ? "supported" : "pitch & range only";
-            if (!settingsSupported)
-            {
-                Status("This firmware only supports pitch & range. Flash the latest firmware for direction, positions, idle and homing settings.");
-            }
-
-            configRead = true;
-            ClearPending();
-            ShowDeviceValues();
-            UpdateEnabledState();
-            Status("Configuration read.");
+            if (!c.IsOpen) return "not connected";
+            if (!c.ConfigRead) return "reading...";
+            if (c.PendingCount > 0) return c.PendingCount + " unsaved change" + (c.PendingCount == 1 ? "" : "s");
+            if (c.RestartPending) return "restart to apply saved values";
+            return c.SettingsSupported ? "in sync" : "in sync (update the firmware for all settings)";
         }
 
-        private void ClearPending()
+        private void UpdateSaveStates()
         {
-            pendingPitch[0] = pendingPitch[1] = null;
-            pendingRange[0] = pendingRange[1] = null;
-            pendingSettings.Clear();
-        }
-
-        private double DeviceSetting(string key, double fallback)
-        {
-            ControllerSetting s;
-            return deviceSettings.TryGetValue(key, out s) ? s.Value : fallback;
-        }
-
-        /// <summary>Value shown in the UI: pending edit, else controller value, else Config.h default.</summary>
-        private double EffectiveSetting(string key, double fallback)
-        {
-            double v;
-            return pendingSettings.TryGetValue(key, out v) ? v : DeviceSetting(key, fallback);
-        }
-
-        private static double DefaultOf(string key)
-        {
-            switch (key)
-            {
-                case "INVERT_TENSION": return 0;
-                case "IDLE_POSITION": return 10;
-                case "MIN_LIMIT": return 5;
-                case "MAX_LIMIT": return 95;
-                case "CENTER_AFTER_HOMING": return 0;
-                case "IDLE_DELAY": return 10;
-                case "HOME_AT_BOOT": return 0;
-                case "HOMING_THRESHOLD": return 15;
-                case "HOMING_BACKOFF": return 3.125;
-                case "WEBGRAPHS": return 1;
-                default: return 0;
-            }
-        }
-
-        private double AxisPitch(int index)
-        {
-            if (pendingPitch[index].HasValue) return pendingPitch[index].Value;
-            var a = deviceAxes.FirstOrDefault(x => x.Axis == index + 1);
-            return a != null ? a.PitchMm : DefaultPitchMm;
-        }
-
-        private double AxisRange(int index)
-        {
-            if (pendingRange[index].HasValue) return pendingRange[index].Value;
-            var a = deviceAxes.FirstOrDefault(x => x.Axis == index + 1);
-            return a != null ? a.RangeMm : DefaultRangeMm;
-        }
-
-        /// <summary>Puts the effective values (controller + pending edits) into the controls.</summary>
-        private void ShowDeviceValues()
-        {
-            applying = true;
-            try
-            {
-                ComboPitch1.Text = AxisPitch(0).ToString("0.##", CultureInfo.InvariantCulture);
-                ComboPitch2.Text = AxisPitch(1).ToString("0.##", CultureInfo.InvariantCulture);
-                SliderRange1.Value = AxisRange(0);
-                SliderRange2.Value = AxisRange(1);
-
-                foreach (var slider in settingSliders)
-                {
-                    string key = (string)slider.Tag;
-                    slider.Value = EffectiveSetting(key, DefaultOf(key));
-                }
-                foreach (var toggle in settingToggles)
-                {
-                    string key = (string)toggle.Tag;
-                    toggle.IsChecked = EffectiveSetting(key, DefaultOf(key)) >= 0.5;
-                }
-            }
-            finally
-            {
-                applying = false;
-            }
-            UpdateTravel();
-            UpdateSaveState();
-        }
-
-        private void UpdateEnabledState()
-        {
-            bool canEdit = link.IsOpen && configRead;
-            foreach (var c in new UIElement[] { ComboPitch1, ComboPitch2, SliderRange1, SliderRange2, BtnMeasureRange1, BtnMeasureRange2, BtnSave, BtnDiscard, BtnResetConfig })
-            {
-                c.IsEnabled = canEdit;
-            }
-            bool canEditSettings = canEdit && settingsSupported;
-            foreach (var slider in settingSliders) slider.IsEnabled = canEditSettings;
-            foreach (var toggle in settingToggles) toggle.IsEnabled = canEditSettings;
-            UpdateSaveState();
-        }
-
-        private int PendingCount
-        {
-            get
-            {
-                return pendingSettings.Count + pendingPitch.Count(p => p.HasValue) + pendingRange.Count(p => p.HasValue);
-            }
-        }
-
-        private void UpdateSaveState()
-        {
-            if (!link.IsOpen)
-            {
-                TextSaveState.Text = "Connect to read the configuration from the controller.";
-                return;
-            }
-            if (!configRead)
-            {
-                TextSaveState.Text = "Reading the configuration...";
-                return;
-            }
-            int pending = PendingCount;
-            bool restartPending = deviceAxes.Any(a => a.RestartPending) || deviceSettings.Values.Any(s => s.RestartPending);
-            if (pending > 0)
-            {
-                TextSaveState.Text = pending + " unsaved change" + (pending == 1 ? "" : "s") + ".";
-            }
-            else if (restartPending)
-            {
-                TextSaveState.Text = "Saved values are applied after a restart of the controller (Restart).";
-            }
-            else
-            {
-                TextSaveState.Text = settingsSupported ? "In sync with the controller." : "In sync. Update the firmware for more settings.";
-            }
-        }
-
-        // ==================================================================
-        // Edits
-        // ==================================================================
-
-        private void SettingSlider_ValueCommitted(object sender, double value)
-        {
-            if (applying || loading) return;
-            var slider = (LabeledSlider)sender;
-            SetPending((string)slider.Tag, value);
-        }
-
-        private void SettingToggle_Click(object sender, RoutedEventArgs e)
-        {
-            if (applying || loading) return;
-            var toggle = (SHToggleButton)sender;
-            SetPending((string)toggle.Tag, toggle.IsChecked == true ? 1 : 0);
-        }
-
-        private void SetPending(string key, double value)
-        {
-            double device = DeviceSetting(key, DefaultOf(key));
-            if (Math.Abs(device - value) < 0.0005 && deviceSettings.ContainsKey(key))
-            {
-                pendingSettings.Remove(key);
-            }
-            else
-            {
-                pendingSettings[key] = value;
-            }
-            UpdateTravel();
-            UpdateSaveState();
-        }
-
-        private void OnRangeEdited(int index, double value)
-        {
-            if (applying || loading) return;
-            var a = deviceAxes.FirstOrDefault(x => x.Axis == index + 1);
-            pendingRange[index] = (a != null && Math.Abs(a.RangeMm - value) < 0.0005) ? (double?)null : value;
-            UpdateTravel();
-            UpdateSaveState();
-        }
-
-        private void Pitch_Changed(object sender, SelectionChangedEventArgs e)
-        {
-            if (applying || loading) return;
-            var combo = (ComboBox)sender;
-            var item = combo.SelectedItem as string;
-            if (item != null) CommitPitch(combo, item);
-        }
-
-        private void Pitch_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (applying || loading) return;
-            var combo = (ComboBox)sender;
-            CommitPitch(combo, combo.Text);
-        }
-
-        private void Pitch_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.Key != Key.Enter || applying || loading) return;
-            var combo = (ComboBox)sender;
-            CommitPitch(combo, combo.Text);
-        }
-
-        private void CommitPitch(ComboBox combo, string text)
-        {
-            int index = combo == ComboPitch2 ? 1 : 0;
-            double value;
-            if (!TryParseNumber(text, 0.5, 50, out value))
-            {
-                Status("Spindle pitch must be 0.5 - 50 mm.");
-                applying = true;
-                combo.Text = AxisPitch(index).ToString("0.##", CultureInfo.InvariantCulture);
-                applying = false;
-                return;
-            }
-            var a = deviceAxes.FirstOrDefault(x => x.Axis == index + 1);
-            pendingPitch[index] = (a != null && Math.Abs(a.PitchMm - value) < 0.0005) ? (double?)null : value;
-            UpdateSaveState();
-        }
-
-        private static bool TryParseNumber(string text, double min, double max, out double value)
-        {
-            text = (text ?? "").Trim().Replace(',', '.');
-            return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= min && value <= max;
-        }
-
-        private static readonly System.Text.RegularExpressions.Regex MeasuredRangeLine =
-            new System.Text.RegularExpressions.Regex(@"^Measured working range axis (\d): ([\d.]+) mm");
-
-        /// <summary>
-        /// MEASURE_RANGE: the firmware homes to both end stops and reports the distance between the
-        /// two back-off positions, which can be taken as working range.
-        /// </summary>
-        private async void BtnMeasureRange_Click(object sender, RoutedEventArgs e)
-        {
-            if (!EnsureConnected() || busy) return;
-            int axis = (string)((FrameworkElement)sender).Tag == "2" ? 2 : 1;
-
-            var answer = MessageBox.Show(
-                $"Measure the working range of axis {axis}?\n\n" +
-                "The carriage moves slowly to the MIN end stop, then to the MAX end stop (sensorless homing), and back to the park position.\n\n" +
-                "- Nobody in the harness, nothing pulling on the belt.\n" +
-                "- SimHub Motion must not use the controller.",
-                "Auto-detect working range", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-            if (answer != MessageBoxResult.OK) return;
-
-            tester.Stop(park: false);
-            UpdateTestUi();
-            busy = true;
-            BtnMeasureRange1.IsEnabled = false;
-            BtnMeasureRange2.IsEnabled = false;
-            try
-            {
-                string cmd = "MEASURE_RANGE " + axis;
-                Log("> " + cmd);
-                string done = "Measured working range axis " + axis;
-                string failed = "Working range measurement axis " + axis;
-                var ack = await link.RequestAsync(cmd,
-                    l => l.StartsWith("Measuring working range") || l.StartsWith(done) || l.StartsWith(failed) || l.StartsWith("Usage") || l.Contains("is not enabled"),
-                    2500, 0);
-                if (ack.Count == 0)
-                {
-                    Status("No answer to MEASURE_RANGE. Flash the latest firmware to auto-detect the working range.");
-                    return;
-                }
-                if (ack.Any(l => l.StartsWith("Usage") || l.Contains("is not enabled")))
-                {
-                    Status(ack.Last());
-                    return;
-                }
-
-                Status("Measuring the working range of axis " + axis + "...");
-                var lines = ack.Any(l => l.StartsWith(done) || l.StartsWith(failed))
-                    ? ack
-                    : await link.CollectAsync(() => { }, l => l.StartsWith(done) || l.StartsWith(failed), 120000, 0);
-
-                string result = lines.FirstOrDefault(l => l.StartsWith(done));
-                var m = result != null ? MeasuredRangeLine.Match(result) : null;
-                double measured;
-                if (m == null || !m.Success || !double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out measured))
-                {
-                    string fail = lines.FirstOrDefault(l => l.StartsWith(failed));
-                    Status(fail ?? "No measurement result (timeout). Check the servo power and the homing load threshold.");
-                    return;
-                }
-
-                Status($"Measured working range of axis {axis}: {measured:0.0} mm.");
-                if (measured < 5 || measured > 500)
-                {
-                    Status("The measured range is outside 5 - 500 mm and was not taken.");
-                    return;
-                }
-
-                double current = AxisRange(axis - 1);
-                var take = MessageBox.Show(
-                    $"Measured working range of axis {axis}: {measured:0.0} mm\n(currently configured: {current:0.0} mm)\n\n" +
-                    "Use the measured value? It is saved with 'Save to controller'.",
-                    "Auto-detect working range", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (take != MessageBoxResult.Yes) return;
-
-                double value = Math.Floor(measured * 2) / 2; // 0.5 mm steps, never longer than measured
-                applying = true;
-                (axis == 2 ? SliderRange2 : SliderRange1).Value = value;
-                applying = false;
-                OnRangeEdited(axis - 1, value);
-                Status("Working range set to " + value.ToString("0.0", CultureInfo.InvariantCulture) + " mm. Click 'Save to controller'.");
-            }
-            finally
-            {
-                busy = false;
-                BtnMeasureRange1.IsEnabled = true;
-                BtnMeasureRange2.IsEnabled = true;
-            }
-        }
-
-        private void BtnDiscard_Click(object sender, RoutedEventArgs e)
-        {
-            ClearPending();
-            ShowDeviceValues();
-        }
-
-        private void UpdateTravel()
-        {
-            Travel.RangeMm = AxisRange(0);
-            Travel.MinPct = EffectiveSetting("MIN_LIMIT", 5);
-            Travel.MaxPct = EffectiveSetting("MAX_LIMIT", 95);
-            Travel.IdlePct = EffectiveSetting("IDLE_POSITION", 10);
-            Travel.Inverted = EffectiveSetting("INVERT_TENSION", 0) >= 0.5;
-            Travel.CenterAfterHoming = EffectiveSetting("CENTER_AFTER_HOMING", 0) >= 0.5;
-            Travel.Refresh();
-            UpdateTestIdleInput();
-        }
-
-        /// <summary>Game input that keeps an untested axis at the park position of the running controller.</summary>
-        private void UpdateTestIdleInput()
-        {
-            double min = DeviceSetting("MIN_LIMIT", 5), max = DeviceSetting("MAX_LIMIT", 95), idle = DeviceSetting("IDLE_POSITION", 10);
-            bool inverted = DeviceSetting("INVERT_TENSION", 0) >= 0.5;
-            double span = Math.Max(1, max - min);
-            double input = inverted ? (max - (100 - idle)) / span * 100 : (idle - min) / span * 100;
-            tester.IdleInputPercent = Math.Max(0, Math.Min(100, input));
-        }
-
-        // ==================================================================
-        // Save / restart / reset
-        // ==================================================================
-
-        private static string FormatValue(double v)
-        {
-            return v.ToString("0.###", CultureInfo.InvariantCulture);
+            var channels = plugin.ActiveChannels;
+            TextSetupSaveState.Text = channels.Count == 1
+                ? SaveStateText(channels[0])
+                : string.Join("   ·   ", channels.Select(c => c.Title + ": " + SaveStateText(c)));
+            if (cfgChannel != null) TextCfgSaveState.Text = cfgChannel.Title + ": " + SaveStateText(cfgChannel);
         }
 
         private async void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            if (!EnsureConnected() || busy) return;
-
-            // Commit a pitch that is still being typed
-            Pitch_LostFocus(ComboPitch1, null);
-            if (link.EnabledMotors >= 2) Pitch_LostFocus(ComboPitch2, null);
-
-            var commands = new List<string>();
-            int axes = Math.Max(1, Math.Min(2, link.EnabledMotors));
-            for (int i = 0; i < axes; i++)
+            if (busy) return;
+            var channels = ChannelsFor(sender).Where(c => c.IsOpen && c.ConfigRead).ToList();
+            if (channels.Count == 0)
             {
-                if (pendingPitch[i].HasValue) commands.Add("SET_PITCH " + (i + 1) + " " + FormatValue(pendingPitch[i].Value));
-                if (pendingRange[i].HasValue) commands.Add("SET_RANGE " + (i + 1) + " " + FormatValue(pendingRange[i].Value));
+                Status("Connect to the controller first.");
+                return;
             }
-            if (settingsSupported)
-            {
-                foreach (var kv in pendingSettings)
-                {
-                    commands.Add("SET " + kv.Key + " " + FormatValue(kv.Value));
-                }
-            }
+            CardA.CommitTypedValues();
+            if (settings.Dual) CardB.CommitTypedValues();
 
-            if (commands.Count == 0)
+            var toSave = channels.Where(c => c.PendingCount > 0).ToList();
+            if (toSave.Count == 0 && !channels.Any(c => c.RestartPending))
             {
                 Status("Nothing to save.");
                 return;
             }
 
-            if (EffectiveSetting("IDLE_POSITION", 10) < EffectiveSetting("MIN_LIMIT", 5))
-            {
-                Status("Note: the park position is below the min. limit.");
-            }
-
             busy = true;
-            BtnSave.IsEnabled = false;
             try
             {
-                foreach (var cmd in commands)
+                foreach (var c in toSave)
                 {
-                    Log("> " + cmd);
-                    var reply = await link.RequestAsync(cmd, l => l.Contains("saved") || l.StartsWith("Invalid") || l.StartsWith("Usage") || l.StartsWith("Error"), 1500, 300);
-                    if (!reply.Any(l => l.Contains("saved")))
+                    if (c.EffectiveSetting("IDLE_POSITION") < c.EffectiveSetting("MIN_LIMIT"))
                     {
-                        Status("Controller rejected: " + cmd + (reply.Count > 0 ? " (" + reply.Last() + ")" : ""));
-                        return;
+                        Status(c.Title + ": note, the park position is below the min. limit.");
+                    }
+                    c.Busy = true;
+                    try
+                    {
+                        if (!await c.SaveAsync()) return;
+                    }
+                    finally
+                    {
+                        c.Busy = false;
                     }
                 }
-                Status("Saved " + commands.Count + " value" + (commands.Count == 1 ? "" : "s") + ".");
-                await ReadAllAsync();
 
-                bool restartPending = deviceAxes.Any(a => a.RestartPending) || deviceSettings.Values.Any(s => s.RestartPending);
-                if (restartPending)
+                // Saved values are applied by a restart of the controller
+                var restart = channels.Where(c => c.RestartPending).ToList();
+                if (restart.Count > 0)
                 {
-                    var answer = MessageBox.Show("The new values are saved and applied after a restart of the controller.\n\nRestart the controller now?",
+                    var answer = MessageBox.Show(
+                        "The new values are saved and applied after a restart of the controller" + (restart.Count > 1 ? "s" : "") + ".\n\nRestart now?",
                         "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (answer == MessageBoxResult.Yes)
                     {
-                        await RestartControllerAsync();
+                        foreach (var c in restart)
+                        {
+                            c.Busy = true;
+                            try
+                            {
+                                await c.RestartAsync();
+                            }
+                            finally
+                            {
+                                c.Busy = false;
+                            }
+                        }
                     }
                 }
             }
             finally
             {
                 busy = false;
-                UpdateEnabledState();
+                RefreshAll();
             }
         }
 
-        private async void BtnRestart_Click(object sender, RoutedEventArgs e)
+        private void BtnDiscard_Click(object sender, RoutedEventArgs e)
         {
-            if (!EnsureConnected()) return;
-            await RestartControllerAsync();
-        }
-
-        /// <summary>
-        /// Restarts the controller: RESTART command, then the port is reopened.
-        /// Reopening alone already resets CP2102 boards (DTR/RTS auto reset).
-        /// </summary>
-        private async Task RestartControllerAsync()
-        {
-            string portName = link.PortName;
-            tester.Stop(park: false);
-            UpdateTestUi();
-            try
-            {
-                Log("> RESTART");
-                link.SendLine("RESTART");
-                await Task.Delay(300);
-            }
-            catch (Exception)
-            {
-            }
-            link.Close();
-            Status("Restarting the controller...");
-            await ReconnectAsync(portName, 12000);
-
-            bool restartPending = deviceAxes.Any(a => a.RestartPending) || deviceSettings.Values.Any(s => s.RestartPending);
-            if (link.IsOpen && restartPending)
-            {
-                Status("The controller did not restart. Press RST or unplug USB, then connect again.");
-                MessageBox.Show("The controller did not restart (firmware without the RESTART command).\n\nPress RST on the board or unplug USB, then connect again.",
-                    "DIY FFB Belt Tensioner", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+            foreach (var c in ChannelsFor(sender)) c.DiscardEdits();
+            RefreshAll();
         }
 
         private async void BtnResetConfig_Click(object sender, RoutedEventArgs e)
         {
-            if (!EnsureConnected()) return;
-            var answer = MessageBox.Show("Delete all saved values in the controller (pitch, range, direction, positions, idle, homing)?\nThe firmware defaults (Config.h) apply after a restart.",
+            var c = cfgChannel;
+            if (c == null || !c.IsOpen || busy) return;
+            var answer = MessageBox.Show(
+                "Delete all saved values of the " + c.Title.ToLowerInvariant() + " controller (pitch, range, direction, positions, idle, homing)?\nThe firmware defaults (Config.h) apply after a restart.",
                 "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (answer != MessageBoxResult.Yes) return;
-            Log("> RESET_CONFIG");
-            await link.RequestAsync("RESET_CONFIG", null, 1500, 400);
-            await ReadAllAsync();
-        }
-
-        /// <summary>Waits until the port is present again and connects (after flashing or a restart).</summary>
-        private async Task<bool> ReconnectAsync(string portName, int timeoutMs)
-        {
-            await Task.Delay(1500);
-            var sw = Stopwatch.StartNew();
-            while (sw.ElapsedMilliseconds < timeoutMs)
-            {
-                if (ComPortInfo.Find(portName) != null)
-                {
-                    try
-                    {
-                        link.Open(portName);
-                        Status("Reconnected to " + portName);
-                        await RefreshPortsAsync();
-                        await AfterConnectAsync(true);
-                        return true;
-                    }
-                    catch (Exception)
-                    {
-                        // driver not ready yet
-                    }
-                }
-                await Task.Delay(500);
-            }
-            Status("Could not reconnect to " + portName + ". Connect manually.");
-            await RefreshPortsAsync();
-            return false;
-        }
-
-        // ==================================================================
-        // Servo
-        // ==================================================================
-
-        private int SelectedServo => ComboServo.SelectedIndex == 1 ? 2 : 1;
-
-        private async void BtnFlashServo_Click(object sender, RoutedEventArgs e)
-        {
-            if (!EnsureConnected() || busy) return;
-            int servo = SelectedServo;
-            var answer = MessageBox.Show(
-                $"Write the tuned parameters into the EEPROM of servo {servo}?\n\n" +
-                "- The servo must be powered and connected to the controller.\n" +
-                "- SimHub Motion must not use the controller.\n" +
-                "- Power cycle the servo afterwards.",
-                "Flash servo parameters", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-            if (answer != MessageBoxResult.OK) return;
-
             busy = true;
-            blockingCommand = true;
-            BtnFlashServo.IsEnabled = false;
             try
             {
-                tester.Stop(park: false);
-                UpdateTestUi();
-                string cmd = "FLASH_SERVO " + servo;
-                Log("> " + cmd);
-                Status("Flashing servo " + servo + " (see Serial Logs)...");
-                var reply = await link.RequestAsync(cmd,
-                    l => l.Contains("[Flash] Done!") || l.Contains("[Flash] Warning") || l.Contains("is not enabled"),
-                    120000, 15000);
-                if (reply.Any(l => l.Contains("[Flash] Done!")))
-                {
-                    Status("Servo parameters saved. Power cycle the servo.");
-                    MessageBox.Show("Servo parameters saved.\n\nPower cycle the servo (switch its power supply off and on) to activate them.",
-                        "Flash servo parameters", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    Status("Servo flash did not report success. Check the servo power and the RS232 wiring.");
-                }
+                await c.ResetConfigAsync();
             }
             finally
             {
                 busy = false;
-                blockingCommand = false;
-                BtnFlashServo.IsEnabled = true;
             }
-        }
-
-        private async void BtnDiffServo_Click(object sender, RoutedEventArgs e)
-        {
-            if (!EnsureConnected() || busy) return;
-            busy = true;
-            blockingCommand = true;
-            BtnDiffServo.IsEnabled = false;
-            try
-            {
-                string cmd = "DIFF_SERVO " + SelectedServo;
-                Log("> " + cmd);
-                var reply = await link.RequestAsync(cmd, l => l.Contains(" read errors.") || l.Contains("is not enabled"), 60000, 8000);
-                string summary = reply.LastOrDefault(l => l.StartsWith("Summary:"));
-                Status(summary ?? "Servo check finished (see Serial Logs).");
-            }
-            finally
-            {
-                busy = false;
-                blockingCommand = false;
-                BtnDiffServo.IsEnabled = true;
-            }
-        }
-
-        private ServoRegisterWindow registerWindow;
-
-        private void BtnServoRegisters_Click(object sender, RoutedEventArgs e)
-        {
-            if (registerWindow != null)
-            {
-                if (registerWindow.WindowState == WindowState.Minimized) registerWindow.WindowState = WindowState.Normal;
-                registerWindow.Activate();
-                return;
-            }
-            if (!EnsureConnected()) return;
-            if (busy)
-            {
-                Status("Wait until the current action has finished.");
-                return;
-            }
-            tester.Stop(park: false);
-            UpdateTestUi();
-
-            registerWindow = new ServoRegisterWindow(link, SelectedServo, Log);
-            registerWindow.Owner = Window.GetWindow(this);
-            registerWindow.Closed += (s, args) => registerWindow = null;
-            registerWindow.Show();
-            var ignored = registerWindow.LoadAsync();
-        }
-
-        private void BtnEnableServo_Click(object sender, RoutedEventArgs e)
-        {
-            SendAscii("ENABLE_SERVO " + SelectedServo);
-        }
-
-        private void BtnDisableServo_Click(object sender, RoutedEventArgs e)
-        {
-            tester.Stop(park: false);
-            UpdateTestUi();
-            SendAscii("DISABLE_SERVO");
         }
 
         // ==================================================================
-        // Actions & live load
+        // CONFIG tab
         // ==================================================================
 
-        private void BtnHome_Click(object sender, RoutedEventArgs e)
+        private void CfgChannel_Changed(object sender, RoutedEventArgs e)
         {
-            if (SendBinary(() => link.Recalibrate(), "Recalibrate (CMD 13)")) Status("Homing started.");
+            if (loading) return;
+            SelectCfgChannel(RadioCfgB.IsChecked == true && settings.Dual ? plugin.RightChannel : ChannelA);
         }
 
-        private void BtnPark_Click(object sender, RoutedEventArgs e)
+        private void SelectCfgChannel(TensionerChannel channel)
         {
-            tester.Stop(park: false);
+            if (channel == cfgChannel) return;
+            if (cfgChannel != null && cfgChannel.Tester.IsRunning)
+            {
+                cfgChannel.Tester.Stop(park: true);
+                Status(cfgChannel.Title + ": test stopped (other channel selected).");
+            }
+            cfgChannel = channel;
+            ShowCfgChannel();
             UpdateTestUi();
-            if (SendBinary(() => link.ParkNow(), "Park (CMD 12)")) Status("Parking.");
         }
 
-        private static readonly System.Text.RegularExpressions.Regex UrlPattern =
-            new System.Text.RegularExpressions.Regex(@"http://[^\s""]+?/");
-
-        /// <summary>
-        /// Starts the web graphs of the controller if needed (WEBGRAPHS ON), waits for the WiFi
-        /// connection (WEBGRAPHS) and opens the page in the browser.
-        /// </summary>
-        private async void BtnWebGraphs_Click(object sender, RoutedEventArgs e)
+        /// <summary>Puts the effective values of the CONFIG channel into the controls.</summary>
+        private void ShowCfgChannel()
         {
-            if (!EnsureConnected() || busy) return;
-            busy = true;
-            BtnWebGraphs.IsEnabled = false;
+            var c = cfgChannel;
+            if (c == null) return;
+            TextCfgTitle.Text = c.Title.ToUpperInvariant();
+            ShowCfgStatus();
+
+            applying = true;
             try
             {
-                var status = await QueryWebGraphsAsync();
-                if (status.Count == 0)
+                foreach (var slider in settingSliders)
                 {
-                    Status("No answer to WEBGRAPHS.");
-                    return;
+                    slider.Value = c.EffectiveSetting((string)slider.Tag);
                 }
-                if (status.Any(l => l.Contains("disabled in this firmware")))
+                foreach (var toggle in settingToggles)
                 {
-                    Status("The web graphs are not compiled into this firmware (ENABLE_WEBGRAPHS false in Config.h).");
-                    return;
-                }
-
-                if (status.Any(l => l.Contains("off (")))
-                {
-                    var answer = MessageBox.Show(
-                        "Enable the web graphs?\n\nThe controller starts WiFi now and at every boot: it joins the WiFi saved on its web page or opens the access point 'diy_belt_tensioner'.",
-                        "Web graphs", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-                    if (answer != MessageBoxResult.OK) return;
-                    Log("> WEBGRAPHS ON");
-                    var reply = await link.RequestAsync("WEBGRAPHS ON", l => l.StartsWith("Web graphs"), 2000, 0);
-                    if (reply.Count == 0)
-                    {
-                        Status("No answer to WEBGRAPHS ON. Flash the latest firmware to switch the web graphs from the plugin.");
-                        return;
-                    }
-                    Status(reply.Last());
-                    deviceSettings.Remove("WEBGRAPHS");
-                    var ignored = ReadAllAsync();
-                }
-
-                // WiFi bring-up takes a few seconds (joining a network up to 15 s, then access point)
-                Status("Waiting for the controller's WiFi...");
-                var sw = Stopwatch.StartNew();
-                while (sw.Elapsed.TotalSeconds < 25 && !status.Any(l => UrlPattern.IsMatch(l)))
-                {
-                    await Task.Delay(1500);
-                    if (!link.IsOpen) return;
-                    status = await QueryWebGraphsAsync();
-                }
-
-                string sta = status.FirstOrDefault(l => l.Contains("connected to WiFi") && UrlPattern.IsMatch(l));
-                string ap = status.FirstOrDefault(l => l.Contains("access point") && UrlPattern.IsMatch(l));
-                if (sta == null && ap == null)
-                {
-                    Status("The web graphs did not report an address yet. Try again in a few seconds (Serial Logs: WEBGRAPHS).");
-                    return;
-                }
-
-                string url = UrlPattern.Match(sta ?? ap).Value;
-                string text = sta != null
-                    ? "The controller is in your WiFi:\n" + sta.Replace("Web graphs: ", "") + "\n\nOpen " + url + " in the browser?"
-                    : "The controller opened its own access point:\n" + ap.Replace("Web graphs: ", "") +
-                      "\n\nConnect this PC (or a phone) to that WiFi, then open " + url + ".\nOpen it in the browser now?";
-                Status("Web graphs: " + url);
-                if (MessageBox.Show(text, "Web graphs", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                {
-                    try
-                    {
-                        Process.Start(url);
-                    }
-                    catch (Exception ex)
-                    {
-                        Status("Could not open the browser: " + ex.Message);
-                    }
+                    toggle.IsChecked = c.EffectiveSetting((string)toggle.Tag) >= 0.5;
                 }
             }
             finally
             {
-                busy = false;
-                BtnWebGraphs.IsEnabled = true;
+                applying = false;
             }
+
+            bool canEdit = c.IsOpen && c.ConfigRead && c.SettingsSupported && !c.Busy;
+            foreach (var slider in settingSliders) slider.IsEnabled = canEdit;
+            foreach (var toggle in settingToggles) toggle.IsEnabled = canEdit;
+
+            Travel.RangeMm = c.Range;
+            Travel.MinPct = c.EffectiveSetting("MIN_LIMIT");
+            Travel.MaxPct = c.EffectiveSetting("MAX_LIMIT");
+            Travel.IdlePct = c.EffectiveSetting("IDLE_POSITION");
+            Travel.Inverted = c.EffectiveSetting("INVERT_TENSION") >= 0.5;
+            Travel.CenterAfterHoming = c.EffectiveSetting("CENTER_AFTER_HOMING") >= 0.5;
+            Travel.ActualPct = c.ActualPositionPercent;
+            Travel.Refresh();
+            UpdateSaveStates();
         }
 
-        private async Task<List<string>> QueryWebGraphsAsync()
+        private void ShowCfgStatus()
         {
-            Log("> WEBGRAPHS");
-            var lines = await link.RequestAsync("WEBGRAPHS", l => false, 1500, 300); // WiFi and access point may print one line each
-            return lines.Where(l => l.StartsWith("Web graphs")).ToList();
-        }
-
-        private void BtnStatus_Click(object sender, RoutedEventArgs e)
-        {
-            SendAscii("STATUS");
-        }
-
-        private void ToggleLiveLoad_Click(object sender, RoutedEventArgs e)
-        {
-            settings.LiveStatus = ToggleLiveLoad.IsChecked == true;
-            SaveSettings();
-            UpdateStatusPolling();
-        }
-
-        private void UpdateStatusPolling()
-        {
-            if (settings.LiveStatus && link.IsOpen)
-            {
-                liveLoadActive = true;
-                loadTimer.Start();
-            }
-            else
-            {
-                liveLoadActive = false;
-                loadTimer.Stop();
-                if (!link.IsOpen) ClearStateDisplay();
-            }
-        }
-
-        /// <summary>Polls the axis state (CMD 16), with old firmware only the servo load (CMD 11).</summary>
-        private void LoadTimer_Tick(object sender, EventArgs e)
-        {
-            if (!link.IsOpen)
-            {
-                UpdateStatusPolling();
-                return;
-            }
-            if (blockingCommand || (registerWindow != null && registerWindow.IsBusy)) return;
-            try
-            {
-                int axes = link.EnabledMotors >= 2 ? 2 : 1;
-                for (byte i = 0; i < axes; i++)
-                {
-                    if (stateSupported) link.DumpAxisState(i);
-                    else link.DumpSensor(i);
-                }
-                if (stateSupported && ++stateRequestsWithoutReply > 8 && axisStates[0] == null)
-                {
-                    stateSupported = false;
-                    Status("This firmware has no status query (CMD 16): only the servo load is shown. Flash the latest firmware for the servo status.");
-                }
-            }
-            catch (Exception)
-            {
-            }
-        }
-
-        private void ShowState(AxisStateInfo info)
-        {
-            if (info.AxisIndex < 0 || info.AxisIndex > 1) return;
-            axisStates[info.AxisIndex] = info;
-            stateRequestsWithoutReply = 0;
-            lastLoad[info.AxisIndex] = info.LoadPercent;
-
-            bool two = link.EnabledMotors >= 2 && axisStates[1] != null;
-            var a1 = axisStates[0];
-            var a2 = two ? axisStates[1] : null;
-            if (a1 == null) return;
-
-            Func<Func<AxisStateInfo, string>, string> both = f => a2 == null ? f(a1) : f(a1) + "  |  " + f(a2);
-            InfoServo.Text = both(x => x.StatusText);
-            InfoLoad.Text = both(x => x.LoadPercent + " %");
-            InfoVoltage.Text = both(x => x.Voltage.ToString("0.0", CultureInfo.InvariantCulture) + " V");
-            InfoPosition.Text = both(x => (x.Ready || x.IsHoming) ? x.PositionPercent.ToString("0.0", CultureInfo.InvariantCulture) + " %" : "-");
-            InfoServo.ToolTip = both(x => $"homing {x.Homing}, powered {x.Powered}, ready {x.Ready}, parked {x.Parked}, following error {x.PositionError} steps");
-
-            int severity = Math.Max(a1.Severity, a2 != null ? a2.Severity : 0);
-            InfoServoDot.Fill = new SolidColorBrush(severity == 0 ? Color.FromRgb(0x4C, 0xAF, 0x50) : severity == 1 ? Color.FromRgb(0xFB, 0xBF, 0x24) : Color.FromRgb(0xE5, 0x39, 0x35));
-
-            double actual = (a1.Ready || a1.IsHoming) ? a1.PositionPercent : double.NaN;
+            var c = cfgChannel;
+            if (c == null) return;
+            TextCfgStatus.Text = c.StatusText;
+            TextCfgTelemetry.Text = c.TelemetryText;
+            int severity = c.Severity;
+            CfgDot.Fill = new SolidColorBrush(severity < 0 ? Color.FromRgb(0x66, 0x66, 0x66)
+                : severity == 0 ? Color.FromRgb(0x4C, 0xAF, 0x50)
+                : severity == 1 ? Color.FromRgb(0xFB, 0xBF, 0x24)
+                : Color.FromRgb(0xE5, 0x39, 0x35));
+            double actual = c.ActualPositionPercent;
             if (!Equals(Travel.ActualPct, actual))
             {
                 Travel.ActualPct = actual;
@@ -1366,28 +701,59 @@ namespace DiyBeltTensioner.UI
             }
         }
 
-        private void ClearStateDisplay()
+        private void SettingSlider_ValueCommitted(object sender, double value)
         {
-            axisStates[0] = axisStates[1] = null;
-            lastLoad[0] = lastLoad[1] = int.MinValue;
-            InfoServo.Text = "-";
-            InfoServo.ToolTip = null;
-            InfoServoDot.Fill = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
-            InfoLoad.Text = "-";
-            InfoVoltage.Text = "-";
-            InfoPosition.Text = "-";
-            Travel.ActualPct = double.NaN;
-            Travel.Refresh();
+            if (applying || loading || cfgChannel == null) return;
+            cfgChannel.SetSetting((string)((LabeledSlider)sender).Tag, value);
         }
 
-        /// <summary>Servo load from CMD 11 (firmware without CMD 16, or the STATUS command).</summary>
-        private void ShowLoad(int axis, int load, int level, bool triggered)
+        private void SettingToggle_Click(object sender, RoutedEventArgs e)
         {
-            if (stateSupported && axisStates[0] != null) return; // CMD 16 shows more
-            if (axis >= 0 && axis < 2) lastLoad[axis] = load;
-            string text = lastLoad[0] == int.MinValue ? "-" : lastLoad[0] + " %";
-            if (link.EnabledMotors >= 2 && lastLoad[1] != int.MinValue) text += "  |  " + lastLoad[1] + " %";
-            InfoLoad.Text = text + (triggered ? "  (limit " + level + " %)" : "");
+            if (applying || loading || cfgChannel == null) return;
+            var toggle = (SHToggleButton)sender;
+            cfgChannel.SetSetting((string)toggle.Tag, toggle.IsChecked == true ? 1 : 0);
+        }
+
+        private bool EnsureCfgConnected()
+        {
+            if (cfgChannel != null && cfgChannel.IsOpen) return true;
+            Status((cfgChannel != null ? cfgChannel.Title : "Belt") + ": not connected. Connect on the SETUP tab.");
+            return false;
+        }
+
+        private void BtnCfgHome_Click(object sender, RoutedEventArgs e)
+        {
+            if (EnsureCfgConnected()) cfgChannel.Home();
+        }
+
+        private void BtnCfgPark_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected()) return;
+            cfgChannel.Park();
+            UpdateTestUi();
+        }
+
+        private async void BtnCfgRestart_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected() || busy) return;
+            busy = true;
+            cfgChannel.Busy = true;
+            try
+            {
+                await cfgChannel.RestartAsync();
+            }
+            finally
+            {
+                cfgChannel.Busy = false;
+                busy = false;
+                RefreshAll();
+            }
+        }
+
+        private async void BtnCfgRead_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected()) return;
+            await cfgChannel.ReadAllAsync();
         }
 
         // ==================================================================
@@ -1409,40 +775,34 @@ namespace DiyBeltTensioner.UI
             PanelTestPulse.Visibility = mode == 2 ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void TestParam_Changed(object sender, RoutedEventArgs e)
-        {
-            if (loading) return;
-            ApplyTestParameters();
-        }
-
         private void ApplyTestParameters()
         {
             if (loading) return;
             int mode = Math.Max(0, ComboTestMode.SelectedIndex);
-            tester.Mode = mode == 1 ? TestMode.Sine : mode == 2 ? TestMode.BrakePulse : TestMode.Hold;
-            tester.HoldPercent = SliderHold.Value;
-            tester.SineCenter = SliderSineCenter.Value;
-            tester.SineAmplitude = SliderSineAmplitude.Value;
-            tester.SineFrequencyHz = SliderSineFrequency.Value;
-            tester.PulseBase = SliderPulseBase.Value;
-            tester.PulsePeak = SliderPulsePeak.Value;
-            tester.PulseDurationMs = (int)SliderPulseDuration.Value;
-            tester.PulseIntervalMs = (int)SliderPulseInterval.Value;
-            bool twoAxes = link.EnabledMotors >= 2;
-            tester.Axis1 = !twoAxes || ToggleTestAxis1.IsChecked == true; // single actuator: always axis 1
-            tester.Axis2 = twoAxes && ToggleTestAxis2.IsChecked == true;
-
             settings.TestMode = mode;
-            settings.TestPositionPct = tester.HoldPercent;
-            settings.TestSineCenterPct = tester.SineCenter;
-            settings.TestSineAmplitudePct = tester.SineAmplitude;
-            settings.TestSineFrequencyHz = tester.SineFrequencyHz;
-            settings.TestPulseBasePct = tester.PulseBase;
-            settings.TestPulsePeakPct = tester.PulsePeak;
-            settings.TestPulseDurationMs = tester.PulseDurationMs;
-            settings.TestPulseIntervalMs = tester.PulseIntervalMs;
-            settings.TestAxis1 = ToggleTestAxis1.IsChecked == true;
-            settings.TestAxis2 = ToggleTestAxis2.IsChecked == true;
+            settings.TestPositionPct = SliderHold.Value;
+            settings.TestSineCenterPct = SliderSineCenter.Value;
+            settings.TestSineAmplitudePct = SliderSineAmplitude.Value;
+            settings.TestSineFrequencyHz = SliderSineFrequency.Value;
+            settings.TestPulseBasePct = SliderPulseBase.Value;
+            settings.TestPulsePeakPct = SliderPulsePeak.Value;
+            settings.TestPulseDurationMs = (int)SliderPulseDuration.Value;
+            settings.TestPulseIntervalMs = (int)SliderPulseInterval.Value;
+
+            if (cfgChannel == null) return;
+            var t = cfgChannel.Tester;
+            t.Mode = mode == 1 ? TestMode.Sine : mode == 2 ? TestMode.BrakePulse : TestMode.Hold;
+            t.HoldPercent = settings.TestPositionPct;
+            t.SineCenter = settings.TestSineCenterPct;
+            t.SineAmplitude = settings.TestSineAmplitudePct;
+            t.SineFrequencyHz = settings.TestSineFrequencyHz;
+            t.PulseBase = settings.TestPulseBasePct;
+            t.PulsePeak = settings.TestPulsePeakPct;
+            t.PulseDurationMs = settings.TestPulseDurationMs;
+            t.PulseIntervalMs = settings.TestPulseIntervalMs;
+            t.Axis1 = true;
+            t.Axis2 = false;
+            t.IdleInputPercent = cfgChannel.IdleInputPercent;
         }
 
         private static bool TryParseInt(string text, int min, int max, out int value)
@@ -1450,56 +810,55 @@ namespace DiyBeltTensioner.UI
             return int.TryParse((text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value) && value >= min && value <= max;
         }
 
-        private void BtnTestStart_Click(object sender, RoutedEventArgs e)
+        /// <summary>SimHub Motion limits of the SETUP tab (also used by the test).</summary>
+        private bool ReadMotionLimits(out int frequency, out int acceleration)
         {
-            if (!EnsureConnected()) return;
-            int frequency, acceleration;
-            if (!TryParseInt(TextTestFrequency.Text, 1, 36000, out frequency))
+            acceleration = 0;
+            if (!TryParseInt(TextMotionFrequency.Text, 1, 36000, out frequency))
             {
-                Status("Max. frequency must be 1 - 36000.");
-                return;
+                Status("Max. pulse frequency must be 1 - 36000 (SETUP tab).");
+                return false;
             }
-            if (!TryParseInt(TextTestAcceleration.Text, 1, 100000, out acceleration))
+            if (!TryParseInt(TextMotionAcceleration.Text, 1, 100000, out acceleration))
             {
-                Status("Max. acceleration must be 1 - 100000.");
-                return;
+                Status("Max. acceleration must be 1 - 100000 (SETUP tab).");
+                return false;
             }
-            ApplyTestParameters();
-            if (!tester.Axis1 && !tester.Axis2)
-            {
-                Status("Select at least one axis.");
-                return;
-            }
-
             settings.StepperFrequency = frequency;
             settings.StepperAcceleration = acceleration;
-            SaveSettings();
+            return true;
+        }
 
+        private void BtnTestStart_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected()) return;
+            int frequency, acceleration;
+            if (!ReadMotionLimits(out frequency, out acceleration)) return;
+            ApplyTestParameters();
+            SaveSettings();
             try
             {
-                UpdateTestIdleInput();
-                tester.Start(frequency, acceleration);
-                Status("Test started (" + ComboTestMode.Text + ").");
+                cfgChannel.Tester.Start(frequency, acceleration);
+                Status(cfgChannel.Title + ": test started (" + ComboTestMode.Text + ").");
             }
             catch (Exception ex)
             {
-                Status("Test start failed: " + ex.Message);
+                Status(cfgChannel.Title + ": test start failed: " + ex.Message);
             }
             UpdateTestUi();
         }
 
         private void BtnTestStop_Click(object sender, RoutedEventArgs e)
         {
-            tester.Stop(park: true);
+            cfgChannel?.Tester.Stop(park: true);
             SaveSettings();
-            Status("Test stopped, parking.");
             UpdateTestUi();
         }
 
         private void UpdateTestUi()
         {
-            bool running = tester.IsRunning;
-            BtnTestStart.IsEnabled = !running && link.IsOpen;
+            bool running = cfgChannel != null && cfgChannel.Tester.IsRunning;
+            BtnTestStart.IsEnabled = !running && cfgChannel != null && cfgChannel.IsOpen;
             BtnTestStop.IsEnabled = running;
             TextTestState.Text = running ? "Running..." : "";
             if (running)
@@ -1512,6 +871,293 @@ namespace DiyBeltTensioner.UI
                 Travel.LivePct = double.NaN;
                 Travel.Refresh();
             }
+        }
+
+        // ==================================================================
+        // Servo
+        // ==================================================================
+
+        private async void BtnFlashServo_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected() || busy) return;
+            var c = cfgChannel;
+            var answer = MessageBox.Show(
+                "Write the tuned parameters into the EEPROM of the " + c.Title.ToLowerInvariant() + " servo?\n\n" +
+                "- The servo must be powered and connected to the controller.\n" +
+                "- SimHub Motion must not use the controller.\n" +
+                "- Power cycle the servo afterwards.",
+                "Flash servo parameters", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.OK) return;
+
+            busy = true;
+            BtnFlashServo.IsEnabled = false;
+            try
+            {
+                UpdateTestUi();
+                if (await c.FlashServoAsync())
+                {
+                    MessageBox.Show("Servo parameters saved.\n\nPower cycle the servo (switch its power supply off and on) to activate them.",
+                        "Flash servo parameters", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            finally
+            {
+                busy = false;
+                BtnFlashServo.IsEnabled = true;
+            }
+        }
+
+        private async void BtnDiffServo_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected() || busy) return;
+            busy = true;
+            BtnDiffServo.IsEnabled = false;
+            try
+            {
+                await cfgChannel.DiffServoAsync();
+            }
+            finally
+            {
+                busy = false;
+                BtnDiffServo.IsEnabled = true;
+            }
+        }
+
+        private void BtnServoRegisters_Click(object sender, RoutedEventArgs e)
+        {
+            if (registerWindow != null)
+            {
+                if (registerWindow.WindowState == WindowState.Minimized) registerWindow.WindowState = WindowState.Normal;
+                registerWindow.Activate();
+                return;
+            }
+            if (!EnsureCfgConnected()) return;
+            if (busy)
+            {
+                Status("Wait until the current action has finished.");
+                return;
+            }
+            cfgChannel.Tester.Stop(park: false);
+            UpdateTestUi();
+
+            registerWindowChannel = cfgChannel;
+            registerWindow = new ServoRegisterWindow(cfgChannel.Link, 1, Log);
+            registerWindow.Title = "Servo Register Editor - iSV57 - " + cfgChannel.Title;
+            registerWindow.Owner = Window.GetWindow(this);
+            registerWindow.Closed += (s, args) =>
+            {
+                registerWindow = null;
+                registerWindowChannel = null;
+            };
+            registerWindow.Show();
+            var ignored = registerWindow.LoadAsync();
+        }
+
+        private void BtnEnableServo_Click(object sender, RoutedEventArgs e)
+        {
+            if (EnsureCfgConnected()) cfgChannel.Send("ENABLE_SERVO 1");
+        }
+
+        private void BtnDisableServo_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected()) return;
+            cfgChannel.Tester.Stop(park: false);
+            UpdateTestUi();
+            cfgChannel.Send("DISABLE_SERVO");
+        }
+
+        // ==================================================================
+        // Web graphs
+        // ==================================================================
+
+        private static readonly Regex UrlPattern = new Regex(@"http://[^\s""]+?/");
+
+        /// <summary>
+        /// Starts the web graphs of the CONFIG channel if needed (WEBGRAPHS ON), waits for the WiFi
+        /// connection (WEBGRAPHS) and opens the page in the browser.
+        /// </summary>
+        private async void BtnWebGraphs_Click(object sender, RoutedEventArgs e)
+        {
+            if (!EnsureCfgConnected() || busy) return;
+            var c = cfgChannel;
+            busy = true;
+            BtnWebGraphs.IsEnabled = false;
+            try
+            {
+                var status = await QueryWebGraphsAsync(c);
+                if (status.Count == 0)
+                {
+                    Status(c.Title + ": no answer to WEBGRAPHS.");
+                    return;
+                }
+                if (status.Any(l => l.Contains("disabled in this firmware")))
+                {
+                    Status(c.Title + ": the web graphs are not compiled into this firmware (ENABLE_WEBGRAPHS false in Config.h).");
+                    return;
+                }
+
+                if (status.Any(l => l.Contains("off (")))
+                {
+                    var answer = MessageBox.Show(
+                        "Enable the web graphs of the " + c.Title.ToLowerInvariant() + " controller?\n\nIt starts WiFi now and at every boot: it joins the WiFi saved on its web page or opens the access point 'diy_belt_tensioner'.",
+                        "Web graphs", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                    if (answer != MessageBoxResult.OK) return;
+                    Log("> WEBGRAPHS ON");
+                    var reply = await c.Link.RequestAsync("WEBGRAPHS ON", l => l.StartsWith("Web graphs"), 2000, 0);
+                    if (reply.Count == 0)
+                    {
+                        Status(c.Title + ": no answer to WEBGRAPHS ON. Flash the latest firmware to switch the web graphs from the plugin.");
+                        return;
+                    }
+                    Status(c.Title + ": " + reply.Last());
+                    var ignored = c.ReadAllAsync();
+                }
+
+                // WiFi bring-up takes a few seconds (joining a network up to 15 s, then access point)
+                Status(c.Title + ": waiting for the controller's WiFi...");
+                var sw = Stopwatch.StartNew();
+                while (sw.Elapsed.TotalSeconds < 25 && !status.Any(l => UrlPattern.IsMatch(l)))
+                {
+                    await Task.Delay(1500);
+                    if (!c.IsOpen) return;
+                    status = await QueryWebGraphsAsync(c);
+                }
+
+                string sta = status.FirstOrDefault(l => l.Contains("connected to WiFi") && UrlPattern.IsMatch(l));
+                string ap = status.FirstOrDefault(l => l.Contains("access point") && UrlPattern.IsMatch(l));
+                if (sta == null && ap == null)
+                {
+                    Status(c.Title + ": the web graphs did not report an address yet. Try again in a few seconds.");
+                    return;
+                }
+
+                string url = UrlPattern.Match(sta ?? ap).Value;
+                string text = sta != null
+                    ? "The controller is in your WiFi:\n" + sta.Replace("Web graphs: ", "") + "\n\nOpen " + url + " in the browser?"
+                    : "The controller opened its own access point:\n" + ap.Replace("Web graphs: ", "") +
+                      "\n\nConnect this PC (or a phone) to that WiFi, then open " + url + ".\nOpen it in the browser now?";
+                Status(c.Title + ": web graphs at " + url);
+                if (MessageBox.Show(text, "Web graphs", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                {
+                    OpenUrl(url);
+                }
+            }
+            finally
+            {
+                busy = false;
+                BtnWebGraphs.IsEnabled = true;
+            }
+        }
+
+        private async Task<List<string>> QueryWebGraphsAsync(TensionerChannel c)
+        {
+            Log("> WEBGRAPHS");
+            // WiFi and access point may print one line each
+            var lines = await c.Link.RequestAsync("WEBGRAPHS", l => false, 1500, 300);
+            return lines.Where(l => l.StartsWith("Web graphs")).ToList();
+        }
+
+        private void OpenUrl(string url)
+        {
+            try
+            {
+                Process.Start(url);
+            }
+            catch (Exception ex)
+            {
+                Status("Could not open the browser: " + ex.Message);
+            }
+        }
+
+        // ==================================================================
+        // SimHub Motion
+        // ==================================================================
+
+        private void ToggleReverse_Click(object sender, RoutedEventArgs e)
+        {
+            ChannelA.Settings.MotionReverse = ToggleReverseA.IsChecked == true;
+            plugin.RightChannel.Settings.MotionReverse = ToggleReverseB.IsChecked == true;
+            SaveSettings();
+        }
+
+        private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
+        {
+            int frequency, acceleration;
+            if (!ReadMotionLimits(out frequency, out acceleration)) return;
+            SaveSettings();
+
+            MotionControllerSetup first, right = null;
+            if (settings.Dual)
+            {
+                first = new MotionControllerSetup { ComPort = settings.Left.ComPort, Reverse = settings.Left.MotionReverse };
+                right = new MotionControllerSetup { ComPort = settings.Right.ComPort, Reverse = settings.Right.MotionReverse };
+                if (string.IsNullOrEmpty(first.ComPort) || string.IsNullOrEmpty(right.ComPort))
+                {
+                    MessageBox.Show("Select the COM ports of the left and the right belt on the SETUP tab first.", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                if (string.Equals(first.ComPort, right.ComPort, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("Left and right belt need different COM ports (one controller board per belt).", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+            }
+            else
+            {
+                first = new MotionControllerSetup { ComPort = settings.Single.ComPort, Reverse = settings.Single.MotionReverse };
+                if (string.IsNullOrEmpty(first.ComPort))
+                {
+                    MessageBox.Show("Select the COM port of the belt tensioner on the SETUP tab first.", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+            }
+
+            string json;
+            try
+            {
+                json = MotionPresetBuilder.Build(first, right, frequency, acceleration);
+            }
+            catch (Exception ex)
+            {
+                Status("Creating the preset failed: " + ex.Message);
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "SimHub Motion settings (*.shmotionoutput)|*.shmotionoutput",
+                FileName = settings.Dual ? "DIY_BeltTensioner_Dual.shmotionoutput" : "DIY_BeltTensioner_Single.shmotionoutput",
+                Title = "Save SimHub Motion preset",
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                File.WriteAllText(dialog.FileName, json, new UTF8Encoding(false));
+                Status("Preset saved: " + dialog.FileName);
+                Process.Start("explorer.exe", "/select,\"" + dialog.FileName + "\"");
+            }
+            catch (Exception ex)
+            {
+                Status("Saving failed: " + ex.Message);
+            }
+        }
+
+        private void BtnReleasePorts_Click(object sender, RoutedEventArgs e)
+        {
+            int closed = 0;
+            foreach (var c in plugin.AllChannels.Where(c => c.IsOpen))
+            {
+                c.Disconnect();
+                closed++;
+            }
+            UpdateTestUi();
+            Status(closed > 0 ? "Ports released. You can enable SimHub Motion now." : "The plugin does not use any port, SimHub Motion can use them.");
+        }
+
+        private void BtnOpenMotionDocs_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://github.com/" + settings.GitHubRepository + "/blob/main/docs/SimHub_Motion_Setup.md");
         }
 
         // ==================================================================
@@ -1528,14 +1174,19 @@ namespace DiyBeltTensioner.UI
             }));
         }
 
-        private void ComboBoard_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void UpdateFlashPortTexts()
         {
-            if (loading) return;
-            var board = ComboBoard.SelectedItem as BoardInfo;
-            if (board == null) return;
-            settings.BoardEnvironment = board.Environment;
-            SaveSettings();
-            ShowReleaseInfo();
+            TextFlashPortA.Text = PortText(ChannelA);
+            TextFlashPortB.Text = PortText(plugin.RightChannel);
+        }
+
+        private string PortText(TensionerChannel c)
+        {
+            if (string.IsNullOrEmpty(c.Settings.ComPort)) return "- (select it on the SETUP tab)";
+            var port = currentPorts.FirstOrDefault(p => string.Equals(p.PortName, c.Settings.ComPort, StringComparison.OrdinalIgnoreCase));
+            string text = port != null ? port.DisplayName : c.Settings.ComPort + "  (not present)";
+            if (c.IsOpen && c.Link.FirmwareVersion.Length > 0) text += "  ·  protocol " + c.Link.FirmwareVersion;
+            return text;
         }
 
         private void FirmwareSource_Changed(object sender, RoutedEventArgs e)
@@ -1552,11 +1203,76 @@ namespace DiyBeltTensioner.UI
 
         private void UpdateFirmwareSourceUi()
         {
-            bool local = RadioSourceGitHub.IsChecked != true;
+            bool local = settings.FirmwareSource != 0;
             TextLocalFirmware.IsEnabled = local;
             BtnBrowseFirmware.IsEnabled = local;
             BtnCheckRelease.IsEnabled = !local;
             PopulateBoards();
+        }
+
+        /// <summary>
+        /// Board lists: the variants of the latest release for the GitHub source, all known boards
+        /// for local firmware (or while the release is not loaded).
+        /// </summary>
+        private void PopulateBoards()
+        {
+            List<BoardInfo> boards = null;
+            if (settings.FirmwareSource == 0 && latestRelease != null) boards = BoardInfo.FromRelease(latestRelease);
+            if (boards == null || boards.Count == 0) boards = BoardInfo.All.ToList();
+
+            bool wasLoading = loading;
+            loading = true; // keep the saved boards while the lists are replaced
+            try
+            {
+                FillBoardCombo(ComboBoardA, boards, ChannelA.Settings.BoardEnvironment);
+                FillBoardCombo(ComboBoardB, boards, plugin.RightChannel.Settings.BoardEnvironment);
+            }
+            finally
+            {
+                loading = wasLoading;
+            }
+            ShowReleaseInfo();
+        }
+
+        private static void FillBoardCombo(ComboBox combo, List<BoardInfo> boards, string environment)
+        {
+            combo.ItemsSource = boards;
+            combo.SelectedItem = boards.FirstOrDefault(b => string.Equals(b.Environment, environment, StringComparison.OrdinalIgnoreCase)) ?? boards.FirstOrDefault();
+        }
+
+        private void ComboBoard_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (loading) return;
+            var combo = (ComboBox)sender;
+            var board = combo.SelectedItem as BoardInfo;
+            if (board == null) return;
+            var channel = combo == ComboBoardB ? plugin.RightChannel : ChannelA;
+            channel.Settings.BoardEnvironment = board.Environment;
+            SaveSettings();
+            ShowReleaseInfo();
+        }
+
+        private void ShowReleaseInfo()
+        {
+            if (settings.FirmwareSource != 0)
+            {
+                TextReleaseInfo.Text = "Make sure the local firmware was built for the selected board.";
+                return;
+            }
+            if (latestRelease == null)
+            {
+                TextReleaseInfo.Text = "";
+                return;
+            }
+            var missing = new[] { ComboBoardA, ComboBoardB }
+                .Where(cb => cb.Visibility == Visibility.Visible)
+                .Select(cb => cb.SelectedItem as BoardInfo)
+                .Where(b => b != null && latestRelease.FindAsset(b.Environment) == null)
+                .Select(b => b.Environment)
+                .ToList();
+            TextReleaseInfo.Text = missing.Count == 0
+                ? "Release " + latestRelease.Tag + " contains firmware for the selected boards."
+                : "Release " + latestRelease.Tag + " has no firmware for " + string.Join(", ", missing) + ".";
         }
 
         private void TextRepository_LostFocus(object sender, RoutedEventArgs e)
@@ -1608,9 +1324,14 @@ namespace DiyBeltTensioner.UI
             await LoadReleasesAsync(userInitiated: true);
         }
 
+        private void BtnOpenRelease_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl(latestRelease?.HtmlUrl ?? "https://github.com/" + settings.GitHubRepository + "/releases/latest");
+        }
+
         /// <summary>
-        /// Reads the latest release of the repository: shows it, fills the board variants and checks
-        /// for a plugin update (at start only if enabled; userInitiated = the user asked for it).
+        /// Reads the latest release: shows it, fills the board variants and checks for a plugin
+        /// update (at start only if enabled; userInitiated = the user asked for it).
         /// </summary>
         private async Task LoadReleasesAsync(bool userInitiated)
         {
@@ -1624,7 +1345,6 @@ namespace DiyBeltTensioner.UI
                 latestRelease = await FirmwareReleaseService.GetLatestAsync(settings.GitHubRepository);
                 TextLatestRelease.Text = latestRelease.DisplayName;
                 PopulateBoards();
-
                 if (userInitiated || settings.CheckPluginUpdates)
                 {
                     CheckPluginUpdate(userInitiated);
@@ -1639,65 +1359,8 @@ namespace DiyBeltTensioner.UI
             finally
             {
                 loadingReleases = false;
-                BtnCheckRelease.IsEnabled = true;
+                BtnCheckRelease.IsEnabled = settings.FirmwareSource == 0;
             }
-        }
-
-        /// <summary>
-        /// Board list: the variants of the latest release for the GitHub source, all known boards
-        /// for local firmware (or while the release is not loaded).
-        /// </summary>
-        private void PopulateBoards()
-        {
-            List<BoardInfo> boards = null;
-            if (settings.FirmwareSource == 0 && latestRelease != null)
-            {
-                boards = BoardInfo.FromRelease(latestRelease);
-            }
-            if (boards == null || boards.Count == 0)
-            {
-                boards = BoardInfo.All.ToList();
-            }
-
-            string selected = (ComboBoard.SelectedItem as BoardInfo)?.Environment ?? settings.BoardEnvironment;
-            bool wasLoading = loading;
-            loading = true; // keep the saved board while the list is replaced
-            ComboBoard.ItemsSource = boards;
-            ComboBoard.SelectedItem = boards.FirstOrDefault(b => string.Equals(b.Environment, selected, StringComparison.OrdinalIgnoreCase)) ?? boards.FirstOrDefault();
-            loading = wasLoading;
-            ShowReleaseInfo();
-        }
-
-        private void BtnOpenRelease_Click(object sender, RoutedEventArgs e)
-        {
-            string url = latestRelease?.HtmlUrl ?? "https://github.com/" + settings.GitHubRepository + "/releases/latest";
-            try
-            {
-                Process.Start(url);
-            }
-            catch (Exception ex)
-            {
-                Status("Could not open the browser: " + ex.Message);
-            }
-        }
-
-        private void ShowReleaseInfo()
-        {
-            var board = ComboBoard.SelectedItem as BoardInfo;
-            if (settings.FirmwareSource != 0)
-            {
-                TextReleaseInfo.Text = "Make sure the local firmware was built for this board.";
-                return;
-            }
-            if (latestRelease == null || board == null)
-            {
-                TextReleaseInfo.Text = "";
-                return;
-            }
-            var asset = latestRelease.FindAsset(board.Environment);
-            TextReleaseInfo.Text = asset != null
-                ? $"Flashes {asset.Name} ({asset.Size / 1024} kB) of release {latestRelease.Tag}."
-                : $"Release {latestRelease.Tag} has no firmware for {board.Environment}.";
         }
 
         private async Task<FirmwareImage> ResolveFirmwareAsync(BoardInfo board)
@@ -1714,8 +1377,7 @@ namespace DiyBeltTensioner.UI
                         }
                         string folder = FirmwareReleaseService.ExtractLocalZip(zip);
                         FlashLog("Extracted " + Path.GetFileName(zip) + " to " + folder);
-                        string fileName = Path.GetFileNameWithoutExtension(zip);
-                        if (!fileName.EndsWith("_" + board.Environment, StringComparison.OrdinalIgnoreCase))
+                        if (!Path.GetFileNameWithoutExtension(zip).EndsWith("_" + board.Environment, StringComparison.OrdinalIgnoreCase))
                         {
                             FlashLog("WARNING: the archive name does not end with _" + board.Environment + ". Make sure it matches your board.");
                         }
@@ -1735,9 +1397,8 @@ namespace DiyBeltTensioner.UI
                                 return null;
                             }
                         }
-                        var release = latestRelease;
-                        FlashLog("Release " + release.Tag);
-                        string folder = await FirmwareReleaseService.DownloadAndExtractAsync(release, board.Environment, FlashLog);
+                        FlashLog("Release " + latestRelease.Tag);
+                        string folder = await FirmwareReleaseService.DownloadAndExtractAsync(latestRelease, board.Environment, FlashLog);
                         return FirmwareImage.FromPath(folder);
                     }
             }
@@ -1746,23 +1407,28 @@ namespace DiyBeltTensioner.UI
         private async void BtnFlash_Click(object sender, RoutedEventArgs e)
         {
             if (busy) return;
-            var board = ComboBoard.SelectedItem as BoardInfo;
-            var port = ComboPort.SelectedItem as ComPortInfo;
-            if (board == null || port == null)
+            bool b = (string)((FrameworkElement)sender).Tag == "B";
+            var channel = b ? plugin.RightChannel : ChannelA;
+            var board = (b ? ComboBoardB : ComboBoardA).SelectedItem as BoardInfo;
+            string portName = channel.Settings.ComPort;
+            if (board == null || string.IsNullOrEmpty(portName))
             {
-                FlashLog("Select the COM port (TENSIONER tab) and the controller board first.");
+                FlashLog(channel.Title + ": select the COM port (SETUP tab) and the board first.");
                 return;
             }
-            if (port.IsPedalDevice)
+            var port = currentPorts.FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase));
+            if (port != null && port.IsPedalDevice)
             {
-                var answer = MessageBox.Show(port.PortName + " is a DIY FFB Pedal device (" + port.KindText + "). Flash the belt tensioner firmware onto it anyway?",
+                var answer = MessageBox.Show(portName + " is a DIY FFB Pedal device (" + port.KindText + "). Flash the belt tensioner firmware onto it anyway?",
                     "DIY FFB Belt Tensioner", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
             }
             TextLocalFirmware_LostFocus(null, null);
 
             busy = true;
-            BtnFlash.IsEnabled = false;
+            channel.Busy = true;
+            BtnFlashA.IsEnabled = false;
+            BtnFlashB.IsEnabled = false;
             TextFlashLog.Clear();
             try
             {
@@ -1782,38 +1448,62 @@ namespace DiyBeltTensioner.UI
                     return;
                 }
 
-                if (link.IsOpen)
+                if (channel.IsOpen)
                 {
-                    tester.Stop(park: true);
+                    channel.Disconnect();
                     UpdateTestUi();
-                    await Task.Delay(100);
-                    link.Close();
-                    await Task.Delay(300);
+                    await Task.Delay(400);
                 }
 
                 FlashLog("");
-                FlashLog($"=== Flashing {board.Environment} on {port.PortName} ===");
+                FlashLog($"=== {channel.Title}: flashing {board.Environment} on {portName} ===");
                 var flasher = new EspFlasher();
                 flasher.Output += FlashLog;
-                bool ok = await flasher.FlashAsync(port.PortName, board, image);
-                Status(ok ? "Firmware flashed." : "Flashing failed (see FIRMWARE tab).");
+                bool ok = await flasher.FlashAsync(portName, board, image);
+                Status(channel.Title + (ok ? ": firmware flashed." : ": flashing failed (see FIRMWARE tab)."));
 
                 if (ok && ToggleReconnectAfterFlash.IsChecked == true)
                 {
                     FlashLog("Waiting for the controller to restart...");
-                    await ReconnectAsync(port.PortName, 15000);
+                    await channel.ReconnectAsync(15000);
                 }
             }
             finally
             {
+                channel.Busy = false;
                 busy = false;
-                BtnFlash.IsEnabled = true;
+                BtnFlashA.IsEnabled = true;
+                BtnFlashB.IsEnabled = true;
+                RefreshAll();
             }
         }
 
         // ==================================================================
-        // Plugin update
+        // SYSTEM: plugin settings & updates
         // ==================================================================
+
+        private void ToggleAutoConnect_Click(object sender, RoutedEventArgs e)
+        {
+            settings.AutoConnect = ToggleAutoConnect.IsChecked == true;
+            SaveSettings();
+        }
+
+        private void ToggleLiveStatus_Click(object sender, RoutedEventArgs e)
+        {
+            settings.LiveStatus = ToggleLiveStatus.IsChecked == true;
+            SaveSettings();
+        }
+
+        private void ToggleCheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            settings.CheckPluginUpdates = ToggleCheckUpdates.IsChecked == true;
+            SaveSettings();
+        }
+
+        private async void BtnCheckPluginUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadReleasesAsync(userInitiated: true);
+        }
 
         private void CheckPluginUpdate(bool userInitiated)
         {
@@ -1836,28 +1526,9 @@ namespace DiyBeltTensioner.UI
             }
         }
 
-        private async void BtnCheckPluginUpdate_Click(object sender, RoutedEventArgs e)
-        {
-            await LoadReleasesAsync(userInitiated: true);
-        }
-
-        private void ToggleCheckUpdates_Click(object sender, RoutedEventArgs e)
-        {
-            settings.CheckPluginUpdates = ToggleCheckUpdates.IsChecked == true;
-            SaveSettings();
-        }
-
         private void BtnReleaseNotes_Click(object sender, RoutedEventArgs e)
         {
-            if (pendingPluginUpdate == null) return;
-            try
-            {
-                Process.Start(pendingPluginUpdate.HtmlUrl);
-            }
-            catch (Exception ex)
-            {
-                Status("Could not open the browser: " + ex.Message);
-            }
+            if (pendingPluginUpdate != null) OpenUrl(pendingPluginUpdate.HtmlUrl);
         }
 
         private void BtnSkipUpdate_Click(object sender, RoutedEventArgs e)
@@ -1902,9 +1573,8 @@ namespace DiyBeltTensioner.UI
                 BtnInstallUpdate.IsEnabled = true;
             }
 
-            // Release the controller before SimHub closes
-            tester.Stop(park: true);
-            link.Close();
+            // Release the controllers before SimHub closes
+            foreach (var c in plugin.AllChannels) c.Disconnect();
             SaveSettings();
 
             try
@@ -1915,155 +1585,6 @@ namespace DiyBeltTensioner.UI
             {
                 Status("Plugin update not started: " + ex.Message);
                 MessageBox.Show("The update could not be started:\n" + ex.Message + "\n\nThe installed plugin was not changed.", "Plugin update", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        // ==================================================================
-        // SimHub Motion
-        // ==================================================================
-
-        private void MotionLayout_Changed(object sender, RoutedEventArgs e)
-        {
-            if (loading) return;
-            StoreMotionUi();
-            settings.MotionDual = RadioMotionDual.IsChecked == true;
-            ComboMotionPort1.Text = settings.MotionDual ? settings.MotionPortLeft : settings.MotionPortSingle;
-            ToggleMotionReverse1.IsChecked = settings.MotionDual ? settings.MotionReverseLeft : settings.MotionReverseSingle;
-            if (string.IsNullOrEmpty(ComboMotionPort1.Text))
-            {
-                ComboMotionPort1.Text = currentPorts.Where(p => p.Kind == DeviceKind.BeltTensioner).Select(p => p.PortName).FirstOrDefault() ?? settings.ComPort;
-            }
-            SaveSettings();
-            UpdateMotionLayoutUi();
-        }
-
-        /// <summary>Copies the port / direction fields of the layout that is shown into the settings.</summary>
-        private void StoreMotionUi()
-        {
-            if (settings.MotionDual)
-            {
-                settings.MotionPortLeft = ComboMotionPort1.Text.Trim();
-                settings.MotionReverseLeft = ToggleMotionReverse1.IsChecked == true;
-                settings.MotionPortRight = ComboMotionPort2.Text.Trim();
-                settings.MotionReverseRight = ToggleMotionReverse2.IsChecked == true;
-            }
-            else
-            {
-                settings.MotionPortSingle = ComboMotionPort1.Text.Trim();
-                settings.MotionReverseSingle = ToggleMotionReverse1.IsChecked == true;
-            }
-        }
-
-        private void UpdateMotionLayoutUi()
-        {
-            bool dual = RadioMotionDual.IsChecked == true;
-            LabelMotionPort1.Text = dual ? "Left belt COM port:" : "COM port:";
-            var visibility = dual ? Visibility.Visible : Visibility.Collapsed;
-            LabelMotionPort2.Visibility = visibility;
-            ComboMotionPort2.Visibility = visibility;
-            PanelMotionReverse2.Visibility = visibility;
-        }
-
-        private void BtnSavePreset_Click(object sender, RoutedEventArgs e)
-        {
-            StoreMotionUi();
-            bool dual = RadioMotionDual.IsChecked == true;
-
-            int frequency, acceleration;
-            if (!TryParseInt(TextMotionFrequency.Text, 1, 36000, out frequency))
-            {
-                Status("Max. steppers pulse frequency must be 1 - 36000.");
-                return;
-            }
-            if (!TryParseInt(TextMotionAcceleration.Text, 1, 100000, out acceleration))
-            {
-                Status("Max. steppers acceleration must be 1 - 100000.");
-                return;
-            }
-
-            MotionControllerSetup first, right = null;
-            if (dual)
-            {
-                first = new MotionControllerSetup { ComPort = settings.MotionPortLeft, Reverse = settings.MotionReverseLeft };
-                right = new MotionControllerSetup { ComPort = settings.MotionPortRight, Reverse = settings.MotionReverseRight };
-                if (string.IsNullOrEmpty(first.ComPort) || string.IsNullOrEmpty(right.ComPort))
-                {
-                    MessageBox.Show("Select the COM ports of the left and the right belt.", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                if (string.Equals(first.ComPort, right.ComPort, StringComparison.OrdinalIgnoreCase))
-                {
-                    MessageBox.Show("Left and right belt need different COM ports (one controller board per actuator).", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-            }
-            else
-            {
-                first = new MotionControllerSetup { ComPort = settings.MotionPortSingle, Reverse = settings.MotionReverseSingle };
-                if (string.IsNullOrEmpty(first.ComPort))
-                {
-                    MessageBox.Show("Select the COM port of the belt tensioner.", "SimHub Motion preset", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-            }
-
-            settings.StepperFrequency = frequency;
-            settings.StepperAcceleration = acceleration;
-            SaveSettings();
-
-            string json;
-            try
-            {
-                json = MotionPresetBuilder.Build(first, right, frequency, acceleration);
-            }
-            catch (Exception ex)
-            {
-                Status("Creating the preset failed: " + ex.Message);
-                return;
-            }
-
-            var dialog = new SaveFileDialog
-            {
-                Filter = "SimHub Motion settings (*.shmotionoutput)|*.shmotionoutput",
-                FileName = dual ? "DIY_BeltTensioner_Dual.shmotionoutput" : "DIY_BeltTensioner_Single.shmotionoutput",
-                Title = "Save SimHub Motion preset",
-            };
-            if (dialog.ShowDialog() != true) return;
-
-            try
-            {
-                File.WriteAllText(dialog.FileName, json, new UTF8Encoding(false));
-                Status("Preset saved: " + dialog.FileName);
-                Process.Start("explorer.exe", "/select,\"" + dialog.FileName + "\"");
-            }
-            catch (Exception ex)
-            {
-                Status("Saving failed: " + ex.Message);
-            }
-        }
-
-        private void BtnReleasePort_Click(object sender, RoutedEventArgs e)
-        {
-            if (!link.IsOpen)
-            {
-                Status("The port is not used by this plugin, SimHub Motion can use it.");
-                return;
-            }
-            tester.Stop(park: true);
-            UpdateTestUi();
-            link.Close();
-            Status("Port released. You can enable SimHub Motion now.");
-        }
-
-        private void BtnOpenMotionDocs_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Process.Start("https://github.com/" + settings.GitHubRepository + "/blob/main/docs/SimHub_Motion_Setup.md");
-            }
-            catch (Exception ex)
-            {
-                Status("Could not open the browser: " + ex.Message);
             }
         }
     }

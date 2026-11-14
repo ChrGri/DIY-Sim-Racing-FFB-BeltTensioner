@@ -3,6 +3,7 @@ using DiyBeltTensioner.UI;
 using GameReaderCommon;
 using SimHub.Plugins;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Windows.Media;
 
@@ -15,11 +16,25 @@ namespace DiyBeltTensioner
     {
         public BeltTensionerSettings Settings { get; private set; }
 
-        /// <summary>Serial connection to the controller (shared by all tabs).</summary>
-        public BeltTensionerLink Link { get; private set; }
+        /// <summary>Single belt tensioner (layout "single").</summary>
+        public TensionerChannel SingleChannel { get; private set; }
 
-        /// <summary>Generates the test motion (hold / sine / brake pulse).</summary>
-        public TestRunner Tester { get; private set; }
+        /// <summary>Left and right belt (layout "dual", one controller board each).</summary>
+        public TensionerChannel LeftChannel { get; private set; }
+        public TensionerChannel RightChannel { get; private set; }
+
+        /// <summary>Channels of the selected layout.</summary>
+        public IReadOnlyList<TensionerChannel> ActiveChannels
+        {
+            get
+            {
+                return Settings.Dual
+                    ? new[] { LeftChannel, RightChannel }
+                    : new[] { SingleChannel };
+            }
+        }
+
+        public IReadOnlyList<TensionerChannel> AllChannels => new[] { SingleChannel, LeftChannel, RightChannel };
 
         public PluginManager PluginManager { get; set; }
 
@@ -53,25 +68,38 @@ namespace DiyBeltTensioner
         {
             SimHub.Logging.Current.Info("DIY FFB Belt Tensioner plugin starting");
             Settings = this.ReadCommonSettings<BeltTensionerSettings>("GeneralSettings", () => new BeltTensionerSettings());
-            Link = new BeltTensionerLink();
-            Tester = new TestRunner(Link);
+            if (Settings.Single == null) Settings.Single = new ChannelSettings();
+            if (Settings.Left == null) Settings.Left = new ChannelSettings();
+            if (Settings.Right == null) Settings.Right = new ChannelSettings();
 
-            // Properties for dashboards
-            this.AttachDelegate("Connected", () => Link.IsOpen);
-            this.AttachDelegate("ComPort", () => Link.PortName);
-            this.AttachDelegate("FirmwareVersion", () => Link.FirmwareVersion);
-            this.AttachDelegate("EnabledMotors", () => Link.EnabledMotors);
-            this.AttachDelegate("TestRunning", () => Tester.IsRunning);
+            SingleChannel = new TensionerChannel("Single", "Belt", Settings.Single);
+            LeftChannel = new TensionerChannel("Left", "Left belt", Settings.Left);
+            RightChannel = new TensionerChannel("Right", "Right belt", Settings.Right);
 
-            if (Settings.AutoConnect && !string.IsNullOrEmpty(Settings.ComPort))
+            // Properties for dashboards, e.g. BeltTensionerPlugin.Left.Connected
+            foreach (var channel in AllChannels)
             {
-                try
+                var c = channel;
+                this.AttachDelegate(c.Key + ".Connected", () => c.IsOpen);
+                this.AttachDelegate(c.Key + ".ComPort", () => c.Link.PortName);
+                this.AttachDelegate(c.Key + ".Status", () => c.StatusText);
+                this.AttachDelegate(c.Key + ".ServoLoad", () => c.LastLoad ?? 0);
+                this.AttachDelegate(c.Key + ".TestRunning", () => c.Tester.IsRunning);
+            }
+
+            if (Settings.AutoConnect)
+            {
+                foreach (var channel in ActiveChannels)
                 {
-                    Link.Open(Settings.ComPort);
-                }
-                catch (Exception ex)
-                {
-                    SimHub.Logging.Current.Warn("DIY FFB Belt Tensioner: auto connect to " + Settings.ComPort + " failed: " + ex.Message);
+                    if (string.IsNullOrEmpty(channel.Settings.ComPort)) continue;
+                    try
+                    {
+                        channel.Link.Open(channel.Settings.ComPort);
+                    }
+                    catch (Exception ex)
+                    {
+                        SimHub.Logging.Current.Warn("DIY FFB Belt Tensioner: auto connect to " + channel.Settings.ComPort + " failed: " + ex.Message);
+                    }
                 }
             }
         }
@@ -104,14 +132,17 @@ namespace DiyBeltTensioner
 
         public void End(PluginManager pluginManager)
         {
-            try
+            foreach (var channel in AllChannels)
             {
-                Tester?.Stop(park: true);
+                try
+                {
+                    channel.Tester.Stop(park: true);
+                }
+                catch (Exception)
+                {
+                }
+                channel.Link.Close();
             }
-            catch (Exception)
-            {
-            }
-            Link?.Close();
             SaveSettings();
         }
     }
