@@ -638,6 +638,7 @@ namespace DiyBeltTensioner.UI
                 Status(cfgChannel.Title + ": test stopped (other channel selected).");
             }
             cfgChannel = channel;
+            PanelServoResult.Visibility = Visibility.Collapsed;
             ShowCfgChannel();
             UpdateTestUi();
         }
@@ -912,15 +913,40 @@ namespace DiyBeltTensioner.UI
             if (!EnsureCfgConnected() || busy) return;
             busy = true;
             BtnDiffServo.IsEnabled = false;
+            var c = cfgChannel;
+            PanelServoResult.Visibility = Visibility.Visible;
+            DotServoResult.Fill = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
+            TextServoResult.Text = c.Title + ": reading the servo registers (takes a few seconds)...";
+            TextServoDiff.Visibility = Visibility.Collapsed;
             try
             {
-                await cfgChannel.DiffServoAsync();
+                ShowServoCheck(c, await c.DiffServoAsync());
             }
             finally
             {
                 busy = false;
                 BtnDiffServo.IsEnabled = true;
             }
+        }
+
+        private void ShowServoCheck(TensionerChannel c, ServoCheckResult result)
+        {
+            if (result == null)
+            {
+                DotServoResult.Fill = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
+                TextServoResult.Text = c.Title + ": no answer from the controller.";
+                return;
+            }
+            bool ok = result.Ok && !result.ServoUnavailable;
+            DotServoResult.Fill = new SolidColorBrush(ok ? Color.FromRgb(0x4C, 0xAF, 0x50)
+                : result.ServoUnavailable || result.ReadErrors > 0 ? Color.FromRgb(0xE5, 0x39, 0x35)
+                : Color.FromRgb(0xFB, 0xBF, 0x24));
+            string text = c.Title + ": " + result.SummaryText.Substring("servo check: ".Length);
+            if (result.Differ > 0) text += " Click 'Flash servo parameters', then power cycle the servo and check again.";
+            TextServoResult.Text = char.ToUpperInvariant(text[0]) + text.Substring(1);
+            string detail = result.DetailText;
+            TextServoDiff.Text = detail;
+            TextServoDiff.Visibility = detail.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BtnServoRegisters_Click(object sender, RoutedEventArgs e)

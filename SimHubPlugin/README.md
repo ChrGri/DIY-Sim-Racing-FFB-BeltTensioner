@@ -1,48 +1,109 @@
 # SimHub Plugin: DIY FFB Belt Tensioner
 
-A SimHub plugin to set up the belt tensioner without a serial terminal. It shows up as **FFB Belt Tensioner** in the left SimHub menu and uses the look of the DIY FFB Pedal plugin.
+Set up the belt tensioner completely inside SimHub, no serial terminal needed: flash the firmware, flash the servo, set pitch and working range, test the movement and create the SimHub Motion preset.
 
-The plugin works with **channels**: a single channel belt tensioner (one actuator for both shoulder belts) or a dual channel one (one actuator per shoulder belt). Every channel is one controller board with one actuator on its own COM port, and all channels are connected at the same time.
+<p align="center">
+  <img src="../docs/media/plugin/plugin_setup.png" alt="SETUP tab of the plugin with a dual channel belt tensioner" width="85%">
+</p>
 
-| Tab | What it does |
-| :--- | :--- |
-| **SETUP** | Pick *Single channel* or *Dual channel*. The rendering of the layout is shown with one card per belt (left / right for dual): COM port and connection, status (servo state, load, voltage, position), spindle pitch and working range with **Auto-detect range** (homing to both end stops), Home / Park / Restart. Below: **Save to controller** for all channels and the **SimHub Motion** preset (limits, direction, *Create SimHub Motion preset*, *Release ports for SimHub Motion*). |
-| **CONFIG** | Channel switcher (LEFT / RIGHT or BELT) like Throttle / Brake / Clutch in the pedal plugin. Stroke view with safety window, park position, carriage position and test position, then the tabs **Positions & Direction**, **Idle & Homing**, **Motion Test** (hold / sine / brake pulse) and **Servo** (flash / check the iSV57 parameters, servo register editor). Actions: Home, Park, Restart, Read, Web Graphs. |
-| **FIRMWARE** | Flashes the controllers via USB with the embedded `esptool`, one row per channel with its board variant. The firmware is the latest [GitHub release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases) (board variants of that release) or a local release `.zip` / build folder. Native USB boards (1200 bps touch, new bootloader COM port) and CP2102 boards (DTR/RTS reset) are handled automatically. |
-| **SYSTEM** | Plugin settings (auto-connect, live status, plugin updates), COM port identification, status messages and the serial log / console of every channel. |
-
-**COM port detection:** the port lists show what is connected, e.g. `COM19  (Belt Tensioner)` or `COM31  (FFB Pedal: Throttle)`. Native USB boards are recognized by their USB product name (`diy_belt_tensioner`) or their USB IDs (pedals: VID `303A` with PID `8332` clutch, `8333` brake, `8334` throttle, `8331` bridge, product `FFB_Pedal_<role>`). CP2102 boards all look the same on USB: SYSTEM → **Identify USB-UART boards** opens them briefly and waits for the belt tensioner greeting (this resets the ESP32 behind the port). Detected belt tensioners are assigned to channels without a port automatically.
-
-**One actuator per COM port:** the plugin always drives axis 1 of a controller. Build the firmware with `NUM_ACTUATORS 1`; the plugin warns when a controller reports two actuators.
-
-**Settings:** spindle pitch and working range need firmware with `SET_PITCH` / `SET_RANGE`; direction, positions, idle and homing need firmware with the `SETTINGS` / `SET` commands, auto-detect of the range `MEASURE_RANGE`, the servo status CMD 16 (see [docs/commands.md](../docs/commands.md)). With older firmware these controls stay disabled or show less.
-
-**Servo register editor:** reading works with every firmware (`DUMP_SERVO`); editing and saving single registers needs firmware with `SERVO_WRITE` / `SERVO_SAVE`.
-
-**Web Graphs:** CONFIG → *Web Graphs* switches the live graph web page of the controller on if needed (`WEBGRAPHS ON`), waits for its WiFi and opens the page. Without a saved WiFi the controller opens the access point `diy_belt_tensioner`; connect the PC or a phone to it first.
+The plugin shows up as **FFB Belt Tensioner** in the left SimHub menu. It supports a **single channel** belt tensioner (one actuator pulls both shoulder belts) and a **dual channel** one (one actuator per shoulder belt). Every channel is one controller board on its own COM port; in a dual setup both belts are connected at the same time.
 
 > [!IMPORTANT]
-> A COM port can only be used by one program. The plugin and SimHub Motion therefore never use the controller at the same time: disable SimHub Motion before you connect in the plugin, and click **Disconnect** / **Release port for SimHub Motion** before you enable SimHub Motion again.
+> A COM port can only be used by one program at a time. **Disable SimHub Motion** while you work in the plugin, and click **Release ports for SimHub Motion** before you enable motion again.
 
 ## Installation
 
-1. Download `DiyBeltTensioner.dll` from the latest [release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases) (the release workflow builds it together with the firmware).
-2. Close SimHub and copy the DLL into the SimHub installation folder (usually `C:\Program Files (x86)\SimHub\`).
-3. Start SimHub. On the first start SimHub asks whether to enable the new plugin: confirm. The plugin appears as **FFB Belt Tensioner** in the left menu (if not: *Settings → Plugins*, enable *DIY FFB Belt Tensioner* and *Show in left menu*).
+1. Download `DiyBeltTensioner.dll` from the [latest release](https://github.com/ChrGri/DIY-Sim-Racing-FFB-BeltTensioner/releases/latest).
+2. Close SimHub and copy the DLL into the SimHub folder (usually `C:\Program Files (x86)\SimHub\`).
+3. Start SimHub and confirm the question to enable the new plugin. It appears as **FFB Belt Tensioner** in the left menu. If not: *Settings → Plugins*, enable *DIY FFB Belt Tensioner* and *Show in left menu*.
 
-## Updates
+Later updates install themselves: when a new release is out, a banner offers **Update now** (SimHub restarts, admin rights are needed for the SimHub folder).
 
-* **Plugin:** at start the plugin checks the releases (switch *Check for plugin updates*, button *Check now*). If a newer `DiyBeltTensioner.dll` is available, a banner offers **Update now**: the DLL is downloaded, SimHub closes, the plugin is replaced (admin prompt, the old DLL is kept as `DiyBeltTensioner.dll.bak`) and SimHub starts again.
-* **Firmware:** FIRMWARE tab → the latest release is used; *Board* lists the board variants it contains. Pick your board, then **Flash firmware**.
+## First setup in 6 steps
 
-## Typical first setup
+### 1. Connect: SETUP tab
 
-1. **SETUP:** pick single or dual channel and select the COM port of every belt (the lists show which port is a belt tensioner), **Connect all**.
-2. **FIRMWARE:** check the board variant of every channel, click **Flash**. The plugin reconnects afterwards.
-3. **CONFIG → Servo:** power the servo, **Flash servo parameters**, power cycle the servo. Repeat for the other channel.
-4. **SETUP:** set the spindle pitch, click **Auto-detect range** (or enter the working range), **Save to controller** and confirm the restart.
-5. **CONFIG:** check direction and limits in the stroke view, then **Motion Test** with low values.
-6. **SETUP → SimHub Motion:** **Create SimHub Motion preset...**, import it in SimHub (*Motion → Platform Config. → Settings Import and export → Import all platform settings*), **Release ports for SimHub Motion** and enable motion.
+Pick **Single channel** or **Dual channel**. Plug in the controller board(s) by USB and select the COM port of every belt; the list marks belt tensioners, e.g. `COM19 (Belt Tensioner)`, and FFB pedals, e.g. `COM31 (FFB Pedal: Throttle)`. Click **Connect all**.
+
+> [!TIP]
+> Boards with a CP2102 USB chip do not tell Windows what they are. Use *SYSTEM → Identify USB-UART boards* to find them.
+
+### 2. Flash the firmware: FIRMWARE tab
+
+<p align="center">
+  <img src="../docs/media/plugin/plugin_firmware.png" alt="FIRMWARE tab" width="80%">
+</p>
+
+The plugin uses the latest GitHub release. Check the **board variant** of every belt (e.g. *ControlBoard V8*) and click **Flash**. The plugin reconnects automatically afterwards; saved settings are kept.
+
+If flashing fails: hold **BOOT**, press and release **RST**, release **BOOT** and click **Flash** again.
+
+### 3. Flash the servo: CONFIG → Servo
+
+Switch the servo power on, click **Flash servo parameters** and power cycle the servo (switch its power supply off and on). Click **Check**: it should report that all registers match. If not, it lists the differing registers. With a dual setup, repeat this for the other belt (LEFT / RIGHT tabs on the left).
+
+### 4. Pitch and working range: SETUP tab
+
+Select the **spindle pitch** of your linear module (e.g. 5 or 10 mm per revolution). Click **Auto-detect range**: the carriage moves to both end stops (sensorless homing) and takes the measured distance as working range. Then **Save to controller** and confirm the restart.
+
+### 5. Check and test: CONFIG tab
+
+<p align="center">
+  <img src="../docs/media/plugin/plugin_config.png" alt="CONFIG tab with the stroke view" width="80%">
+</p>
+
+The stroke view shows the usable range (MIN / MAX safety limits), the park position and the current carriage position. Adjust them under **Positions & Direction** and **Idle & Homing** if needed, then **Save to controller**.
+
+Under **Motion Test** the belt can be moved without a game: *Hold*, *Sine* or *Brake pulse*. Start with low values and without the harness on.
+
+<p align="center">
+  <img src="../docs/media/plugin/plugin_motion_test.png" alt="Motion test" width="80%">
+</p>
+
+### 6. SimHub Motion: SETUP tab
+
+<p align="center">
+  <img src="../docs/media/plugin/plugin_motion_preset.png" alt="SimHub Motion preset" width="80%">
+</p>
+
+Click **Create SimHub Motion preset...** and save the file. Then:
+
+1. *Arduino → My Hardware → Arduino scan settings*: SimHub must not scan the belt tensioner port(s).
+2. *Motion → Platform Config. → Settings Import and export → Import all platform settings* → select the saved file.
+3. Back in the plugin: **Release ports for SimHub Motion**, then **Enable Motion** in SimHub. The carriage homes and parks.
+
+More details: [SimHub Motion Setup Guide](../docs/SimHub_Motion_Setup.md).
+
+## The tabs at a glance
+
+| Tab | What it does |
+| :--- | :--- |
+| **SETUP** | Single / dual layout, one card per belt: COM port, status (servo state, load, voltage, position), spindle pitch, working range with auto-detect, Home / Park / Restart. Save for all belts, SimHub Motion preset. |
+| **CONFIG** | Per belt (LEFT / RIGHT): stroke view, **Positions & Direction** (direction, park position, safety limits), **Idle & Homing** (idle delay, homing sensitivity and back-off, homing at boot), **Motion Test**, **Servo** (flash and check the iSV57 parameters, register editor). Buttons: Home, Park, Restart, Read, Web Graphs (live graphs in the browser). |
+| **FIRMWARE** | Flash the latest release (or a local `.zip` / build folder), one row per belt with its board variant. |
+| **SYSTEM** | Plugin settings (connect at SimHub start, live status, update check), identify USB-UART boards, status messages and the serial console of every belt. |
+
+## Troubleshooting
+
+| Problem | Solution |
+| :--- | :--- |
+| *COMxx is in use by another program* | Disable SimHub Motion (or close any serial monitor), then connect again. |
+| No COM port marked as belt tensioner | CP2102 boards: *SYSTEM → Identify USB-UART boards*. Board without belt tensioner firmware yet: select the port anyway and flash. |
+| Settings are greyed out | The firmware on the controller is too old. Flash the latest release. |
+| Servo status shows "servo offline" | Check the servo power and the RS232 cable between controller and servo. |
+| Saved values have no effect | Settings are applied after a restart of the controller: confirm the restart question or click **Restart**. |
+| Homing stops too early / hits the end stop hard | *CONFIG → Idle & Homing*: raise or lower the homing sensitivity. |
+
+<details>
+<summary><b>Technical details</b></summary>
+
+* **One actuator per COM port:** the plugin always drives axis 1 of a controller (firmware `NUM_ACTUATORS 1`); it warns when a controller reports two actuators.
+* **Port detection:** native USB boards are recognized by their USB product name (`diy_belt_tensioner`); DIY FFB pedals by VID `303A` with PID `8332` clutch, `8333` brake, `8334` throttle, `8331` bridge (product `FFB_Pedal_<role>`). *Identify USB-UART boards* opens CP2102 ports briefly and waits for the belt tensioner greeting (this resets the ESP32 behind the port).
+* **Firmware features:** pitch and range need `SET_PITCH` / `SET_RANGE`; direction, positions, idle and homing `SETTINGS` / `SET`; auto-detect `MEASURE_RANGE`; the status display CMD 16; editing servo registers `SERVO_WRITE` / `SERVO_SAVE`; the web graphs switch `WEBGRAPHS ON`. See [docs/commands.md](../docs/commands.md). With older firmware these controls stay disabled.
+* **Flashing:** embedded `esptool`; native USB boards via 1200 bps touch (new bootloader COM port), CP2102 boards via DTR/RTS reset.
+* **Web Graphs:** without a saved WiFi the controller opens the access point `diy_belt_tensioner`; connect the PC or a phone to it first.
+
+</details>
 
 ## Building
 

@@ -449,16 +449,29 @@ namespace DiyBeltTensioner.Core
             }
         }
 
-        public async Task<string> DiffServoAsync()
+        /// <summary>
+        /// DIFF_SERVO: compares the servo registers with the tuned table of the firmware.
+        /// Returns null if the controller did not answer.
+        /// </summary>
+        public async Task<ServoCheckResult> DiffServoAsync()
         {
             BlockingCommand = true;
             try
             {
                 LogLine?.Invoke("> DIFF_SERVO 1");
-                var reply = await Link.RequestAsync("DIFF_SERVO 1", l => l.Contains(" read errors.") || l.Contains("is not enabled"), 60000, 8000);
-                string summary = reply.LastOrDefault(l => l.StartsWith("Summary:"));
-                Say(summary ?? "servo check finished (see Serial Logs).");
-                return summary;
+                Say("checking the servo registers...");
+                var reply = await Link.RequestAsync("DIFF_SERVO 1",
+                    l => l.Contains("read errors.") || l.Contains("is not enabled"), 60000, 8000);
+                var result = ServoCheckResult.Parse(reply);
+                if (result == null)
+                {
+                    Say("no answer to DIFF_SERVO.");
+                }
+                else
+                {
+                    Say(result.SummaryText);
+                }
+                return result;
             }
             finally
             {
