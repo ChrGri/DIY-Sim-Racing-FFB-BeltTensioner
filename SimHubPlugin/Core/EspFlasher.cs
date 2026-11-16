@@ -163,10 +163,28 @@ namespace DiyBeltTensioner.Core
             return ports.Count == 0 ? "none" : string.Join(", ", ports.Values.Select(p => $"{p.PortName} [{p.Vid ?? "?"}:{p.Pid ?? "?"}]"));
         }
 
-        // 303A:1001 = USB-Serial/JTAG (ROM download mode or HW-CDC app), 303A:0002 = ROM download mode over USB-OTG
+        // 303A:1001 = USB-Serial/JTAG (ROM download mode or HW-CDC app), 303A:0002 = ROM download mode over USB-OTG.
+        // Careful: TinyUSB firmware (belt tensioner V8, ...) also enumerates as 303A:1001, but with its
+        // own product name (e.g. "diy_belt_tensioner"). The USB-Serial/JTAG unit reports
+        // "USB JTAG/serial debug unit". Ports with an application product name are not the bootloader.
         private static bool IsBootloaderPort(ComPortInfo info)
         {
-            return info != null && info.Vid == "303A" && (info.Pid == "1001" || info.Pid == "0002");
+            if (info == null || info.Vid != "303A") return false;
+            if (info.Pid == "0002") return true;
+            return info.Pid == "1001" && !IsRunningApplication(info);
+        }
+
+        private static bool IsRunningApplication(ComPortInfo info)
+        {
+            if (info.Kind == DeviceKind.BeltTensioner || info.IsPedalDevice) return true;
+            string product = info.Product ?? "";
+            return product.Length > 0 && product.IndexOf("JTAG", StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        /// <summary>Port info including the USB product name (needed to tell bootloader and firmware apart).</summary>
+        private static ComPortInfo FindWithProduct(string portName)
+        {
+            return ComPortInfo.GetPresentPorts(true).FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase));
         }
 
         private async Task<string> TouchAndResolveBootloaderPortAsync(string comPort)
@@ -247,7 +265,7 @@ namespace DiyBeltTensioner.Core
             while (sw.ElapsedMilliseconds < timeoutMs)
             {
                 bool success = false;
-                if (Snapshot().ContainsKey(comPort))
+                if (SerialPort.GetPortNames().Contains(comPort, StringComparer.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -281,12 +299,13 @@ namespace DiyBeltTensioner.Core
 
         private async Task<Tuple<string, string>> PreparePortAsync(string comPort, string chip)
         {
-            var selected = ComPortInfo.Find(comPort);
-            Log($"Selected port: {comPort} [{selected?.Vid ?? "?"}:{selected?.Pid ?? "?"}]");
+            var selected = FindWithProduct(comPort);
+            Log($"Selected port: {comPort} [{selected?.Vid ?? "?"}:{selected?.Pid ?? "?"}]" +
+                (string.IsNullOrEmpty(selected?.Product) ? "" : " \"" + selected.Product + "\""));
 
             if (IsBootloaderPort(selected))
             {
-                Log("Native USB-Serial/JTAG port, esptool resets via USB.");
+                Log("ESP32-S3 bootloader / USB-Serial/JTAG port, esptool resets via USB.");
                 await WaitForPortReadyAsync(comPort);
                 return Tuple.Create(comPort, selected.Pid == "1001" ? "usb-reset" : "no-reset");
             }
@@ -303,7 +322,7 @@ namespace DiyBeltTensioner.Core
             if (!Snapshot().ContainsKey(uploadPort)) uploadPort = comPort;
             await WaitForPortReadyAsync(uploadPort);
 
-            if (IsBootloaderPort(ComPortInfo.Find(uploadPort)))
+            if (IsBootloaderPort(FindWithProduct(uploadPort)))
             {
                 Log($"Bootloader active on {uploadPort}, connecting without another reset.");
                 return Tuple.Create(uploadPort, "no-reset");
@@ -379,11 +398,13 @@ namespace DiyBeltTensioner.Core
                     if (attempt > 1)
                     {
                         await Task.Delay(1500);
-                        uploadPort = ResolveRetryPort(uploadPort, comPort);
-                        await WaitForPortReadyAsync(uploadPort);
-                        before = "default-reset";
                         Log($"");
-                        Log($"Retry {attempt}/{MaxAttempts} on {uploadPort} ({baud} baud)...");
+                        Log($"Retry {attempt}/{MaxAttempts} ({baud} baud)...");
+                        // Prepare again: the firmware may still be running (touch again) or the
+                        // bootloader may have come up on another port
+                        prepared = await PreparePortAsync(ResolveRetryPort(uploadPort, comPort), chip);
+                        uploadPort = prepared.Item1;
+                        before = prepared.Item2;
                     }
 
                     Log($"{description} on {uploadPort} (--before {before}, {baud} baud)...");
