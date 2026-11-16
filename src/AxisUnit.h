@@ -76,6 +76,12 @@ public:
     volatile int32_t servo_offset_compensation_steps_i32 = 0;
     int32_t servoPosCorrected_i32 = 0;
     volatile bool servoInitialized = false;
+    // Servo start-up sequence (pollModbusTelemetry)
+    uint32_t servoFirstAnswerMs = 0;   // 0 = servo not found yet
+    uint32_t servoLastProbeMs = 0;
+    uint32_t servoLastIdScanMs = 0;
+    float servoLastBusVoltage = NAN;
+    bool servoStartupLogged = false;
     volatile bool isFlashing = false;
     volatile bool isReadingParams = false;
 
@@ -156,6 +162,8 @@ public:
     }
 
 private:
+    void initializeServo();
+    void setServoEnabled(bool enabled);
     FastAccelStepper* stepper = nullptr;
     String logHeader;
     int32_t hardLimitMin = 0;

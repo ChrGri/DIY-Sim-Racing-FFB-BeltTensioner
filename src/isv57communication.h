@@ -68,7 +68,10 @@ public:
     void readServoStates();
     bool readMotorRatings();
     bool checkCommunication();
-    bool findServosSlaveId();
+    // scanOtherIds: also try the common slave IDs (never the broadcast address 0)
+    bool findServosSlaveId(bool scanOtherIds = true);
+    // DC bus voltage in volt (register 0x0140), NAN if the servo did not answer
+    float readBusVoltage();
     bool clearServoAlarms();
     void disableAxis();
     void enableAxis();
