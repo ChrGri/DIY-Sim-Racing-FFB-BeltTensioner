@@ -82,6 +82,8 @@ public:
     uint32_t servoLastIdScanMs = 0;
     float servoLastBusVoltage = NAN;
     bool servoStartupLogged = false;
+    bool servoTelemetryMapped = false;
+    uint8_t servoMissedChecks = 0;
     volatile bool isFlashing = false;
     volatile bool isReadingParams = false;
 
@@ -128,6 +130,10 @@ public:
     bool saveServoParameters();
 
     void pollModbusTelemetry();
+
+    // Messages of all axes are collected (they come from the Modbus task on the other
+    // core) and printed by the main loop; dropped while forward is false.
+    static void flushLog(Stream& out, bool forward);
     void unwrapAndCalculateStepLoss();
     void correctPos();
     void printStatus();

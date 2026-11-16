@@ -282,12 +282,6 @@ bool Isv57Communication::findServosSlaveId(bool scanOtherIds) {
     return false;
 }
 
-float Isv57Communication::readBusVoltage() {
-    int16_t raw = 0;
-    if (readRegisters(reg_add_voltage_0p1V, 1, &raw) != 1) return NAN;
-    return raw / 10.0f;
-}
-
 bool Isv57Communication::clearServoAlarms() {
     return (modbus.writeHoldingRegisterToDevice(slaveId, 0x019A, 0x1111) > 0);
 }

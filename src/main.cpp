@@ -227,6 +227,8 @@ void loop() {
         protocol.sendGreeting(&hostSerial);
     }
     protocol.reportRangeMeasurements(&hostSerial);
+    // Messages of the axes (servo start-up, homing, ...), not while SimHub Motion runs
+    AxisUnit::flushLog(hostSerial, !protocol.motionActive());
 
     // 2. Update sensorless homing and idle parking watchdogs
     for (uint8_t i = 0; i < axisCount; i++) {

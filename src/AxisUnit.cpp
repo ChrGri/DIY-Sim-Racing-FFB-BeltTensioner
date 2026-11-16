@@ -16,9 +16,29 @@ AxisUnit::AxisUnit() {
     servoPosCorrected_i32 = 0;
 }
 
+// Pending messages of all axes (written from both cores, printed by the main loop)
+static SemaphoreHandle_t logMutex = xSemaphoreCreateMutex();
+static String pendingLog;
+static const size_t MAX_PENDING_LOG = 2048;
+
 void AxisUnit::log(const String& msg) {
-    Serial.print(logHeader);
-    Serial.println(msg);
+    if (logMutex == nullptr || xSemaphoreTake(logMutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
+    if (pendingLog.length() + logHeader.length() + msg.length() + 2 < MAX_PENDING_LOG) {
+        pendingLog += logHeader;
+        pendingLog += msg;
+        pendingLog += "\n";
+    }
+    xSemaphoreGive(logMutex);
+}
+
+void AxisUnit::flushLog(Stream& out, bool forward) {
+    if (logMutex == nullptr || pendingLog.length() == 0) return;
+    String text;
+    if (xSemaphoreTake(logMutex, 0) != pdTRUE) return;
+    text = pendingLog;
+    pendingLog = "";
+    xSemaphoreGive(logMutex);
+    if (forward) out.print(text);
 }
 
 uint32_t AxisUnit::toStepRate(float metersPerSecond) const {
@@ -138,6 +158,8 @@ void AxisUnit::initializeServo() {
         if (isv57.findServosSlaveId(scan)) {
             servoFirstAnswerMs = now | 1;
             servoLastBusVoltage = NAN;
+            servoTelemetryMapped = false;
+            servoMissedChecks = 0;
             log(F("Servo answers, waiting for it to finish booting"));
         }
         return;
@@ -146,16 +168,29 @@ void AxisUnit::initializeServo() {
     // 2. Quiet time
     if (now - servoFirstAnswerMs < SERVO_STARTUP_SETTLE_MS) return;
 
-    // 3. Stable supply voltage
+    // 3. Stable supply voltage. The iSV57 only delivers the bus voltage through the
+    //    cyclic read block (0x0191..0x0194 point to the monitored registers), so the
+    //    mapping is written once now that the servo has booted.
     if (now - servoLastProbeMs < SERVO_VOLTAGE_CHECK_INTERVAL_MS) return;
     servoLastProbeMs = now;
-    float voltage = isv57.readBusVoltage();
-    if (std::isnan(voltage)) {
-        // Lost again (servo restarted while the supply rises): start over
-        servoFirstAnswerMs = 0;
-        log(F("Servo stopped answering, searching again"));
+    if (!servoTelemetryMapped) {
+        isv57.setupServoStateReading();
+        servoTelemetryMapped = true;
         return;
     }
+    isv57.readServoStates();
+    if (isv57.dynamicStates.lastUpdateTimeInMS_u32 + SERVO_VOLTAGE_CHECK_INTERVAL_MS < now) {
+        // No answer (servo restarted while the supply rises): start over
+        if (++servoMissedChecks >= 4) {
+            servoFirstAnswerMs = 0;
+            servoTelemetryMapped = false;
+            servoMissedChecks = 0;
+            log(F("Servo stopped answering, searching again"));
+        }
+        return;
+    }
+    servoMissedChecks = 0;
+    float voltage = isv57.dynamicStates.servoVoltage0p1V_i16 / 10.0f;
     bool stable = voltage >= SERVO_MIN_BUS_VOLTAGE_V && !std::isnan(servoLastBusVoltage) &&
                   fabsf(voltage - servoLastBusVoltage) <= SERVO_BUS_VOLTAGE_STABLE_V;
     servoLastBusVoltage = voltage;
@@ -172,7 +207,7 @@ void AxisUnit::initializeServo() {
     delay(50);
     isv57.clearServoAlarms();
     isv57.readMotorRatings(); // Keeps the table defaults if the read fails
-    isv57.setupServoStateReading();
+    isv57.setupServoStateReading(); // again: clearing the alarms may reset it
     if (state.motorPowered) {
         isv57.enableAxis();
     } else {
@@ -184,6 +219,7 @@ void AxisUnit::initializeServo() {
         log("Servo ready (" + String(voltage, 1) + " V)");
     } else {
         servoFirstAnswerMs = 0; // try again from the start
+        servoTelemetryMapped = false;
     }
     servoStartupLogged = false;
 }
