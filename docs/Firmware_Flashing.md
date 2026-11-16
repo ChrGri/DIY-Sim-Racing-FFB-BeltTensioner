@@ -2,6 +2,9 @@
 
 This guide explains how to flash the pre-compiled firmware to any supported ESP32-S3 ControlBoard (V4, V5, V6, V7, V8, PCBA V1.x, PCBA V2.x) or an **ESP32 DevKit** using the built-in USB Flasher in the **FFB Pedal Dashboard (SimHub Plugin)**.
 
+> [!TIP]
+> Easier: the **[Belt Tensioner SimHub plugin](../SimHubPlugin/README.md)** flashes the latest release for your board with one click, flashes the servo and sets pitch & working range without serial commands. This guide describes the way without the plugin.
+
 ---
 
 ## 🚀 Step-by-Step Flashing Instructions

@@ -170,6 +170,19 @@ Flashes all **305 tuned registers** from `isv57_tunedParameters.h` (Pr0.00 to Pr
   [0xFF] [0xFF] [0x0F] [0x0A] [0x0D]
   ```
 
+### CMD 16 (`0x10`): Dump Axis State
+Prints one status line for the given axis (used by the SimHub plugin for its status display). Not sent by SimHub Motion.
+
+* **Packet Format (6 Bytes):**
+  ```text
+  [0xFF] [0xFF] [0x10] [Axis Index] [0x0A] [0x0D]
+  ```
+* **Reply:**
+  ```text
+  State #0:homing=DONE:powered=1:ready=1:parked=0:servo=1:load=12:voltage=24.1:pos=55.2:error=3
+  ```
+  `homing`: `IDLE`, `WAIT_SERVO`, `HOMING_MIN`, `HOMING_MAX`, `RETURN`, `DONE`, `FAILED` · `powered`: servo enabled · `ready`: homed and accepting positions · `parked`: at the park position after the idle delay · `servo`: Modbus telemetry received · `load`: servo current in % · `voltage`: DC bus in V · `pos`: carriage position in % of the working range · `error`: following error in steps.
+
 ---
 
 ## 4. Serial ASCII Commands (Serial Monitor)
@@ -190,8 +203,15 @@ In addition to SimHub binary framing, the serial interface supports human-readab
 | **`CONFIG`** | - | Shows spindle pitch and working range of each axis, whether the value is saved in flash or the `Config.h` default, and whether a restart is pending. |
 | **`SET_PITCH <axis> <mm>`** | `SET_PITCH <mm>` (axis 1) | Saves the spindle pitch of axis 1 or 2 in flash (NVS), e.g. `SET_PITCH 2 5`. Allowed 0.5 - 50 mm, `,` or `.` as decimal separator. Applied after a restart of the controller. |
 | **`SET_RANGE <axis> <mm>`** | `SET_RANGE <mm>` (axis 1) | Saves the usable working range of axis 1 or 2 in flash, e.g. `SET_RANGE 1 60`. Allowed 5 - 500 mm. Applied after a restart. |
-| **`RESET_CONFIG`** | - | Deletes all saved pitch/range values; the `SPINDLE_PITCH_MM` / `TOTAL_WORKING_RANGE_MM` defaults from `Config.h` apply after a restart. |
-| **`WEBGRAPHS`** | - | Prints the address of the live graph web page (see below). |
+| **`MEASURE_RANGE <a>`** | - | Sensorless homing of axis `a` to the MIN **and** the MAX end stop. Afterwards the controller prints `Measured working range axis 1: 58.40 mm (11680 steps)` (distance between both back-off positions) and uses it until the next restart. Save it with `SET_RANGE`. |
+| **`SERVO_WRITE <s> <reg> <value>`** | - | Writes one iSV57 register of servo `s` (1/2) into the servo RAM and reads it back, e.g. `SERVO_WRITE 1 0x0008 3200`. Register decimal or `0x` hex. Replies `SERVO_WRITE 1 0x0008 = 3200 OK` or `... failed (read back <v>)`. Not permanent until `SERVO_SAVE`. |
+| **`SERVO_SAVE <s>`** | - | Stores all current registers of servo `s` permanently in its EEPROM. Power cycle the servo afterwards. |
+| **`SETTINGS`** | - | Lists the behaviour settings below with their saved value, unit, source (`saved` / `default` = `Config.h`) and allowed range. `-> restart to apply` marks values that are saved but not active yet. |
+| **`SET <KEY> <value>`** | - | Saves one behaviour setting in flash (applied after a restart), e.g. `SET IDLE_POSITION 15`, `SET INVERT_TENSION 1`. Switches accept `0`/`1` or `ON`/`OFF`. |
+| **`RESET_CONFIG`** | - | Deletes all saved values (pitch, range and the behaviour settings); the `Config.h` defaults apply after a restart. |
+| **`RESTART`** | `REBOOT` | Disables the motors and restarts the controller, e.g. to apply values saved with `SET_PITCH` / `SET_RANGE`. On native USB boards the COM port disappears briefly. |
+| **`WEBGRAPHS`** | - | Prints the state and the address of the live graph web page (see below). |
+| **`WEBGRAPHS ON`** / **`OFF`** | - | `ON` starts WiFi and the web graphs immediately and at every boot, `OFF` keeps WiFi off after the next restart (saved as setting `WEBGRAPHS`). |
 | **`HELP`** | - | Prints an overview of all available serial commands. |
 
 ### Live graph web page (`ENABLE_WEBGRAPHS` in `Config.h`)
@@ -246,3 +266,20 @@ Every log message intended for the SimHub motion log window **must** begin with 
 When enabled in configuration, the controller enters a continuous diagnostic stream:
 - Motors remain disabled.
 - Streams live telemetry every 500 ms in the format `Sensor #<axis>:<value>:Trigger level:<level>:Triggered:<0|1>`.
+
+## Behaviour settings (`SET <KEY> <value>`)
+
+Saved in flash and applied after a restart (`RESTART`). Without a saved value the `Config.h` default applies. All settings are valid for every axis of the controller.
+
+| Key | Config.h default | Range | Description |
+| :--- | :--- | :--- | :--- |
+| `INVERT_TENSION` | `INVERT_TENSION_DIRECTION` | 0 / 1 | 1 = 0 % input (idle) is at the MAX stop and braking pulls towards MIN. |
+| `IDLE_POSITION` | `IDLE_POSITION_PCT` | 0 - 50 % | Park position after homing and after the idle delay. |
+| `MIN_LIMIT` | `MIN_SAFETY_LIMIT_PCT` | 0 - 45 % | The carriage never travels below this position. |
+| `MAX_LIMIT` | `MAX_SAFETY_LIMIT_PCT` | 55 - 100 % | The carriage never travels above this position. |
+| `CENTER_AFTER_HOMING` | `CENTER_AFTER_CALIBRATION` | 0 / 1 | 1 = move to 50 % instead of the idle position after homing. |
+| `IDLE_DELAY` | `IDLE_DELAY_MS` | 1 - 600 s | Time without commands until the actuator parks and the servo is disabled. |
+| `HOME_AT_BOOT` | `CALIBRATE_AT_BOOT` | 0 / 1 | 1 = sensorless homing directly after power on instead of on the first command. |
+| `HOMING_THRESHOLD` | `HOMING_CURRENT_THRESHOLD_PCT` | 5 - 100 % | Servo load that detects the mechanical end stop while homing. |
+| `HOMING_BACKOFF` | `HOMING_BACKOFF_MM` | 0.5 - 20 mm | Distance to back off from the end stop after homing. |
+| `WEBGRAPHS` | `ENABLE_WEBGRAPHS` | 0 / 1 | 1 = WiFi and the live graph web page start at boot (the build must have `ENABLE_WEBGRAPHS true`). `WEBGRAPHS ON` / `OFF` sets it too; `ON` starts them immediately. |

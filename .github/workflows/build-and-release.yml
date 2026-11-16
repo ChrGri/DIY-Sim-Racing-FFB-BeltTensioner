@@ -1,4 +1,4 @@
-name: Build and Release Firmware
+name: Build and Release Firmware & SimHub Plugin
 
 on:
   push:
@@ -19,6 +19,98 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    name: Release version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      numeric: ${{ steps.version.outputs.numeric }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Release Version (YY.WW.DD)
+        id: version
+        run: |
+          YEAR=$(date +'%y')
+          WEEK=$(date +'%V')
+          DOW=$(printf "%02d" $(date +'%u'))
+          BASE_TAG="${YEAR}.${WEEK}.${DOW}"
+          TAG="${BASE_TAG}"
+
+          # If tag already exists, append incremental suffix (.1, .2, ...)
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            COUNT=1
+            while git rev-parse "refs/tags/${BASE_TAG}.${COUNT}" >/dev/null 2>&1; do
+              COUNT=$((COUNT + 1))
+            done
+            TAG="${BASE_TAG}.${COUNT}"
+          fi
+
+          # Assembly version of the plugin: 4 numeric parts without leading zeros (26.45.05.2 -> 26.45.5.2)
+          IFS='.' read -r -a PARTS <<< "${TAG}"
+          while [ ${#PARTS[@]} -lt 4 ]; do PARTS+=("0"); done
+          NUMERIC="$((10#${PARTS[0]})).$((10#${PARTS[1]})).$((10#${PARTS[2]})).$((10#${PARTS[3]}))"
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "numeric=${NUMERIC}" >> "$GITHUB_OUTPUT"
+          echo "Generated release tag: ${TAG} (assembly version ${NUMERIC})"
+
+  plugin:
+    name: Build SimHub plugin
+    needs: [version]
+    runs-on: windows-latest
+    env:
+      SIMHUB_VERSION: 9.11.12
+      SIMHUB_PATH: C:\Program Files (x86)\SimHub\
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The plugin references SimHub.Plugins.dll etc. from a SimHub installation
+      - name: Cache SimHub installation
+        id: cache-simhub
+        uses: actions/cache@v4
+        with:
+          path: C:\Program Files (x86)\SimHub
+          key: simhub-${{ env.SIMHUB_VERSION }}-windows
+
+      - name: Install SimHub
+        if: steps.cache-simhub.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          curl.exe -L --fail -o SimHub.zip "https://github.com/SHWotever/SimHub/releases/download/$env:SIMHUB_VERSION/SimHub.$env:SIMHUB_VERSION.zip"
+          7z x SimHub.zip -oSimHubSetup | Out-Null
+          $installer = Get-ChildItem -Path SimHubSetup -Filter SimHubSetup_*.exe -Recurse | Select-Object -First 1
+          Write-Host "Installing $($installer.Name) silently..."
+          Start-Process -FilePath $installer.FullName -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=`"C:\Program Files (x86)\SimHub`"" -Wait -NoNewWindow
+
+      - name: Check SimHub references
+        shell: pwsh
+        run: |
+          foreach ($dll in "SimHub.Plugins.dll", "GameReaderCommon.dll", "SimHub.Logging.dll", "log4net.dll", "Newtonsoft.Json.dll") {
+            if (-not (Test-Path (Join-Path $env:SIMHUB_PATH $dll))) { throw "$dll not found in $env:SIMHUB_PATH" }
+          }
+
+      - name: Build DiyBeltTensioner.dll
+        shell: pwsh
+        run: |
+          # SimHubPath defaults to C:\Program Files (x86)\SimHub\ (see the .csproj)
+          dotnet build SimHubPlugin/DiyBeltTensioner.csproj -c Release `
+            -p:CopyToSimHub=false `
+            -p:Version=${{ needs.version.outputs.numeric }} `
+            -p:InformationalVersion=${{ needs.version.outputs.tag }}
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simhub-plugin
+          path: SimHubPlugin/bin/Release/DiyBeltTensioner.dll
+          if-no-files-found: error
+
   build:
     name: Build ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -95,39 +187,13 @@ jobs:
 
   release:
     name: Publish Release (Main Branch)
-    needs: [build]
+    needs: [version, build, plugin]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true))
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate Release Version (YY.WW.DD)
-        id: version
-        run: |
-          YEAR=$(date +'%y')
-          WEEK=$(date +'%V')
-          DOW=$(printf "%02d" $(date +'%u'))
-          BASE_TAG="${YEAR}.${WEEK}.${DOW}"
-          TAG="${BASE_TAG}"
-
-          # If tag already exists, append incremental suffix (.1, .2, ...)
-          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
-            COUNT=1
-            while git rev-parse "refs/tags/${BASE_TAG}.${COUNT}" >/dev/null 2>&1; do
-              COUNT=$((COUNT + 1))
-            done
-            TAG="${BASE_TAG}.${COUNT}"
-          fi
-
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Generated release tag: ${TAG}"
-
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -137,8 +203,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
-          files: release-assets/*.zip
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Release ${{ needs.version.outputs.tag }}
+          files: |
+            release-assets/*.zip
+            release-assets/DiyBeltTensioner.dll
           generate_release_notes: true
           make_latest: true

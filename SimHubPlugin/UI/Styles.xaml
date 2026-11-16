@@ -1,0 +1,505 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Look and feel of the DIY FFB Pedal plugin (UIStyles/DefaultStyles.xaml of
+        DIY-Sim-Racing-FFB-Pedal), so both plugins look alike in SimHub.
+    -->
+    <DropShadowEffect x:Key="mousedragging" Color="White" BlurRadius="15" Opacity="1" ShadowDepth="0"/>
+    <DropShadowEffect x:Key="mouseoutdragging" Color="White" BlurRadius="15" Opacity="0" ShadowDepth="0"/>
+    <DrawingImage x:Key="Home">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Info">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M11,7L11,9 13,9 13,7 11,7 M14,17L14,15 13,15 13,11 10,11 10,13 11,13 11,15 10,15 10,17 14,17 M22,12C22,17.5 17.5,22 12,22 6.5,22 2,17.5 2,12 2,6.5 6.5,2 12,2 17.5,2 22,6.5 22,12 M20,12C20,7.58 16.42,4 12,4 7.58,4 4,7.58 4,12 4,16.42 7.58,20 12,20 16.42,20 20,16.42 20,12z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Restart">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M12,4C14.1,4 16.1,4.8 17.6,6.3 20.7,9.4 20.7,14.5 17.6,17.6 15.8,19.5 13.3,20.2 10.9,19.9L11.4,17.9C13.1,18.1 14.9,17.5 16.2,16.2 18.5,13.9 18.5,10.1 16.2,7.7 15.1,6.6 13.5,6 12,6L12,10.6 7,5.6 12,0.6 12,4 M6.3,17.6C3.7,15,3.3,11,5.1,7.9L6.6,9.4C5.5,11.6 5.9,14.4 7.8,16.2 8.3,16.7 8.9,17.1 9.6,17.4L9,19.4C8,19,7.1,18.4,6.3,17.6z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Monitor">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M21,16L3,16 3,4 21,4 M21,2L3,2C1.89,2,1,2.89,1,4L1,16A2,2,0,0,0,3,18L10,18 10,20 8,20 8,22 16,22 16,20 14,20 14,18 21,18A2,2,0,0,0,23,16L23,4C23,2.89,22.1,2,21,2z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="FirmwareDownload">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M19,9H15V3H9V9H5L12,16L19,9Z M5,18V20H19V18H5Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Settings">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M-0.5,0 V25 H24.5 V-0.5 H0 Z">
+                <DrawingGroup.Transform>
+                    <TranslateTransform X="0.5" Y="0" />
+                </DrawingGroup.Transform>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M12,7.82001L22,7.82001">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M2,7.82001L4,7.82001">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M20,16.82L22,16.82">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M2,16.82L12,16.82">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M8,11.82C10.2091,11.82 12,10.0291 12,7.82001 12,5.61087 10.2091,3.82001 8,3.82001 5.79086,3.82001 4,5.61087 4,7.82001 4,10.0291 5.79086,11.82 8,11.82z">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="F1 M25,25z M0,0z M16,20.82C18.2091,20.82 20,19.0291 20,16.82 20,14.6109 18.2091,12.82 16,12.82 13.7909,12.82 12,14.6109 12,16.82 12,19.0291 13.7909,20.82 16,20.82z">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.5" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" MiterLimit="1" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Upload">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M12,7L17,12 14,12 14,16 10,16 10,12 7,12 12,7 M12,22A10,10,0,0,1,2,12A10,10,0,0,1,12,2A10,10,0,0,1,22,12A10,10,0,0,1,12,22 M12,20A8,8,0,0,0,20,12A8,8,0,0,0,12,4A8,8,0,0,0,4,12A8,8,0,0,0,12,20z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingGroup x:Key="LivePlotDrawingGroup" ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+        <!-- Coordinate Axes (L-shape frame) -->
+        <GeometryDrawing Geometry="M3.5,3.5 V19 A1.5,1.5 0 0 0 5,20.5 H20.5">
+            <GeometryDrawing.Pen>
+                <Pen Brush="White" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+            </GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <!-- Rising Trend Line -->
+        <GeometryDrawing Geometry="M7,14.5 L11,10.5 L14,13.5 L20,7.5">
+            <GeometryDrawing.Pen>
+                <Pen Brush="White" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+            </GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <!-- Trend Arrow Head -->
+        <GeometryDrawing Geometry="M15.5,7.5 H20 V12">
+            <GeometryDrawing.Pen>
+                <Pen Brush="White" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+            </GeometryDrawing.Pen>
+        </GeometryDrawing>
+    </DrawingGroup>
+    <DrawingImage x:Key="LivePlot" Drawing="{StaticResource LivePlotDrawingGroup}"/>
+    <Style x:Key="IconGridButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="50"/>
+        <Setter Property="Height" Value="50"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Background" Value="#22FFFFFF"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5, 0.5"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1.0" ScaleY="1.0"/>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush3}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource AccentColorBrush2}"/>
+                            <Setter Property="RenderTransform">
+                                <Setter.Value>
+                                    <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="Background" Value="#1E1E1E"/>
+        <Setter Property="BorderBrush" Value="#333333"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Padding" Value="14"/>
+        <Setter Property="Margin" Value="5"/>
+    </Style>
+    <Style x:Key="ModernPillButton" TargetType="Button">
+        <Setter Property="Background" Value="#2A2A2A"/>
+        <Setter Property="Foreground" Value="#D0D0D0"/>
+        <Setter Property="BorderBrush" Value="#444444"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontFamily" Value="Segoe UI, Arial"/>
+        <Setter Property="Padding" Value="6,2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#383838"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="#666666"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#1E1E1E"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="ConnectPillButton" TargetType="Button" BasedOn="{StaticResource ModernPillButton}">
+        <Style.Triggers>
+            <Trigger Property="Content" Value="Disconnect">
+                <Setter Property="Background" Value="#4E4E4E"/>
+                <Setter Property="BorderBrush" Value="#666666"/>
+                <Setter Property="Foreground" Value="#FFFFFF"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="HorizontalSliderThumb" TargetType="{x:Type Thumb}">
+        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+        <Setter Property="Opacity" Value="0.9"/>
+        <Setter Property="BorderThickness" Value="0 0"/>
+        <Setter Property="IsTabStop" Value="false"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Width" Value="10" />
+
+
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Thumb}">
+                    <Grid SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                        <Rectangle RadiusX="2" RadiusY="2" Fill="Transparent" Stroke="{DynamicResource AccentColorBrush}" StrokeThickness="2" Width="{TemplateBinding Width}" Height="{TemplateBinding Height}" />
+                        <Rectangle x:Name="DisabledVisualElement" Fill="{DynamicResource DisabledWhiteBrush}" IsHitTestVisible="false" Opacity="0"/>
+
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter Property="Effect" Value="{DynamicResource mousedragging}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="False">
+                            <Setter Property="Effect" Value="{DynamicResource mouseoutdragging}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="HorizontalTrackLargeDecrease" TargetType="{x:Type RepeatButton}">
+        <Setter Property="Focusable" Value="false"/>
+        <Setter Property="IsTabStop" Value="false"/>
+        <Setter Property="OverridesDefaultStyle" Value="true"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                    <Grid x:Name="Root" Margin="0 -1 0 0">
+                        <Rectangle  Height="1" Margin="0 1 0 0" RadiusX="1" RadiusY="1">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0" Opacity="0.9">
+                                    <GradientStop Color="{TemplateBinding Background}" Offset="0.0"/>
+                                    <GradientStop Color="Gray" Offset="0.25"/>
+                                    <GradientStop Color="Gray" Offset="0.75"/>
+                                    <GradientStop Color="{TemplateBinding Background}" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="HorizontalTrackValue" TargetType="{x:Type RepeatButton}">
+        <Setter Property="Focusable" Value="false"/>
+        <Setter Property="IsTabStop" Value="false"/>
+        <Setter Property="OverridesDefaultStyle" Value="true"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                    <Grid x:Name="Root" Margin="0 -1 0 0">
+                        <Rectangle Height="2" Margin="0 1 0 0" RadiusX="1" RadiusY="1">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0" Opacity="0.9">
+                                    <GradientStop Color="{TemplateBinding Background}" Offset="0.0"/>
+                                    <GradientStop Color="{DynamicResource AccentColor}" Offset="0.25"/>
+                                    <GradientStop Color="{DynamicResource AccentColor}" Offset="0.75"/>
+                                    <GradientStop Color="{TemplateBinding Background}" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="HorizontalSliderTemplate" TargetType="{x:Type Slider}">
+        <Grid x:Name="Root">
+            <Grid x:Name="HorizontalTemplate" Background="{TemplateBinding Background}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TickBar x:Name="TopTick" Fill="{TemplateBinding Foreground}" Height="4" Placement="Top" Grid.Row="0" Visibility="Collapsed"/>
+                <TickBar x:Name="BottomTick" Fill="{TemplateBinding Foreground}" Height="4" Placement="Bottom" Grid.Row="2" Visibility="Collapsed"/>
+                <Track x:Name="PART_Track" Grid.Row="1">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource HorizontalTrackValue}"/>
+                    </Track.DecreaseRepeatButton>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource HorizontalTrackLargeDecrease}"/>
+                    </Track.IncreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb x:Name="HorizontalThumb" Height="10" IsTabStop="true" Style="{StaticResource HorizontalSliderThumb}" Width="10"/>
+                    </Track.Thumb>
+                </Track>
+            </Grid>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="TickPlacement" Value="TopLeft">
+                <Setter Property="Visibility" TargetName="TopTick" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="TickPlacement" Value="BottomRight">
+                <Setter Property="Visibility" TargetName="BottomTick" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="TickPlacement" Value="Both">
+                <Setter Property="Visibility" TargetName="BottomTick" Value="Visible"/>
+                <Setter Property="Visibility" TargetName="TopTick" Value="Visible"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <DrawingImage x:Key="Play">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M8,5.14V19.14L19,12.14L8,5.14Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Stop">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M18,18H6V6H18V18Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Park">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M13.2,11H10V7H13.2A2,2 0 0,1 15.2,9A2,2 0 0,1 13.2,11M13,3H6V21H10V15H13A6,6 0 0,0 19,9C19,5.68 16.31,3 13,3Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Target">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M3.05,13H1V11H3.05C3.5,6.83 6.83,3.5 11,3.05V1H13V3.05C17.17,3.5 20.5,6.83 20.95,11H23V13H20.95C20.5,17.17 17.17,20.5 13,20.95V23H11V20.95C6.83,20.5 3.5,17.17 3.05,13M12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19A7,7 0 0,0 19,12A7,7 0 0,0 12,5Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Save">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Chip">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M17,17H7V7H17M21,11V9H19V7C19,5.89 18.1,5 17,5H15V3H13V5H11V3H9V5H7C5.89,5 5,5.89 5,7V9H3V11H5V13H3V15H5V17A2,2 0 0,0 7,19H9V21H11V19H13V21H15V19H17A2,2 0 0,0 19,17V15H21V13H19V11M13,13H11V11H13M15,9H9V15H15V9Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="CheckCircle">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M12,2C6.5,2 2,6.5 2,12S6.5,22 12,22 22,17.5 22,12 17.5,2 12,2M10,17L5,12L6.41,10.59L10,14.17L17.59,6.58L19,8L10,17Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Search">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Motion">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="White" Geometry="F1 M24,24z M0,0z M13,6V11H18V7.75L22.25,12L18,16.25V13H13V18H16.25L12,22.25L7.75,18H11V13H6V16.25L1.75,12L6,7.75V11H11V6H7.75L12,1.75L16.25,6H13Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    <DrawingImage x:Key="Belt">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Geometry="M4,1.5 L10.5,14 M20,1.5 L13.5,14">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="3" StartLineCap="Round" EndLineCap="Round" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M8.5,13.5 H15.5 V19 H8.5 Z">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="1.8" LineJoin="Round" />
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="White" Geometry="M12,23.5 L9,20.5 H15 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- Tab look of the DIY FFB Pedal plugin -->
+    <ControlTemplate x:Key="PedalTabItemTemplate" TargetType="TabItem">
+        <Border Name="Border" BorderThickness="1" BorderBrush="#444444" CornerRadius="3" Margin="0,0,2,0">
+            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header" Margin="0,0"/>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Border" Property="Background" Value="#4E4E4E" />
+                <Setter TargetName="Border" Property="BorderBrush" Value="#666666" />
+                <Setter Property="TextElement.Foreground" Value="#FFFFFFFF" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="False">
+                <Setter TargetName="Border" Property="Background" Value="#2A2A2A" />
+                <Setter Property="TextElement.Foreground" Value="#D0D0D0" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" SourceName="Border" Value="True"/>
+                    <Condition Property="IsSelected" Value="False"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="Border" Property="Background" Value="#383838" />
+                <Setter TargetName="Border" Property="BorderBrush" Value="#666666" />
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Border" Property="Opacity" Value="0.35" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="MainTabItem" TargetType="TabItem">
+        <Setter Property="Template" Value="{StaticResource PedalTabItemTemplate}" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="SubTabItem" TargetType="TabItem">
+        <Setter Property="Template" Value="{StaticResource PedalTabItemTemplate}" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="TabHeaderText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Arial Black" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="MainTabHeaderText" TargetType="TextBlock" BasedOn="{StaticResource TabHeaderText}">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+    </Style>
+
+    <Style x:Key="PlainTabControl" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0,6,0,0" />
+    </Style>
+
+    <Style x:Key="CardTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Arial Black" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <Style x:Key="SectionTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Arial Black" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="SmallText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Arial" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="HintText" TargetType="TextBlock" BasedOn="{StaticResource SmallText}">
+        <Setter Property="Foreground" Value="#FF9AA3AD" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WarnText" TargetType="TextBlock" BasedOn="{StaticResource SmallText}">
+        <Setter Property="Foreground" Value="#FFFBBF24" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="IconLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Arial" />
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,3,0,0" />
+    </Style>
+
+    <Style x:Key="PedalSlider" TargetType="{x:Type Slider}">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        <Setter Property="IsTabStop" Value="false"/>
+        <Setter Property="Template" Value="{StaticResource HorizontalSliderTemplate}"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+    </Style>
+
+    <Style x:Key="ValueBox" TargetType="TextBox">
+        <Setter Property="Background" Value="#FF3F3F46" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderBrush" Value="#555555" />
+        <Setter Property="FontFamily" Value="Arial" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Padding" Value="2,0,2,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Height" Value="20" />
+    </Style>
+</ResourceDictionary>

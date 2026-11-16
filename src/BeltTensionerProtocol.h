@@ -21,6 +21,7 @@ public:
     void processIncomingStream(Stream* stream);
     void sendGreeting(Stream* stream);
     void flushStream(Stream* stream);
+    void reportRangeMeasurements(Stream* stream);
 
 private:
     AxisUnit** axisUnits = nullptr;
@@ -39,6 +40,9 @@ private:
     void handleCommand(Stream* stream);
     void handleAsciiCommand(Stream* stream, const char* cmd);
     void dumpSensor(Stream* stream, uint8_t axis);
+    void dumpAxisState(Stream* stream, uint8_t axis);
     void printAxisConfig(Stream* stream);
     void setAxisConfigValue(Stream* stream, const char* args, bool isPitch);
+    void servoWrite(Stream* stream, const char* args);
+    void servoSave(Stream* stream, const char* args);
 };

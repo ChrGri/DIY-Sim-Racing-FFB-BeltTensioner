@@ -33,6 +33,9 @@ struct AxisUnitSettings {
     int32_t totalWorkingRange = TOTAL_WORKING_RANGE_STEPS;
     uint8_t homingCurrentThreshold = HOMING_CURRENT_THRESHOLD_PCT;
     bool centerAfterCalib = CENTER_AFTER_CALIBRATION;
+    float idlePositionPct = IDLE_POSITION_PCT;   // park position in % of the working range
+    float minSafetyPct = MIN_SAFETY_LIMIT_PCT;   // carriage never travels below this %
+    float maxSafetyPct = MAX_SAFETY_LIMIT_PCT;   // carriage never travels above this %
     bool measureMaxTravel = MEASURE_MAX_TRAVEL_SENSORLESS;
 
     // Motion in carriage units: identical for all axes regardless of spindle pitch
@@ -76,6 +79,15 @@ public:
     volatile bool isFlashing = false;
     volatile bool isReadingParams = false;
 
+    enum RangeMeasureState : uint8_t {
+        RANGE_MEASURE_NONE,
+        RANGE_MEASURE_RUNNING,
+        RANGE_MEASURE_DONE,
+        RANGE_MEASURE_FAILED
+    };
+    volatile uint8_t rangeMeasureState = RANGE_MEASURE_NONE;
+    int32_t measuredRangeSteps = -1;
+
     AxisUnit();
 
     bool begin(FastAccelStepperEngine* engine,
@@ -92,7 +104,13 @@ public:
     void setMaxAcceleration32Bits(uint32_t accel);
 
     void startSensorlessHoming();
+    // Homing to MIN and MAX end stop; the measured working range is reported via takeRangeMeasurement()
+    void startRangeMeasurement();
+    // true once a started measurement has finished (ok = an end stop was found on both sides)
+    bool takeRangeMeasurement(int32_t& rangeSteps, bool& ok);
+    bool isRangeMeasurementRunning() const { return rangeMeasureState == RANGE_MEASURE_RUNNING; }
     void updateHoming();
+    void updateHomingStateMachine();
     void updateIdleWatchdog(unsigned long idleTimeoutMs);
     void moveToIdle(bool blocking = false);
 
@@ -100,6 +118,8 @@ public:
     void disableMotor();
     bool flashTunedParameters(Stream* logStream = nullptr);
     void dumpServoParameters(bool onlyDiff, Stream* logStream);
+    bool writeServoParameter(uint16_t regIdx, int16_t value, int16_t* readBack);
+    bool saveServoParameters();
 
     void pollModbusTelemetry();
     void unwrapAndCalculateStepLoss();
@@ -113,10 +133,17 @@ public:
     int16_t getCurrentLoadPercent() const { return isv57.dynamicStates.servo_current_percent; }
     float getBusVoltage() const { return ((float)isv57.dynamicStates.servoVoltage0p1V_i16) * 0.1f; }
     int32_t getWorkingRange() const { return hardLimitMax; }
+    const AxisUnitState& getState() const { return state; }
+    int16_t getPositionError() const { return isv57.dynamicStates.servo_pos_error_p; }
+    // Servo telemetry (Modbus) received recently and valid
+    bool isServoOnline() const {
+        return isv57.dynamicStates.servo_receivedPacketIsValid_b &&
+               (millis() - isv57.dynamicStates.lastUpdateTimeInMS_u32) < 1000;
+    }
 
     int32_t convertPosition16Bits(uint16_t inputPosition) const {
-        int32_t minPos = (int32_t)((MIN_SAFETY_LIMIT_PCT / 100.0f) * (float)hardLimitMax);
-        int32_t maxPos = (int32_t)((MAX_SAFETY_LIMIT_PCT / 100.0f) * (float)hardLimitMax);
+        int32_t minPos = (int32_t)((settings.minSafetyPct / 100.0f) * (float)hardLimitMax);
+        int32_t maxPos = (int32_t)((settings.maxSafetyPct / 100.0f) * (float)hardLimitMax);
         int32_t target;
         if (settings.invertTensionDir) {
             // Inverted: 0 input (idle/no brake) -> maxPos (relaxed), 65535 input (full brake) -> minPos (pulled tight)

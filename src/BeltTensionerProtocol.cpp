@@ -1,4 +1,5 @@
 #include "BeltTensionerProtocol.h"
+#include "ControllerConfig.h"
 #include "WebGraphs.h"
 
 BeltTensionerProtocol::BeltTensionerProtocol() {
@@ -48,6 +49,53 @@ void BeltTensionerProtocol::dumpSensor(Stream* stream, uint8_t axis) {
     stream->print(F(":Triggered:"));
     stream->print(triggered);
     stream->println();
+}
+
+static const char* homingStateName(HomingState s) {
+    switch (s) {
+        case HOMING_IDLE:                 return "IDLE";
+        case HOMING_START:
+        case HOMING_WAIT_SERVO:           return "WAIT_SERVO";
+        case HOMING_APPROACH_MIN:
+        case HOMING_BACKOFF_MIN:          return "HOMING_MIN";
+        case HOMING_MEASURE_MAX_APPROACH:
+        case HOMING_MEASURE_MAX_BACKOFF:  return "HOMING_MAX";
+        case HOMING_RETURN_HOME:          return "RETURN";
+        case HOMING_DONE:                 return "DONE";
+        case HOMING_FAILED:               return "FAILED";
+        default:                          return "?";
+    }
+}
+
+// CMD 16: one status line per axis for the SimHub plugin (keep the format stable)
+// State #0:homing=DONE:powered=1:ready=1:parked=0:servo=1:load=12:voltage=24.1:pos=55.2:error=3
+void BeltTensionerProtocol::dumpAxisState(Stream* stream, uint8_t axis) {
+    if (stream == nullptr || axis >= numAxes || axisUnits == nullptr || axisUnits[axis] == nullptr) return;
+    AxisUnit* unit = axisUnits[axis];
+    const AxisUnitState& st = unit->getState();
+    int32_t range = unit->getWorkingRange();
+    float posPct = (range > 0) ? (100.0f * (float)unit->getCurrentPosition() / (float)range) : 0.0f;
+
+    stream->print(F("State #"));
+    stream->print(axis);
+    stream->print(F(":homing="));
+    stream->print(homingStateName(st.homingState));
+    stream->print(F(":powered="));
+    stream->print(st.motorPowered ? 1 : 0);
+    stream->print(F(":ready="));
+    stream->print(st.motorReady ? 1 : 0);
+    stream->print(F(":parked="));
+    stream->print(st.isParked ? 1 : 0);
+    stream->print(F(":servo="));
+    stream->print(unit->isServoOnline() ? 1 : 0);
+    stream->print(F(":load="));
+    stream->print(unit->getCurrentLoadPercent());
+    stream->print(F(":voltage="));
+    stream->print(unit->getBusVoltage(), 1);
+    stream->print(F(":pos="));
+    stream->print(posPct, 1);
+    stream->print(F(":error="));
+    stream->println(unit->getPositionError());
 }
 
 // Prints spindle pitch & working range per axis (saved in NVS or Config.h default)
@@ -117,6 +165,98 @@ static bool parseAxisAndValue(const char* args, uint8_t& axisIndex, float& value
 
     while (*rest == ' ') rest++;
     return (*rest == '\0');
+}
+
+// Parses an optional servo number (1/2) at the start of args; returns the axis index or -1
+static int8_t parseServoIndex(const char*& args) {
+    while (*args == ' ') args++;
+    if (*args == '\0') return 0; // default: servo 1
+    if ((args[0] == '1' || args[0] == '2') && (args[1] == ' ' || args[1] == '\0')) {
+        int8_t index = (int8_t)(args[0] - '1');
+        args++;
+        while (*args == ' ') args++;
+        return index;
+    }
+    return -1;
+}
+
+// SERVO_WRITE <servo> <register> <value>: register decimal or 0x hex, value -32768..32767
+// Replies "SERVO_WRITE <servo> 0x<reg> = <value> OK" or "... failed (read back <v>)"
+void BeltTensionerProtocol::servoWrite(Stream* stream, const char* args) {
+    int8_t index = parseServoIndex(args);
+    char* end = nullptr;
+    long reg = strtol(args, &end, 0);
+    bool valid = (index >= 0) && (end != args);
+    long value = 0;
+    if (valid) {
+        const char* valueText = end;
+        value = strtol(valueText, &end, 0);
+        while (end != nullptr && *end == ' ') end++;
+        valid = (end != valueText) && (end != nullptr) && (*end == '\0') &&
+                reg >= 0 && reg < 0x0200 && value >= -32768 && value <= 32767;
+    }
+    if (!valid) {
+        stream->println(F("Usage: SERVO_WRITE <servo> <register> <value>   e.g. SERVO_WRITE 1 0x0008 3200"));
+        return;
+    }
+    if (index >= numAxes || axisUnits[index] == nullptr) {
+        stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        return;
+    }
+
+    int16_t readBack = 0;
+    bool ok = axisUnits[index]->writeServoParameter((uint16_t)reg, (int16_t)value, &readBack);
+    char line[64];
+    snprintf(line, sizeof(line), "SERVO_WRITE %d 0x%04X = %ld %s", index + 1, (unsigned)reg, value, ok ? "OK" : "failed");
+    stream->print(line);
+    if (!ok) {
+        stream->print(F(" (read back "));
+        stream->print(readBack);
+        stream->print(')');
+    }
+    stream->println();
+}
+
+// SERVO_SAVE [servo]: stores the servo RAM parameters permanently in its EEPROM
+void BeltTensionerProtocol::servoSave(Stream* stream, const char* args) {
+    int8_t index = parseServoIndex(args);
+    if (index < 0 || *args != '\0') {
+        stream->println(F("Usage: SERVO_SAVE <servo>"));
+        return;
+    }
+    if (index >= numAxes || axisUnits[index] == nullptr) {
+        stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        return;
+    }
+    bool ok = axisUnits[index]->saveServoParameters();
+    stream->print(F("SERVO_SAVE "));
+    stream->print(index + 1);
+    stream->println(ok ? F(" OK - power cycle the servo to activate all values") : F(" failed (no ACK from the servo)"));
+}
+
+// Prints the result of finished range measurements (called from the main loop)
+void BeltTensionerProtocol::reportRangeMeasurements(Stream* stream) {
+    if (stream == nullptr || axisUnits == nullptr) return;
+    for (uint8_t i = 0; i < numAxes; i++) {
+        if (axisUnits[i] == nullptr) continue;
+        int32_t steps = 0;
+        bool ok = false;
+        if (!axisUnits[i]->takeRangeMeasurement(steps, ok)) continue;
+        if (ok) {
+            float mm = (float)steps / axisUnits[i]->settings.mech.stepsPerMm();
+            stream->print(F("Measured working range axis "));
+            stream->print(i + 1);
+            stream->print(F(": "));
+            stream->print(mm, 2);
+            stream->print(F(" mm ("));
+            stream->print(steps);
+            stream->println(F(" steps)"));
+        } else {
+            stream->print(F("Working range measurement axis "));
+            stream->print(i + 1);
+            stream->println(F(" failed (homing failed or no end stop found)"));
+        }
+    }
 }
 
 void BeltTensionerProtocol::setAxisConfigValue(Stream* stream, const char* args, bool isPitch) {
@@ -202,6 +342,11 @@ void BeltTensionerProtocol::handleCommand(Stream* stream) {
 
         case 11: { // CMD 11: Dump Sensor Diagnostic
             dumpSensor(stream, dataBuffer[0]);
+            break;
+        }
+
+        case 16: { // CMD 16: Dump axis state (plugin status display)
+            dumpAxisState(stream, dataBuffer[0]);
             break;
         }
 
@@ -307,14 +452,59 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  SET_PITCH <axis> <mm>  - spindle pitch, e.g. SET_PITCH 1 5"));
         stream->println(F("  SET_RANGE <axis> <mm>  - working range, e.g. SET_RANGE 1 60"));
         stream->println(F("  RESET_CONFIG           - delete saved values, use Config.h defaults"));
+        stream->println(F("More settings: SETTINGS"));
     } else if (strncasecmp(cmd, "SET_PITCH ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, true);
     } else if (strncasecmp(cmd, "SET_RANGE ", 10) == 0) {
         setAxisConfigValue(stream, cmd + 10, false);
+    } else if (strncasecmp(cmd, "MEASURE_RANGE", 13) == 0) {
+        const char* args = cmd + 13;
+        int8_t index = parseServoIndex(args);
+        if (index < 0 || *args != '\0') {
+            stream->println(F("Usage: MEASURE_RANGE <axis>"));
+        } else if (index >= numAxes || axisUnits[index] == nullptr) {
+            stream->println(F("Actuator 2 is not enabled (NUM_ACTUATORS is 1)"));
+        } else {
+            stream->print(F("Measuring working range of axis "));
+            stream->print(index + 1);
+            stream->println(F(": homing to both end stops..."));
+            axisUnits[index]->startRangeMeasurement();
+        }
+    } else if (strncasecmp(cmd, "SERVO_WRITE ", 12) == 0) {
+        servoWrite(stream, cmd + 12);
+    } else if (strncasecmp(cmd, "SERVO_SAVE", 10) == 0) {
+        servoSave(stream, cmd + 10);
+    } else if (strcasecmp(cmd, "SETTINGS") == 0) {
+        ControllerConfig::print(stream);
+    } else if (strncasecmp(cmd, "SET ", 4) == 0) {
+        ControllerConfig::set(stream, cmd + 4);
     } else if (strcasecmp(cmd, "RESET_CONFIG") == 0) {
         AxisConfig::reset();
-        stream->println(F("Saved axis configuration deleted, Config.h defaults apply after restart"));
+        ControllerConfig::reset();
+        stream->println(F("Saved configuration deleted, Config.h defaults apply after restart"));
         printAxisConfig(stream);
+    } else if (strcasecmp(cmd, "RESTART") == 0 || strcasecmp(cmd, "REBOOT") == 0) {
+        stream->println(F(">>> Restarting controller <<<"));
+        stream->flush();
+        for (uint8_t i = 0; i < numAxes; i++) {
+            if (axisUnits[i] != nullptr) {
+                axisUnits[i]->disableMotor();
+            }
+        }
+        delay(200);
+        ESP.restart();
+    } else if (strcasecmp(cmd, "WEBGRAPHS ON") == 0) {
+#if ENABLE_WEBGRAPHS
+        ControllerConfig::saveWebGraphs(true);
+        webGraphs.activate(); // starts now, no restart needed
+        stream->println(F("Web graphs enabled (WiFi starts, also at every boot). WEBGRAPHS prints the address."));
+#else
+        stream->println(F("Web graphs are disabled in this firmware (ENABLE_WEBGRAPHS false)"));
+#endif
+    } else if (strcasecmp(cmd, "WEBGRAPHS OFF") == 0) {
+        ControllerConfig::saveWebGraphs(false);
+        stream->println(webGraphs.isActive() ? F("Web graphs disabled, WiFi stays off after the next restart.")
+                                             : F("Web graphs disabled."));
     } else if (strcasecmp(cmd, "WEBGRAPHS") == 0) {
         webGraphs.printStatus(stream);
     } else if (strcasecmp(cmd, "HELP") == 0) {
@@ -329,11 +519,19 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  CONFIG         - Show spindle pitch & working range per axis"));
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
+        stream->println(F("  MEASURE_RANGE a - Home axis a to both end stops and report the measured working range"));
+        stream->println(F("  SERVO_WRITE s reg value - Write one servo register (RAM), e.g. SERVO_WRITE 1 0x0008 3200"));
+        stream->println(F("  SERVO_SAVE s   - Store the current servo registers in the servo EEPROM"));
+        stream->println(F("  SETTINGS       - Show direction, position, idle & homing settings"));
+        stream->println(F("  SET key value  - Save a setting in flash, e.g. SET IDLE_POSITION 15"));
         stream->println(F("  RESET_CONFIG   - Delete saved values, use Config.h defaults"));
+        stream->println(F("  RESTART        - Restart the controller (applies saved pitch/range)"));
         stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));
+        stream->println(F("  WEBGRAPHS ON/OFF - Start the web graphs now and at boot / keep WiFi off after restart"));
     } else if (strcasecmp(cmd, "STATUS") == 0) {
         for (uint8_t i = 0; i < numAxes; i++) {
             dumpSensor(stream, i);
+            dumpAxisState(stream, i);
         }
     }
 }
@@ -394,7 +592,7 @@ void BeltTensionerProtocol::processIncomingStream(Stream* stream) {
                 } else if (currentCmd == 3) {
                     dataExpectedLen = 8; // 2x 32-bit uint
                     parserState = PARSE_DATA;
-                } else if (currentCmd == 11) {
+                } else if (currentCmd == 11 || currentCmd == 16) {
                     dataExpectedLen = 1; // 1 byte axis index
                     parserState = PARSE_DATA;
                 } else if (currentCmd == 10 || currentCmd == 12 || currentCmd == 13 || currentCmd == 14 || currentCmd == 15) {
