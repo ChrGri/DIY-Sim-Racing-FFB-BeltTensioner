@@ -97,8 +97,7 @@ namespace DiyBeltTensioner.Core
             port = null;
             if (p != null)
             {
-                try { p.Close(); } catch (Exception) { }
-                try { p.Dispose(); } catch (Exception) { }
+                ClosePort(p);
             }
             var t = readerThread;
             readerThread = null;
@@ -110,6 +109,27 @@ namespace DiyBeltTensioner.Core
             {
                 ConnectionChanged?.Invoke(false);
             }
+        }
+
+        /// <summary>
+        /// Closes the port without blocking the caller. SerialPort.Close() waits until all
+        /// pending output is sent (FlushFileBuffers, no timeout); with USB-CDC devices that
+        /// do not take data at that moment it blocked SimHub until the controller was
+        /// unplugged. Pending data is discarded first, and the close runs on its own thread
+        /// that the caller waits for only a short time.
+        /// </summary>
+        private static void ClosePort(SerialPort p)
+        {
+            var closer = new Thread(() =>
+            {
+                try { p.DiscardOutBuffer(); } catch (Exception) { }
+                try { p.DiscardInBuffer(); } catch (Exception) { }
+                try { p.Close(); } catch (Exception) { }
+                try { p.Dispose(); } catch (Exception) { }
+            })
+            { IsBackground = true, Name = "BeltTensionerClose" };
+            closer.Start();
+            closer.Join(1500);
         }
 
         public void Dispose()
