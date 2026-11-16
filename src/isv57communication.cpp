@@ -260,18 +260,23 @@ bool Isv57Communication::checkCommunication() {
     return (modbus.sendRequestAndReceiveResponse(slaveId, 0x03, 0x0000, 2) > 0);
 }
 
-bool Isv57Communication::findServosSlaveId() {
+bool Isv57Communication::findServosSlaveId(bool scanOtherIds) {
     if (checkCommunication()) {
         return true;
     }
+    if (!scanOtherIds) {
+        return false;
+    }
 
-    int commonIds[] = {63, 1, 2, 0, 3, 4, 5};
+    // ID 0 is the Modbus broadcast address: never probe it, the servo must not act on it
+    const int commonIds[] = {63, 1, 2, 3, 4, 5};
     for (int id : commonIds) {
+        if (id == slaveId) continue;
         if (modbus.sendRequestAndReceiveResponse(id, 0x03, 0x0000, 2) > 0) {
             slaveId = (int16_t)id;
             return true;
         }
-        delay(2);
+        delay(20);
     }
 
     return false;

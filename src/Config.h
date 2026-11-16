@@ -131,6 +131,19 @@
 #define MODBUS_POLL_INTERVAL_MS                                                \
   10 // Polling cycle time for iSV57 servo state registers
 
+// Servo start-up (see AxisUnit::pollModbusTelemetry). The iSV57 goes into a
+// permanent alarm (red LED) if it is configured and enabled while it is still
+// booting or while its supply voltage still rises (e.g. behind an inrush
+// current limiter). The controller therefore only probes the servo slowly,
+// waits after its first answer and configures / enables it only once the DC
+// bus voltage is stable.
+#define SERVO_PROBE_INTERVAL_MS 250      // one probe request while searching the servo
+#define SERVO_ID_SCAN_INTERVAL_MS 3000   // other slave IDs are only tried this often
+#define SERVO_STARTUP_SETTLE_MS 3000     // quiet time after the servo answered first
+#define SERVO_VOLTAGE_CHECK_INTERVAL_MS 500
+#define SERVO_MIN_BUS_VOLTAGE_V 18.0f    // below this the supply is still rising
+#define SERVO_BUS_VOLTAGE_STABLE_V 1.0f  // max. change between two checks
+
 // ==============================================================================
 // 7. STATUS RGB LED (Waveshare ESP32-S3 On-Board WS2812 RGB LED)
 // ==============================================================================

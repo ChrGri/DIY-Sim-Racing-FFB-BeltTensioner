@@ -291,6 +291,7 @@ void BeltTensionerProtocol::setAxisConfigValue(Stream* stream, const char* args,
 void BeltTensionerProtocol::handleCommand(Stream* stream) {
     switch (currentCmd) {
         case 1: { // CMD 1: Set Target Position
+            lastPositionCmdMs = millis();
             uint16_t val1 = (uint16_t)(((uint16_t)dataBuffer[0] << 8) | (uint16_t)dataBuffer[1]);
             uint16_t val2 = (uint16_t)(((uint16_t)dataBuffer[2] << 8) | (uint16_t)dataBuffer[3]);
             if (numAxes > 0 && axisUnits[0] != nullptr) {

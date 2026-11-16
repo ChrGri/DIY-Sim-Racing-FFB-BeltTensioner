@@ -76,6 +76,14 @@ public:
     volatile int32_t servo_offset_compensation_steps_i32 = 0;
     int32_t servoPosCorrected_i32 = 0;
     volatile bool servoInitialized = false;
+    // Servo start-up sequence (pollModbusTelemetry)
+    uint32_t servoFirstAnswerMs = 0;   // 0 = servo not found yet
+    uint32_t servoLastProbeMs = 0;
+    uint32_t servoLastIdScanMs = 0;
+    float servoLastBusVoltage = NAN;
+    bool servoStartupLogged = false;
+    bool servoTelemetryMapped = false;
+    uint8_t servoMissedChecks = 0;
     volatile bool isFlashing = false;
     volatile bool isReadingParams = false;
 
@@ -122,6 +130,10 @@ public:
     bool saveServoParameters();
 
     void pollModbusTelemetry();
+
+    // Messages of all axes are collected (they come from the Modbus task on the other
+    // core) and printed by the main loop; dropped while forward is false.
+    static void flushLog(Stream& out, bool forward);
     void unwrapAndCalculateStepLoss();
     void correctPos();
     void printStatus();
@@ -156,6 +168,8 @@ public:
     }
 
 private:
+    void initializeServo();
+    void setServoEnabled(bool enabled);
     FastAccelStepper* stepper = nullptr;
     String logHeader;
     int32_t hardLimitMin = 0;

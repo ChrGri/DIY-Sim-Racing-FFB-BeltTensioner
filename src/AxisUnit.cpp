@@ -1,4 +1,5 @@
 #include "AxisUnit.h"
+#include <cmath>
 
 AxisUnit::AxisUnit() {
     state.motorPowered = false;
@@ -15,9 +16,29 @@ AxisUnit::AxisUnit() {
     servoPosCorrected_i32 = 0;
 }
 
+// Pending messages of all axes (written from both cores, printed by the main loop)
+static SemaphoreHandle_t logMutex = xSemaphoreCreateMutex();
+static String pendingLog;
+static const size_t MAX_PENDING_LOG = 2048;
+
 void AxisUnit::log(const String& msg) {
-    Serial.print(logHeader);
-    Serial.println(msg);
+    if (logMutex == nullptr || xSemaphoreTake(logMutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
+    if (pendingLog.length() + logHeader.length() + msg.length() + 2 < MAX_PENDING_LOG) {
+        pendingLog += logHeader;
+        pendingLog += msg;
+        pendingLog += "\n";
+    }
+    xSemaphoreGive(logMutex);
+}
+
+void AxisUnit::flushLog(Stream& out, bool forward) {
+    if (logMutex == nullptr || pendingLog.length() == 0) return;
+    String text;
+    if (xSemaphoreTake(logMutex, 0) != pdTRUE) return;
+    text = pendingLog;
+    pendingLog = "";
+    xSemaphoreGive(logMutex);
+    if (forward) out.print(text);
 }
 
 uint32_t AxisUnit::toStepRate(float metersPerSecond) const {
@@ -101,25 +122,114 @@ bool AxisUnit::begin(FastAccelStepperEngine* engine,
     return (stepper != nullptr);
 }
 
+/**
+ * Servo start-up, called from the Modbus task until the servo is configured.
+ * The iSV57 goes into a permanent alarm (red LED, only a power cycle helps) if it
+ * is flooded with requests, configured or enabled while it still boots or while
+ * its supply voltage still rises (slow power supplies, inrush current limiters).
+ *  1. Search: one request every SERVO_PROBE_INTERVAL_MS, other slave IDs only
+ *     every SERVO_ID_SCAN_INTERVAL_MS, never the broadcast address.
+ *  2. After the first answer: SERVO_STARTUP_SETTLE_MS without any request.
+ *  3. Wait until the DC bus voltage is above SERVO_MIN_BUS_VOLTAGE_V and stable.
+ *  4. Clear the boot alarms (twice), configure the telemetry, enable / disable.
+ */
+/**
+ * Enables / disables the servo by Modbus. Until the start-up sequence has finished
+ * nothing is sent: initializeServo() applies state.motorPowered at its end.
+ */
+void AxisUnit::setServoEnabled(bool enabled) {
+    if (!servoInitialized) return;
+    if (enabled) {
+        isv57.enableAxis();
+    } else {
+        isv57.disableAxis();
+    }
+}
+
+void AxisUnit::initializeServo() {
+    uint32_t now = millis();
+
+    // 1. Search
+    if (servoFirstAnswerMs == 0) {
+        if (now - servoLastProbeMs < SERVO_PROBE_INTERVAL_MS) return;
+        servoLastProbeMs = now;
+        bool scan = (now - servoLastIdScanMs >= SERVO_ID_SCAN_INTERVAL_MS);
+        if (scan) servoLastIdScanMs = now;
+        if (isv57.findServosSlaveId(scan)) {
+            servoFirstAnswerMs = now | 1;
+            servoLastBusVoltage = NAN;
+            servoTelemetryMapped = false;
+            servoMissedChecks = 0;
+            log(F("Servo answers, waiting for it to finish booting"));
+        }
+        return;
+    }
+
+    // 2. Quiet time
+    if (now - servoFirstAnswerMs < SERVO_STARTUP_SETTLE_MS) return;
+
+    // 3. Stable supply voltage. The iSV57 only delivers the bus voltage through the
+    //    cyclic read block (0x0191..0x0194 point to the monitored registers), so the
+    //    mapping is written once now that the servo has booted.
+    if (now - servoLastProbeMs < SERVO_VOLTAGE_CHECK_INTERVAL_MS) return;
+    servoLastProbeMs = now;
+    if (!servoTelemetryMapped) {
+        isv57.setupServoStateReading();
+        servoTelemetryMapped = true;
+        return;
+    }
+    isv57.readServoStates();
+    if (isv57.dynamicStates.lastUpdateTimeInMS_u32 + SERVO_VOLTAGE_CHECK_INTERVAL_MS < now) {
+        // No answer (servo restarted while the supply rises): start over
+        if (++servoMissedChecks >= 4) {
+            servoFirstAnswerMs = 0;
+            servoTelemetryMapped = false;
+            servoMissedChecks = 0;
+            log(F("Servo stopped answering, searching again"));
+        }
+        return;
+    }
+    servoMissedChecks = 0;
+    float voltage = isv57.dynamicStates.servoVoltage0p1V_i16 / 10.0f;
+    bool stable = voltage >= SERVO_MIN_BUS_VOLTAGE_V && !std::isnan(servoLastBusVoltage) &&
+                  fabsf(voltage - servoLastBusVoltage) <= SERVO_BUS_VOLTAGE_STABLE_V;
+    servoLastBusVoltage = voltage;
+    if (!stable) {
+        if (!servoStartupLogged) {
+            log("Waiting for a stable servo supply voltage (" + String(voltage, 1) + " V)");
+            servoStartupLogged = true;
+        }
+        return;
+    }
+
+    // 4. Configure
+    isv57.clearServoAlarms();
+    delay(50);
+    isv57.clearServoAlarms();
+    isv57.readMotorRatings(); // Keeps the table defaults if the read fails
+    isv57.setupServoStateReading(); // again: clearing the alarms may reset it
+    if (state.motorPowered) {
+        isv57.enableAxis();
+    } else {
+        isv57.disableAxis();
+    }
+    isv57.readServoStates();
+    if (isv57.dynamicStates.servo_receivedPacketIsValid_b) {
+        servoInitialized = true;
+        log("Servo ready (" + String(voltage, 1) + " V)");
+    } else {
+        servoFirstAnswerMs = 0; // try again from the start
+        servoTelemetryMapped = false;
+    }
+    servoStartupLogged = false;
+}
+
 void AxisUnit::pollModbusTelemetry() {
     if (isFlashing || isReadingParams) return;
 
     // 1. Asynchronously connect to servo in background without blocking SimHub communication
     if (!servoInitialized) {
-        if (isv57.findServosSlaveId()) {
-            isv57.clearServoAlarms();
-            isv57.readMotorRatings(); // Keeps the table defaults if the read fails
-            isv57.setupServoStateReading();
-            if (state.motorPowered) {
-                isv57.enableAxis();
-            } else {
-                isv57.disableAxis();
-            }
-            isv57.readServoStates();
-            if (isv57.dynamicStates.servo_receivedPacketIsValid_b) {
-                servoInitialized = true;
-            }
-        }
+        initializeServo();
         return;
     }
 
@@ -188,7 +298,7 @@ bool AxisUnit::enableMotor() {
         if (stepper != nullptr) {
             stepper->enableOutputs();
         }
-        isv57.enableAxis();
+        setServoEnabled(true);
         state.motorPowered = true;
         state.motorReady = false;
         state.targetPosition = -1;
@@ -226,7 +336,7 @@ void AxisUnit::disableMotor() {
             stepper->forceStop();
             stepper->disableOutputs();
         }
-        isv57.disableAxis();
+        setServoEnabled(false);
         state.motorPowered = false;
         state.motorReady = false;
         state.targetPosition = -1;
@@ -240,7 +350,7 @@ void AxisUnit::disableMotor() {
 
 void AxisUnit::startSensorlessHoming() {
     log(F("Starting stepper calibration"));
-    isv57.enableAxis();
+    setServoEnabled(true);
     if (stepper != nullptr) {
         stepper->enableOutputs();
     }
@@ -290,7 +400,7 @@ void AxisUnit::updateHomingStateMachine() {
             break;
 
         case HOMING_START:
-            isv57.enableAxis();
+            setServoEnabled(true);
             stepper->enableOutputs();
             state.motorPowered = true;
             stepper->setSpeedInHz(settings.homingSpeed);
@@ -312,8 +422,8 @@ void AxisUnit::updateHomingStateMachine() {
                     state.homingStateStartTime = millis();
                     log(F("Starting calibration"));
                 }
-            } else if (millis() - state.homingStateStartTime > 15000) {
-                // Timeout after 15s if servo power supply is off
+            } else if (millis() - state.homingStateStartTime > 30000) {
+                // Timeout after 30s if servo power supply is off (start-up takes >= 3.5 s)
                 log(F("Servo communication timeout. Calibration aborted."));
                 stepper->forceStop();
                 state.homingState = HOMING_FAILED;

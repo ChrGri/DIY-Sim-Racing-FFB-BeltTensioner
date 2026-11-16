@@ -15,6 +15,11 @@ enum ProtocolParserState {
 
 class BeltTensionerProtocol {
 public:
+    // Time of the last position command (SimHub Motion or the plugin's motion test)
+    unsigned long lastPositionCmdMs = 0;
+    // True while position commands arrive: no unsolicited messages to the host then
+    bool motionActive() const { return lastPositionCmdMs != 0 && (millis() - lastPositionCmdMs) < 3000; }
+
     BeltTensionerProtocol();
 
     void begin(AxisUnit** axes, uint8_t axisCount);

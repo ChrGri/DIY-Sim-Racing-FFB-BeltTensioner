@@ -68,7 +68,8 @@ public:
     void readServoStates();
     bool readMotorRatings();
     bool checkCommunication();
-    bool findServosSlaveId();
+    // scanOtherIds: also try the common slave IDs (never the broadcast address 0)
+    bool findServosSlaveId(bool scanOtherIds = true);
     bool clearServoAlarms();
     void disableAxis();
     void enableAxis();
