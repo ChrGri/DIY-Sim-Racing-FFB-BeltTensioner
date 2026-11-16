@@ -67,6 +67,10 @@ void setup() {
         pinMode(ACTUATOR1_MODBUS_TX_PIN, OUTPUT);
         digitalWrite(ACTUATOR1_MODBUS_TX_PIN, ACTUATOR1_MODBUS_INVERT ? LOW : HIGH);
     }
+    if (ACTUATOR1_MODBUS_RX_PIN >= 0) {
+        // Servo RX at idle level from the start (PCBA V2 needs the pull-up to receive replies)
+        pinMode(ACTUATOR1_MODBUS_RX_PIN, ACTUATOR1_MODBUS_INVERT ? INPUT_PULLDOWN : INPUT_PULLUP);
+    }
     if (ACTUATOR1_STEP_PIN >= 0) {
         pinMode(ACTUATOR1_STEP_PIN, OUTPUT);
         digitalWrite(ACTUATOR1_STEP_PIN, LOW);
@@ -87,6 +91,9 @@ void setup() {
     if (ACTUATOR2_MODBUS_TX_PIN >= 0) {
         pinMode(ACTUATOR2_MODBUS_TX_PIN, OUTPUT);
         digitalWrite(ACTUATOR2_MODBUS_TX_PIN, ACTUATOR2_MODBUS_INVERT ? LOW : HIGH);
+    }
+    if (ACTUATOR2_MODBUS_RX_PIN >= 0) {
+        pinMode(ACTUATOR2_MODBUS_RX_PIN, ACTUATOR2_MODBUS_INVERT ? INPUT_PULLDOWN : INPUT_PULLUP);
     }
     if (ACTUATOR2_STEP_PIN >= 0) {
         pinMode(ACTUATOR2_STEP_PIN, OUTPUT);

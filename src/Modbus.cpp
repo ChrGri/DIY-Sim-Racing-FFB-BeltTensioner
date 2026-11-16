@@ -1,3 +1,4 @@
+#include "driver/gpio.h"
 #include "Modbus.h"
 #include <Arduino.h>
 
@@ -36,7 +37,18 @@ bool Modbus::initialize(int32_t baudrate, int8_t rxPin, int8_t txPin, bool enabl
     }
     if (this->serial_pHS != nullptr) {
         if (rxPin >= 0 && txPin >= 0) {
+            // Keep RX at the UART idle level. Without the pull-up the PCBA V2 (LOLIN S3 Mini)
+            // does not receive the servo's replies at all (same fix as in the FFB pedal firmware).
+            // Serial.begin() keeps the pull state, and it is set again afterwards to be sure.
+            pinMode(rxPin, invertSignal_b ? INPUT_PULLDOWN : INPUT_PULLUP);
             this->serial_pHS->begin(baudrate, SERIAL_8N1, rxPin, txPin, invertSignal_b);
+            if (invertSignal_b) {
+                gpio_pullup_dis((gpio_num_t)rxPin);
+                gpio_pulldown_en((gpio_num_t)rxPin);
+            } else {
+                gpio_pulldown_dis((gpio_num_t)rxPin);
+                gpio_pullup_en((gpio_num_t)rxPin);
+            }
         } else {
             this->serial_pHS->begin(baudrate, SERIAL_8N1, -1, -1, invertSignal_b);
         }
