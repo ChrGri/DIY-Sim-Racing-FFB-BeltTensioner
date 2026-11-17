@@ -151,6 +151,7 @@ void AxisUnit::initializeServo() {
 
     // 1. Search
     if (servoFirstAnswerMs == 0) {
+        if (!servoSearchEnabled) return;
         if (now - servoLastProbeMs < SERVO_PROBE_INTERVAL_MS) return;
         servoLastProbeMs = now;
         bool scan = (now - servoLastIdScanMs >= SERVO_ID_SCAN_INTERVAL_MS);
