@@ -63,6 +63,7 @@ void setup() {
   lastRx1ToggleMs = lastTx1ToggleMs;
   lastLedToggleMs = lastTx1ToggleMs;
   showTx1Level();
+  Serial.begin(115200);
 }
 
 void loop() {
@@ -71,6 +72,9 @@ void loop() {
     lastLedToggleMs += LED_TOGGLE_MS;
     ledOn = !ledOn;
     showTx1Level();
+    Serial.printf("[%lu s] ServoPinTest V%d running: TX1 (GPIO %d) = %d, RX1 (GPIO %d) = %d, STEP1 = %d, DIR1 = %d\n",
+                  now / 1000, BOARD, PIN_TX1, digitalRead(PIN_TX1), PIN_RX1, digitalRead(PIN_RX1),
+                  digitalRead(PIN_STEP1), digitalRead(PIN_DIR1));
   }
   if (TX1_TOGGLE_MS > 0 && now - lastTx1ToggleMs >= TX1_TOGGLE_MS) {
     lastTx1ToggleMs += TX1_TOGGLE_MS;
