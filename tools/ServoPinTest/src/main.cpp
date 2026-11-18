@@ -12,14 +12,14 @@ const int PIN_RX1 = 6;    // from MAX3232 R_OUT <- servo TX
 const int PIN_STEP1 = 4;
 const int PIN_DIR1 = 3;
 const int PIN_BRAKE = -1; // no brake resistor on V8
-const int PIN_RGB_LED = 21;
+const int BOARD_RGB_LED_PIN = 21;
 #else
 const int PIN_TX1 = 2;
 const int PIN_RX1 = 3;
 const int PIN_STEP1 = 4;
 const int PIN_DIR1 = 5;
 const int PIN_BRAKE = 1;
-const int PIN_RGB_LED = 21;
+const int BOARD_RGB_LED_PIN = 21;
 #endif
 
 // ---- Levels -----------------------------------------------------------------
@@ -47,9 +47,9 @@ bool ledOn = true;
 unsigned long lastLedToggleMs = 0;
 
 void showTx1Level() {
-  if (!ledOn)                rgbLedWrite(PIN_RGB_LED, 0, 0, 0);
-  else if (tx1Level == HIGH) rgbLedWrite(PIN_RGB_LED, 0, 30, 0);
-  else                       rgbLedWrite(PIN_RGB_LED, 30, 0, 0);
+  if (!ledOn)                rgbLedWrite(BOARD_RGB_LED_PIN, 0, 0, 0);
+  else if (tx1Level == HIGH) rgbLedWrite(BOARD_RGB_LED_PIN, 0, 30, 0);
+  else                       rgbLedWrite(BOARD_RGB_LED_PIN, 30, 0, 0);
 }
 
 void setup() {
