@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // ---- Board: 8 = ControlBoard V8, 7 = ControlBoard V7 -------------------------
-#define BOARD 8
+#define BOARD 7
 
 #if BOARD == 8
 const int PIN_TX1 = 5;    // to MAX3232 T_IN  -> servo RX
@@ -12,12 +12,14 @@ const int PIN_RX1 = 6;    // from MAX3232 R_OUT <- servo TX
 const int PIN_STEP1 = 4;
 const int PIN_DIR1 = 3;
 const int PIN_BRAKE = -1; // no brake resistor on V8
+const int PIN_RGB_LED = 21;
 #else
 const int PIN_TX1 = 2;
 const int PIN_RX1 = 3;
 const int PIN_STEP1 = 4;
 const int PIN_DIR1 = 5;
 const int PIN_BRAKE = 1;
+const int PIN_RGB_LED = 21;
 #endif
 
 // ---- Levels -----------------------------------------------------------------
@@ -39,6 +41,12 @@ int rx1Level = RX1_START_LEVEL;
 unsigned long lastTx1ToggleMs = 0;
 unsigned long lastRx1ToggleMs = 0;
 
+// On-board RGB LED shows that the sketch runs: green = TX1 HIGH, red = TX1 LOW
+void showTx1Level() {
+  if (tx1Level == HIGH) rgbLedWrite(PIN_RGB_LED, 0, 30, 0);
+  else                  rgbLedWrite(PIN_RGB_LED, 30, 0, 0);
+}
+
 void setup() {
   if (PIN_BRAKE >= 0) { pinMode(PIN_BRAKE, OUTPUT); digitalWrite(PIN_BRAKE, LOW); } // brake resistor off
   pinMode(PIN_TX1, OUTPUT);   digitalWrite(PIN_TX1, tx1Level);
@@ -48,6 +56,7 @@ void setup() {
   else               { pinMode(PIN_RX1, INPUT); }
   lastTx1ToggleMs = millis();
   lastRx1ToggleMs = lastTx1ToggleMs;
+  showTx1Level();
 }
 
 void loop() {
@@ -56,6 +65,7 @@ void loop() {
     lastTx1ToggleMs += TX1_TOGGLE_MS;
     tx1Level = (tx1Level == HIGH) ? LOW : HIGH;
     digitalWrite(PIN_TX1, tx1Level);
+    showTx1Level();
   }
   if (RX1_AS_OUTPUT && RX1_TOGGLE_MS > 0 && now - lastRx1ToggleMs >= RX1_TOGGLE_MS) {
     lastRx1ToggleMs += RX1_TOGGLE_MS;
