@@ -41,10 +41,15 @@ int rx1Level = RX1_START_LEVEL;
 unsigned long lastTx1ToggleMs = 0;
 unsigned long lastRx1ToggleMs = 0;
 
-// On-board RGB LED shows that the sketch runs: green = TX1 HIGH, red = TX1 LOW
+// On-board RGB LED blinks every second (sketch runs), its colour shows TX1: green = HIGH, red = LOW
+const unsigned long LED_TOGGLE_MS = 1000;
+bool ledOn = true;
+unsigned long lastLedToggleMs = 0;
+
 void showTx1Level() {
-  if (tx1Level == HIGH) rgbLedWrite(PIN_RGB_LED, 0, 30, 0);
-  else                  rgbLedWrite(PIN_RGB_LED, 30, 0, 0);
+  if (!ledOn)                rgbLedWrite(PIN_RGB_LED, 0, 0, 0);
+  else if (tx1Level == HIGH) rgbLedWrite(PIN_RGB_LED, 0, 30, 0);
+  else                       rgbLedWrite(PIN_RGB_LED, 30, 0, 0);
 }
 
 void setup() {
@@ -56,11 +61,17 @@ void setup() {
   else               { pinMode(PIN_RX1, INPUT); }
   lastTx1ToggleMs = millis();
   lastRx1ToggleMs = lastTx1ToggleMs;
+  lastLedToggleMs = lastTx1ToggleMs;
   showTx1Level();
 }
 
 void loop() {
   unsigned long now = millis();
+  if (now - lastLedToggleMs >= LED_TOGGLE_MS) {
+    lastLedToggleMs += LED_TOGGLE_MS;
+    ledOn = !ledOn;
+    showTx1Level();
+  }
   if (TX1_TOGGLE_MS > 0 && now - lastTx1ToggleMs >= TX1_TOGGLE_MS) {
     lastTx1ToggleMs += TX1_TOGGLE_MS;
     tx1Level = (tx1Level == HIGH) ? LOW : HIGH;
