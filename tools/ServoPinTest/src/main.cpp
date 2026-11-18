@@ -1,18 +1,34 @@
-// ServoPinTest - ControlBoard V7 (ESP32-S3-Zero)
-// Sets the servo pins to fixed levels, RX1 toggles every second, TX1 every two seconds.
-// Set the levels here, flash, switch the servo on and watch its LED.
-// Flash the belt tensioner firmware again afterwards.
+// ServoPinTest - ControlBoard V7 / V8 (ESP32-S3-Zero)
+// Sets the servo pins to fixed levels, RX1 / TX1 can toggle. Set the board and the levels here,
+// flash, switch the servo on and watch its LED. Flash the belt tensioner firmware again afterwards.
 #include <Arduino.h>
 
-// ControlBoard V7: set the levels here (HIGH or LOW), then flash
-const int STEP1_LEVEL = LOW;   // GPIO 4
-const int DIR1_LEVEL  = LOW;   // GPIO 5
+// ---- Board: 8 = ControlBoard V8, 7 = ControlBoard V7 -------------------------
+#define BOARD 8
 
-// TX1 (GPIO 2): RS232 TX to the servo (HIGH = about -5.5 V at the servo RX, LOW = about +5.5 V)
+#if BOARD == 8
+const int PIN_TX1 = 5;    // to MAX3232 T_IN  -> servo RX
+const int PIN_RX1 = 6;    // from MAX3232 R_OUT <- servo TX
+const int PIN_STEP1 = 4;
+const int PIN_DIR1 = 3;
+const int PIN_BRAKE = -1; // no brake resistor on V8
+#else
+const int PIN_TX1 = 2;
+const int PIN_RX1 = 3;
+const int PIN_STEP1 = 4;
+const int PIN_DIR1 = 5;
+const int PIN_BRAKE = 1;
+#endif
+
+// ---- Levels -----------------------------------------------------------------
+const int STEP1_LEVEL = LOW;
+const int DIR1_LEVEL  = LOW;
+
+// TX1: HIGH = about -5.5 V at the servo RX (idle), LOW = about +5.5 V (break)
 const int  TX1_START_LEVEL = HIGH;
 const unsigned long TX1_TOGGLE_MS = 2000;   // 0 = no toggling
 
-// RX1 (GPIO 3) is driven by the RS232 chip. true = output, toggles (drives against the chip!),
+// RX1 is driven by the MAX3232. true = output, toggles (drives against the chip!),
 // false = leave it an input
 const bool RX1_AS_OUTPUT = true;
 const int  RX1_START_LEVEL = HIGH;
@@ -24,12 +40,12 @@ unsigned long lastTx1ToggleMs = 0;
 unsigned long lastRx1ToggleMs = 0;
 
 void setup() {
-  pinMode(1, OUTPUT);  digitalWrite(1, LOW);            // brake resistor off
-  pinMode(2, OUTPUT);  digitalWrite(2, tx1Level);
-  pinMode(4, OUTPUT);  digitalWrite(4, STEP1_LEVEL);
-  pinMode(5, OUTPUT);  digitalWrite(5, DIR1_LEVEL);
-  if (RX1_AS_OUTPUT) { pinMode(3, OUTPUT); digitalWrite(3, rx1Level); }
-  else               { pinMode(3, INPUT); }
+  if (PIN_BRAKE >= 0) { pinMode(PIN_BRAKE, OUTPUT); digitalWrite(PIN_BRAKE, LOW); } // brake resistor off
+  pinMode(PIN_TX1, OUTPUT);   digitalWrite(PIN_TX1, tx1Level);
+  pinMode(PIN_STEP1, OUTPUT); digitalWrite(PIN_STEP1, STEP1_LEVEL);
+  pinMode(PIN_DIR1, OUTPUT);  digitalWrite(PIN_DIR1, DIR1_LEVEL);
+  if (RX1_AS_OUTPUT) { pinMode(PIN_RX1, OUTPUT); digitalWrite(PIN_RX1, rx1Level); }
+  else               { pinMode(PIN_RX1, INPUT); }
   lastTx1ToggleMs = millis();
   lastRx1ToggleMs = lastTx1ToggleMs;
 }
@@ -39,11 +55,11 @@ void loop() {
   if (TX1_TOGGLE_MS > 0 && now - lastTx1ToggleMs >= TX1_TOGGLE_MS) {
     lastTx1ToggleMs += TX1_TOGGLE_MS;
     tx1Level = (tx1Level == HIGH) ? LOW : HIGH;
-    digitalWrite(2, tx1Level);
+    digitalWrite(PIN_TX1, tx1Level);
   }
   if (RX1_AS_OUTPUT && RX1_TOGGLE_MS > 0 && now - lastRx1ToggleMs >= RX1_TOGGLE_MS) {
     lastRx1ToggleMs += RX1_TOGGLE_MS;
     rx1Level = (rx1Level == HIGH) ? LOW : HIGH;
-    digitalWrite(3, rx1Level);
+    digitalWrite(PIN_RX1, rx1Level);
   }
 }
