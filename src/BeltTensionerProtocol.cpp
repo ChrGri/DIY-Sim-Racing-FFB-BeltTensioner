@@ -1,3 +1,4 @@
+#include "esp_system.h"
 #include "BeltTensionerProtocol.h"
 #include "ControllerConfig.h"
 #include "WebGraphs.h"
@@ -530,10 +531,33 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  WEBGRAPHS      - Print address of the live graph web page"));
         stream->println(F("  WEBGRAPHS ON/OFF - Start the web graphs now and at boot / keep WiFi off after restart"));
     } else if (strcasecmp(cmd, "STATUS") == 0) {
+        // Reset reason: a reset while the servo boots leaves its RS232 RX line undefined
+        // (TX pin floating until setup()), which puts the iSV57 into its alarm
+        stream->print(F("Controller: uptime "));
+        stream->print(millis() / 1000);
+        stream->print(F(" s, last reset: "));
+        stream->println(resetReasonText(esp_reset_reason()));
         for (uint8_t i = 0; i < numAxes; i++) {
             dumpSensor(stream, i);
             dumpAxisState(stream, i);
         }
+    }
+}
+
+static const char* resetReasonText(esp_reset_reason_t reason) {
+    switch (reason) {
+        case ESP_RST_POWERON:   return "power on";
+        case ESP_RST_EXT:       return "reset pin";
+        case ESP_RST_SW:        return "software restart";
+        case ESP_RST_PANIC:     return "crash (panic)";
+        case ESP_RST_INT_WDT:   return "interrupt watchdog";
+        case ESP_RST_TASK_WDT:  return "task watchdog";
+        case ESP_RST_WDT:       return "watchdog";
+        case ESP_RST_DEEPSLEEP: return "deep sleep";
+        case ESP_RST_BROWNOUT:  return "brownout (supply voltage dropped)";
+        case ESP_RST_SDIO:      return "SDIO";
+        case ESP_RST_USB:       return "USB";
+        default:                return "unknown";
     }
 }
 
