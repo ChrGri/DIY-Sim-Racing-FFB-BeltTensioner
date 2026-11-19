@@ -18,10 +18,11 @@ Most core components are intentionally shared with the [DIY Sim Racing FFB Pedal
 
 | Component | Description / Specification | Qty | Primary Link | Secondary Link |
 | :--- | :--- | :---: | :--- | :--- |
-| **Control PCB** | `ControlBoard_V6` (ESP32-S3 DevKit) or `ControlBoard_V7` (ESP32-S3 Zero) | 1 | [JLCPCB](https://jlcpcb.com/) | [Pedal Repo PCB Files](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal) |
+| **Control PCB** | `ControlBoard_V8` (ESP32-S3 Zero, current), `ControlBoard_V7` (ESP32-S3 Zero) or `ControlBoard_V6` (ESP32-S3 DevKit) | 1 | [JLCPCB](https://jlcpcb.com/) | [Pedal Repo PCB Files](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal) |
 | **ESP32-S3** | ESP32-S3 DevKitC-1 (for V6) or Waveshare ESP32-S3 Zero (for V7) | 1 | [Amazon*](https://amzn.to/4pjNnjq) | [AliExpress*](https://s.click.aliexpress.com/e/_c3IpHQ4P) |
 | **Integrated Servo Motor** | StepperOnline iSV57T-130S (130W, short shaft preferred) or iSV57T-180S (180W) | 1 | [StepperOnline (130S)*](https://www.omc-stepperonline.com/de/nema-23-integrierter-easy-servo-motor-130w-3000rpm-0-45nm-63-73oz-in-20-50vdc-buerstenloser-dc-servomotor-kurze-welle-isv57t-130s?tracking=6721c5865911c) | [Hardware Kit*](https://www.omc-stepperonline.com/de/hardware-paket-fuer-diy-aktivpedal-von-chris-empfohlen-von-l-atelier-mit-isv57t-130s-lkn60-23dl060-060-st-rc07-act-pdl?tracking=6721c5865911c) |
 | **RS232 Transceiver** | SP2323 / SP3232 / MAX3232 (20×16 or SOP-16) for Modbus telemetry | 1 | [Amazon*](https://amzn.to/4e1xEBK) | [AliExpress*](https://s.click.aliexpress.com/e/_c3BQLhi9) |
+| **10 kΩ Resistor** | 1/4 W through-hole, pull-up (R3) on the SP3232 module, see [why](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/blob/main/Soldering_V8/SP3232_PullUp.md) | 1 | – | – |
 | **Schottky Diode** | SR5100 Schottky diode (reverse-polarity & inductive kickback protection) | 1 | [Amazon*](https://amzn.to/3CmN8jR) | [AliExpress*](https://s.click.aliexpress.com/e/_DdrrsrJ) |
 | **DC Power Supply (PSU)** | 36V or 48V DC Power Supply (e.g. MeanWell LRS-350-36, ~9.7A) | 1 | [StepperOnline*](https://www.omc-stepperonline.com/de/lrs-350-36-mean-well-350w-36vdc-9-7a-115-230vac-geschlossenes-schaltnetzteil-lrs-350-36?tracking=6721c5865911c) | [MeanWell Official](https://www.meanwell.com/) |
 | **Servo Debug Port Cable** | 5-Pin female connector for iSV57 tuning/Modbus port | 1 | [Amazon*](https://amzn.to/4uXvVTZ) | [AliExpress*](https://s.click.aliexpress.com/e/_oCbioHZ) |
@@ -30,12 +31,16 @@ Most core components are intentionally shared with the [DIY Sim Racing FFB Pedal
 | **Power Wire (AWG 18)** | Silicone insulated wire for high-current motor supply | ~0.5 m | [Amazon*](https://amzn.to/4htGLtR) | [AliExpress*](https://s.click.aliexpress.com/e/_oke6LFx) |
 | **Signal Wire (AWG 30)** | Thin flexible wire for logic, RS232 signals, and status LED | ~0.5 m | [Amazon*](https://amzn.to/4geYNz0) | [AliExpress*](https://s.click.aliexpress.com/e/_olWGFI1) |
 
-### 🛠️ Control PCB Assembly & Soldering Guide (V7 / V6)
+### 🛠️ Control PCB Assembly & Soldering Guide (V8 / V7 / V6)
+
+> [!IMPORTANT]
+> **ControlBoard V8:** only the **ESP32-S3 Zero** and the **SP3232 RS232 module** are needed, plus a **10 kΩ pull-up resistor** on the SP3232 module and the RS232 / servo screw terminals. No ADS1220, no RC filter, no power parts. See the [PCB Assembly Guide](PCB_Assembly.md#controlboard-v8-belt-tensioner).
+
 
 A dedicated, step-by-step soldering and wiring guide for the belt tensioner is available here:  
 👉 **[Control PCB Assembly & Soldering Guide](PCB_Assembly.md)** *(based on the original [Pedal Soldering_V7 Guide](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/Soldering_V7))*
 
-For the **Active Belt Tensioner**, assembly is substantially faster and simpler than for a pedal:
+For the **ControlBoard V7 / V6**, assembly for the belt tensioner is substantially faster and simpler than for a pedal:
 * ⚡ **Power Circuit:** Only solder the **SR5100 Schottky diode** and the **XT30 connector**. The MOSFET (FR120N) and brake resistor / brake chopper circuit are **not required**.
 * 🚫 **No ADS1220 & No RC Filter:** Skip the ADS1220 chip and RC filter components completely (the belt tensioner does not use a load cell).
 * 🔌 **Required Servo Interfaces:** You only need to wire:

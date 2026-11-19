@@ -1,8 +1,34 @@
 # 🛠️ Control PCB Assembly & Soldering Guide (Belt Tensioner)
 
-This guide walks you through assembling and soldering the controller PCB (`ControlBoard_V7` with ESP32-S3 Zero or `ControlBoard_V6` with ESP32-S3 DevKit) specifically tailored for the **DIY Active FFB Belt Tensioner**.
+This guide walks you through assembling and soldering the controller PCB specifically tailored for the **DIY Active FFB Belt Tensioner**. The current board is the **ControlBoard V8** (ESP32-S3 Zero, see below); the older `ControlBoard_V7` (ESP32-S3 Zero) and `ControlBoard_V6` (ESP32-S3 DevKit) are described further down.
 
 ---
+
+## ControlBoard V8 (Belt Tensioner)
+
+The V8 has no power circuit: the servo is supplied directly from the power supply, the board is powered via USB-C. **For the belt tensioner, only two modules are needed:**
+
+| ✅ Solder | ❌ Leave empty (pedal only) |
+| :--- | :--- |
+| **ESP32-S3 Zero** (U13) | **ADS1220** load cell ADC |
+| **SP3232 / MAX3232 RS232 module** (U10) | **RC filter** (R1, R2, C1) |
+| **10 kΩ pull-up resistor (R3)** on the SP3232 module | **Load cell** screw terminal |
+| **RS232** screw terminal (`RX` `GND` `TX`) | **Expansion** screw terminal |
+| **Servo** screw terminal (`P+` `P−` `D+` `D−` `A+` `A−`) | |
+
+<img src="media/build/controlboard_v8_belt_tensioner.jpg" alt="ControlBoard V8 for the belt tensioner" width="70%">
+
+Follow the [pedal PCB V8 soldering guide](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/Soldering_V8) for these parts and skip the ADS1220, the RC filter and the load cell wiring.
+
+> [!IMPORTANT]
+> **10 kΩ pull-up (R3):** solder it between the outer pins of the 4 pin TTL row of the SP3232 module, `VCC` (3.3 V) and `RXD` (ESP32 TX). Without it, the SP3232 sends a break to the servo while the ESP32 boots, and a servo switched on at the same time starts with its red alarm LED on. Details and measurements: [SP3232 pull-up](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/blob/main/Soldering_V8/SP3232_PullUp.md).
+
+Wiring of the servo signals and the RS232 port: see the terminal tables in the [pedal guide](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/Soldering_V8) (`RX`/`TX` crossed to the servo debug port).
+
+---
+
+## ControlBoard V7 / V6
+
 
 ## ⚡ Quick Summary: How the Belt Tensioner Differs from the Pedal
 

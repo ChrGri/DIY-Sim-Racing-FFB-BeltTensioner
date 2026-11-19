@@ -198,6 +198,17 @@ Build both rollers on the bench:
 2. Screw one ControlBoard to each angled wing with two M3×6 screws. The **screw terminals face outwards**, towards the servo connectors.
 3. Wire each board to its servo and the power supply as described in the [PCB Assembly Guide](PCB_Assembly.md). The 25° angle leaves room for the servo plugs.
 
+> [!IMPORTANT]
+> **Only the ESP32-S3 Zero and the SP3232 RS232 module are needed on the ControlBoard V8.** The belt tensioner has no load cell, so the ADS1220, the RC filter (R1, R2, C1) and the load cell terminal stay empty. Besides the two modules, solder:
+> * the **10 kΩ pull-up resistor (R3)** between `VCC` and `RXD` on the TTL side of the SP3232 module. Without it the servo can start with its red alarm LED on ([why](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/blob/main/Soldering_V8/SP3232_PullUp.md)),
+> * the **RS232** (`RX` `GND` `TX`) and **servo** (`P+` `P−` `D+` `D−` `A+` `A−`) screw terminals.
+>
+> Follow the [pedal PCB V8 soldering guide](https://github.com/ChrGri/DIY-Sim-Racing-FFB-Pedal-Mechanical-Design/tree/main/Soldering_V8) for these parts and skip everything else. See also the [PCB Assembly Guide](PCB_Assembly.md#controlboard-v8-belt-tensioner).
+
+<img src="media/build/controlboard_v8_belt_tensioner.jpg" alt="ControlBoard V8 for the belt tensioner: only the ESP32-S3 Zero and the SP3232 module with its 10 kOhm pull-up are fitted" width="70%">
+
+*ControlBoard V8 for the belt tensioner: ESP32-S3 Zero, SP3232 module with the 10 kΩ pull-up, RS232 and servo terminals. The ADS1220 footprint stays empty.*
+
 ---
 
 ## Step 11 — Belt Adapters
