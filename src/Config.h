@@ -143,6 +143,7 @@
 #define SERVO_VOLTAGE_CHECK_INTERVAL_MS 500
 #define SERVO_MIN_BUS_VOLTAGE_V 18.0f    // below this the supply is still rising
 #define SERVO_BUS_VOLTAGE_STABLE_V 1.0f  // max. change between two checks
+#define SERVO_LOST_TIMEOUT_MS 1000       // no answer this long: servo off, back to the start-up
 
 // ==============================================================================
 // 7. STATUS RGB LED (Waveshare ESP32-S3 On-Board WS2812 RGB LED)

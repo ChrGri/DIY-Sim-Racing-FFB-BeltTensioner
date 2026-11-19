@@ -495,6 +495,13 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         }
         delay(200);
         ESP.restart();
+    } else if (strcasecmp(cmd, "SERVO_SEARCH OFF") == 0 || strcasecmp(cmd, "SERVO_SEARCH ON") == 0) {
+        // Test switch (not saved): no Modbus request at all while a servo is not found yet
+        bool on = strcasecmp(cmd, "SERVO_SEARCH ON") == 0;
+        for (uint8_t i = 0; i < numAxes; i++) {
+            if (axisUnits[i] != nullptr) axisUnits[i]->servoSearchEnabled = on;
+        }
+        stream->println(on ? F("Servo search on") : F("Servo search off: no requests to a servo that is not found yet (until SERVO_SEARCH ON or restart)"));
     } else if (strcasecmp(cmd, "WEBGRAPHS ON") == 0) {
 #if ENABLE_WEBGRAPHS
         ControllerConfig::saveWebGraphs(true);
@@ -522,6 +529,7 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
         stream->println(F("  SET_PITCH a mm - Save spindle pitch of axis a (1/2) in flash, e.g. SET_PITCH 2 5"));
         stream->println(F("  SET_RANGE a mm - Save working range of axis a (1/2) in flash, e.g. SET_RANGE 1 60"));
         stream->println(F("  MEASURE_RANGE a - Home axis a to both end stops and report the measured working range"));
+        stream->println(F("  SERVO_SEARCH ON|OFF - test: stop the requests to a servo that is not found yet"));
         stream->println(F("  SERVO_WRITE s reg value - Write one servo register (RAM), e.g. SERVO_WRITE 1 0x0008 3200"));
         stream->println(F("  SERVO_SAVE s   - Store the current servo registers in the servo EEPROM"));
         stream->println(F("  SETTINGS       - Show direction, position, idle & homing settings"));

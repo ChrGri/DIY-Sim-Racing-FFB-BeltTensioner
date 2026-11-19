@@ -151,6 +151,7 @@ void AxisUnit::initializeServo() {
 
     // 1. Search
     if (servoFirstAnswerMs == 0) {
+        if (!servoSearchEnabled) return;
         if (now - servoLastProbeMs < SERVO_PROBE_INTERVAL_MS) return;
         servoLastProbeMs = now;
         bool scan = (now - servoLastIdScanMs >= SERVO_ID_SCAN_INTERVAL_MS);
@@ -235,6 +236,18 @@ void AxisUnit::pollModbusTelemetry() {
 
     // 2. Cyclic telemetry read
     isv57.readServoStates();
+
+    // Servo switched off: back to the quiet start-up sequence, so it is not flooded
+    // with requests while it boots again (that put it into its alarm, red LED)
+    if (millis() - isv57.dynamicStates.lastUpdateTimeInMS_u32 > SERVO_LOST_TIMEOUT_MS) {
+        servoInitialized = false;
+        servoFirstAnswerMs = 0;
+        servoTelemetryMapped = false;
+        servoMissedChecks = 0;
+        servoLastProbeMs = millis();
+        log(F("Servo not answering (power off?), waiting for it quietly"));
+        return;
+    }
 
     // 3. If telemetry packet is valid and axis is homed, calculate step loss offset
     if (isv57.dynamicStates.servo_receivedPacketIsValid_b && state.homingState == HOMING_DONE) {

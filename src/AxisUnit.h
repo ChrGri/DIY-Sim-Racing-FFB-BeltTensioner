@@ -134,6 +134,9 @@ public:
     // Messages of all axes are collected (they come from the Modbus task on the other
     // core) and printed by the main loop; dropped while forward is false.
     static void flushLog(Stream& out, bool forward);
+
+    // Test switch (SERVO_SEARCH OFF): no requests while the servo is not found yet
+    volatile bool servoSearchEnabled = true;
     void unwrapAndCalculateStepLoss();
     void correctPos();
     void printStatus();
