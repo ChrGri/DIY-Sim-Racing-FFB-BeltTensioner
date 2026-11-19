@@ -13,6 +13,23 @@ BeltTensionerProtocol::BeltTensionerProtocol() {
     lastByteTime = 0;
 }
 
+static const char* resetReasonText(esp_reset_reason_t reason) {
+    switch (reason) {
+        case ESP_RST_POWERON:   return "power on";
+        case ESP_RST_EXT:       return "reset pin";
+        case ESP_RST_SW:        return "software restart";
+        case ESP_RST_PANIC:     return "crash (panic)";
+        case ESP_RST_INT_WDT:   return "interrupt watchdog";
+        case ESP_RST_TASK_WDT:  return "task watchdog";
+        case ESP_RST_WDT:       return "watchdog";
+        case ESP_RST_DEEPSLEEP: return "deep sleep";
+        case ESP_RST_BROWNOUT:  return "brownout (supply voltage dropped)";
+        case ESP_RST_SDIO:      return "SDIO";
+        case ESP_RST_USB:       return "USB";
+        default:                return "unknown";
+    }
+}
+
 void BeltTensionerProtocol::begin(AxisUnit** axes, uint8_t axisCount) {
     axisUnits = axes;
     numAxes = axisCount;
@@ -549,23 +566,6 @@ void BeltTensionerProtocol::handleAsciiCommand(Stream* stream, const char* cmd) 
             dumpSensor(stream, i);
             dumpAxisState(stream, i);
         }
-    }
-}
-
-static const char* resetReasonText(esp_reset_reason_t reason) {
-    switch (reason) {
-        case ESP_RST_POWERON:   return "power on";
-        case ESP_RST_EXT:       return "reset pin";
-        case ESP_RST_SW:        return "software restart";
-        case ESP_RST_PANIC:     return "crash (panic)";
-        case ESP_RST_INT_WDT:   return "interrupt watchdog";
-        case ESP_RST_TASK_WDT:  return "task watchdog";
-        case ESP_RST_WDT:       return "watchdog";
-        case ESP_RST_DEEPSLEEP: return "deep sleep";
-        case ESP_RST_BROWNOUT:  return "brownout (supply voltage dropped)";
-        case ESP_RST_SDIO:      return "SDIO";
-        case ESP_RST_USB:       return "USB";
-        default:                return "unknown";
     }
 }
 
