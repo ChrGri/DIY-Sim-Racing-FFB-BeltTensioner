@@ -6,6 +6,7 @@
 // ---- Board: 8 = ControlBoard V8, 7 = ControlBoard V7 -------------------------
 #define BOARD 7
 
+
 #if BOARD == 8
 const int PIN_TX1 = 5;    // to MAX3232 T_IN  -> servo RX
 const int PIN_RX1 = 6;    // from MAX3232 R_OUT <- servo TX
@@ -26,15 +27,23 @@ const int BOARD_RGB_LED_PIN = 21;
 const int STEP1_LEVEL = LOW;
 const int DIR1_LEVEL  = LOW;
 
+
+// const int STEP1_LEVEL = HIGH;
+// const int DIR1_LEVEL  = HIGH;
+
 // TX1: HIGH = about -5.5 V at the servo RX (idle), LOW = about +5.5 V (break)
-const int  TX1_START_LEVEL = HIGH;
-const unsigned long TX1_TOGGLE_MS = 2000;   // 0 = no toggling
+// const int  TX1_START_LEVEL = HIGH; // high works (oscilloscope channel 2, blue)
+const int  TX1_START_LEVEL = LOW; // servo red led
+const unsigned long TX1_TOGGLE_MS = 1000;   // 0 = no toggling
 
 // RX1 is driven by the MAX3232. true = output, toggles (drives against the chip!),
 // false = leave it an input
-const bool RX1_AS_OUTPUT = true;
-const int  RX1_START_LEVEL = HIGH;
-const unsigned long RX1_TOGGLE_MS = 1000;   // 0 = no toggling
+const bool RX1_AS_OUTPUT = false;
+// const int  RX1_START_LEVEL = HIGH;
+const int  RX1_START_LEVEL = LOW;
+const unsigned long RX1_TOGGLE_MS = 2000;   // 0 = no toggling
+
+// #define TOGGLE_ON
 
 int tx1Level = TX1_START_LEVEL;
 int rx1Level = RX1_START_LEVEL;
@@ -76,6 +85,10 @@ void loop() {
                   now / 1000, BOARD, PIN_TX1, tx1Level, PIN_RX1,
                   RX1_AS_OUTPUT ? rx1Level : digitalRead(PIN_RX1), STEP1_LEVEL, DIR1_LEVEL);
   }
+
+
+
+  #ifdef TOGGLE_ON
   if (TX1_TOGGLE_MS > 0 && now - lastTx1ToggleMs >= TX1_TOGGLE_MS) {
     lastTx1ToggleMs += TX1_TOGGLE_MS;
     tx1Level = (tx1Level == HIGH) ? LOW : HIGH;
@@ -87,4 +100,5 @@ void loop() {
     rx1Level = (rx1Level == HIGH) ? LOW : HIGH;
     digitalWrite(PIN_RX1, rx1Level);
   }
+  #endif
 }
