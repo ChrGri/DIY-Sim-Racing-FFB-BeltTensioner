@@ -50,15 +50,9 @@ void modbusTelemetryTask(void* pvParameters) {
 }
 
 void setup() {
-    // 0. Enable hardware servo power rail if supported by board
-#ifdef SERVO_POWER_PIN
-    if (SERVO_POWER_PIN >= 0) {
-        pinMode(SERVO_POWER_PIN, OUTPUT);
-        digitalWrite(SERVO_POWER_PIN, HIGH);
-    }
-#endif
-
-    // 1. Immediately clamp all control & communication pins to prevent floating state / glitches
+    // 1. Immediately clamp all control & communication pins to prevent floating state / glitches.
+    //    The servo UART TX must be at its idle level before the servo boots: a servo that
+    //    sees a break (space level) on its RS232 RX while booting goes into its alarm.
     if (ACTUATOR1_BRAKE_RESISTOR_PIN >= 0) {
         pinMode(ACTUATOR1_BRAKE_RESISTOR_PIN, OUTPUT);
         digitalWrite(ACTUATOR1_BRAKE_RESISTOR_PIN, LOW);
@@ -83,6 +77,9 @@ void setup() {
         pinMode(ACTUATOR1_ENA_PIN, OUTPUT);
         digitalWrite(ACTUATOR1_ENA_PIN, LOW);
     }
+    if (ACTUATOR1_ALM_PIN >= 0) {
+        pinMode(ACTUATOR1_ALM_PIN, INPUT_PULLUP); // servo alarm output (optocoupler to GND)
+    }
 #if (NUM_ACTUATORS >= 2)
     if (ACTUATOR2_BRAKE_RESISTOR_PIN >= 0) {
         pinMode(ACTUATOR2_BRAKE_RESISTOR_PIN, OUTPUT);
@@ -106,6 +103,18 @@ void setup() {
     if (ACTUATOR2_ENA_PIN >= 0) {
         pinMode(ACTUATOR2_ENA_PIN, OUTPUT);
         digitalWrite(ACTUATOR2_ENA_PIN, LOW);
+    }
+    if (ACTUATOR2_ALM_PIN >= 0) {
+        pinMode(ACTUATOR2_ALM_PIN, INPUT_PULLUP);
+    }
+#endif
+
+    // 1b. Switch on the hardware servo power rail (PCBA V2) only now, with all servo
+    //     signals at their idle levels
+#ifdef SERVO_POWER_PIN
+    if (SERVO_POWER_PIN >= 0) {
+        pinMode(SERVO_POWER_PIN, OUTPUT);
+        digitalWrite(SERVO_POWER_PIN, HIGH);
     }
 #endif
 
